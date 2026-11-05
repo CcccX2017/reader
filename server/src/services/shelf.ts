@@ -1,4 +1,5 @@
 import type { Db } from '../db/index.ts';
+import { isCustomCoverRel } from '../indexer/metadata.ts';
 import { applyOverrides, type BaseMetadata } from './merge.ts';
 import { safeJsonParse } from '../lib/text.ts';
 import { badRequest, notFound } from '../lib/errors.ts';
@@ -300,6 +301,13 @@ export class ShelfService {
     return { items: rows.map((row) => this.toDto(row)), total: totalRow?.n ?? 0, page, pageSize };
   }
 
+  /** The book itself, without the caller's shelf membership. Cover edits are library data. */
+  bookById(bookId: string): BookDto {
+    const row = this.db.get<BookRow>(`SELECT ${BOOK_COLUMNS} FROM books WHERE id = ?`, bookId);
+    if (!row) throw notFound('book not found');
+    return this.toDto(row);
+  }
+
   get(userId: string, bookId: string): BookDto {
     const row = this.db.get<BookRow>(
       `SELECT ${BOOK_COLUMNS} FROM books WHERE id = ?`,
@@ -364,6 +372,8 @@ export class ShelfService {
       source: row.source,
     };
     const { effective, appliedFields } = applyOverrides(base, overrides);
+    const customCover = overrides.cover !== undefined && isCustomCoverRel(row.id, overrides.cover);
+    if (customCover) appliedFields.push('cover');
     return {
       id: row.id,
       title: effective.title,
@@ -377,7 +387,9 @@ export class ShelfService {
       tags: effective.tags,
       pubdate: effective.pubdate,
       format: row.format,
-      coverUrl: row.cover_path ? `/api/v1/books/${row.id}/cover` : null,
+      // `v` changes when the cover is replaced, so a year-long cache does not
+      // keep showing the picture this book used to have.
+      coverUrl: customCover || row.cover_path ? `/api/v1/books/${row.id}/cover?v=${row.updated_at}` : null,
       fileSize: row.file_size,
       pageCount: row.page_count,
       source: effective.source,
@@ -396,6 +408,16 @@ export class ShelfService {
         : { shelfState: row.shelf_hidden === 0 ? ('on' as const) : ('off' as const) }),
       ...(row.reading_state === undefined ? {} : { readingState: row.reading_state }),
     };
+  }
+
+  /**
+   * The cover file to serve: a custom upload wins over the picture extracted
+   * from the book. A rescan rewrites `books.cover_path` and leaves this alone.
+   */
+  storedCoverRel(bookId: string, embedded: string | null): string | null {
+    const custom = this.loadOverrides(bookId).cover;
+    if (custom && isCustomCoverRel(bookId, custom)) return custom.replace(/\\/g, '/');
+    return embedded;
   }
 
   loadOverrides(bookId: string): Record<string, string> {

@@ -6,14 +6,17 @@ import { parseConflictPolicy, type ConflictPolicy, type StagedUpload } from '../
 import { assertSafeRel, normalizeRel, resolveInside } from '../../lib/paths.ts';
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import type { Readable } from 'node:stream';
+import { join } from 'node:path';
 import { stat } from 'node:fs/promises';
 import {
   capabilities,
   contentTypeFor,
   directoryHandlerForFormat,
+  imageContentType,
   type ContentItem,
 } from '../../indexer/formats/index.ts';
+import { CUSTOM_COVER_MAX_BYTES, removeCustomCover, sniffCoverImage, writeCustomCover } from '../../indexer/metadata.ts';
 import { sendAssetPayload } from '../assets.ts';
 import { FilePublications } from '../../publications/files.ts';
 import { withSignal } from '../request-signal.ts';
@@ -483,14 +486,49 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
   app.get('/api/v1/books/:id/cover', { preHandler: auth }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const row = ctx.db.get<{ cover_path: string | null }>('SELECT cover_path FROM books WHERE id = ?', id);
-    if (!row?.cover_path) throw notFound('no cover for this book', 'NO_COVER');
-    const abs = resolveInside(ctx.config.dataDir, assertSafeRel(row.cover_path));
+    if (!row) throw notFound('book not found');
+    const rel = ctx.shelf.storedCoverRel(id, row.cover_path);
+    if (!rel) throw notFound('no cover for this book', 'NO_COVER');
+    const abs = resolveInside(ctx.config.dataDir, assertSafeRel(rel));
     if (!existsSync(abs)) throw notFound('cover cache missing', 'NO_COVER');
-    const ext = extname(abs).toLowerCase();
-    const mime = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg';
-    reply.header('content-type', mime);
+    reply.header('content-type', imageContentType(abs));
     reply.header('cache-control', 'public, max-age=31536000, immutable');
     return reply.send(createReadStream(abs));
+  });
+
+  /**
+   * A cover chosen by the reader. Stored beside the extracted picture and
+   * recorded as a manual override, so the next scan keeps it.
+   */
+  app.post('/api/v1/books/:id/cover', { preHandler: auth }, async (request) => {
+    const user = currentUser(request);
+    const { id } = request.params as { id: string };
+    ctx.shelf.bookById(id);
+    if (!request.isMultipart()) throw badRequest('expected multipart/form-data', 'NOT_MULTIPART');
+    let bytes: Buffer | null = null;
+    for await (const part of request.parts()) {
+      if (part.type !== 'file') continue;
+      if (bytes) {
+        part.file.resume();
+        continue;
+      }
+      bytes = await readCoverBytes(part.file);
+    }
+    if (!bytes) throw badRequest('没有上传封面图片', 'NO_FILE');
+    const sniffed = sniffCoverImage(bytes);
+    if (!sniffed) throw badRequest('封面只接受 jpg、png、gif 或 webp', 'COVER_TYPE');
+    const rel = await writeCustomCover(ctx.config.dataDir, id, bytes, sniffed.ext);
+    ctx.shelf.setOverrides(id, { cover: rel }, user.id);
+    return { book: ctx.shelf.bookById(id) };
+  });
+
+  /** Drops the custom cover. The picture extracted from the book shows again. */
+  app.delete('/api/v1/books/:id/cover', { preHandler: auth }, async (request) => {
+    const { id } = request.params as { id: string };
+    ctx.shelf.bookById(id);
+    await removeCustomCover(ctx.config.dataDir, id);
+    ctx.shelf.clearOverride(id, 'cover');
+    return { book: ctx.shelf.bookById(id) };
   });
 
   /**
@@ -653,6 +691,19 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
     if (hasIds) return ctx.browse.batchShelfByBookIds(stringList(body.bookIds, 'bookIds'), action, user.id);
     return ctx.browse.batchShelf(stringList(body.paths, 'paths'), action, user.id);
+  });
+
+  /**
+   * Deletes the books and their library files, leaving no row behind.
+   *
+   * Shelf "拿掉" only hides a book. This is the other verb: the file is removed
+   * from the mount and the book, its progress, notes and cover go with it.
+   * Admin only, the same gate as deleting a path in the file manager.
+   */
+  app.post('/api/v1/library/books/delete', { preHandler: auth }, async (request) => {
+    requireAdmin(request);
+    const body = (request.body ?? {}) as { bookIds?: unknown };
+    return ctx.browse.purgeBooks(stringList(body.bookIds, 'bookIds'));
   });
 
   // ---- uploads ----
@@ -844,4 +895,19 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     version: process.env.npm_package_version ?? '0.1.0',
     dataDirIsInsideBooks: ctx.config.dataDir.startsWith(join(ctx.config.booksDir, '/')),
   }));
+}
+
+async function readCoverBytes(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    if (total > CUSTOM_COVER_MAX_BYTES) {
+      stream.destroy();
+      throw badRequest('封面图片不能超过 8MB', 'COVER_TOO_LARGE');
+    }
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
 }

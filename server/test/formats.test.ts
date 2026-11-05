@@ -1061,6 +1061,69 @@ test('a long book is loaded one window at a time', async () => {
     await ctx.scanner.scan();
   });
 
+test('an epub with OPF namespace prefixes keeps its title and spine', async () => {
+  // so-novel builds EPUBs with epublib, which writes `<opf:package>` and
+  // `<opf:itemref>`. A parser that matches the prefix literally indexes the
+  // file as an unnamed book with no chapters. WeChat Reading accepts the same
+  // file because it resolves the OPF namespace.
+  const name = '前缀书.epub';
+  const target = join(booksDir, name);
+  await writeFile(target, makeZip([
+    ['mimetype', 'application/epub+zip'],
+    ['META-INF/container.xml', '<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>'],
+    ['OEBPS/content.opf', `<?xml version="1.0" encoding="UTF-8"?>
+<opf:package xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" unique-identifier="BookId" version="2.0">
+  <opf:metadata>
+    <dc:identifier id="BookId">so-novel-1</dc:identifier>
+    <dc:title>诡秘之主</dc:title>
+    <dc:creator opf:role="aut">爱潜水的乌贼</dc:creator>
+    <dc:language>zh</dc:language>
+    <opf:meta name="cover" content="cover-image"/>
+  </opf:metadata>
+  <opf:manifest>
+    <opf:item id="c0" href="c0.html" media-type="application/xhtml+xml"/>
+    <opf:item id="c1" href="c1.html" media-type="application/xhtml+xml"/>
+    <opf:item id="cover-image" href="cover.jpg" media-type="image/jpeg"/>
+    <opf:item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+  </opf:manifest>
+  <opf:spine toc="ncx">
+    <opf:itemref idref="c0"/>
+    <opf:itemref idref="c1"/>
+  </opf:spine>
+</opf:package>`],
+    ['OEBPS/c0.html', '<html><body><h1>第一章</h1><p>正文</p></body></html>'],
+    ['OEBPS/c1.html', '<html><body><h1>第二章</h1><p>正文</p></body></html>'],
+    ['OEBPS/cover.jpg', JPEG],
+    ['OEBPS/toc.ncx', `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <navMap>
+    <navPoint id="navPoint-1" playOrder="1"><navLabel><text>第一章</text></navLabel><content src="c0.html"/></navPoint>
+    <navPoint id="navPoint-2" playOrder="2"><navLabel><text>第二章</text></navLabel><content src="c1.html"/></navPoint>
+  </navMap>
+</ncx>`],
+  ]));
+
+  await ctx.scanner.scan();
+  const row = ctx.db.get<{ title: string; author: string; page_count: number | null; cover_path: string | null }>(
+    'SELECT title, author, page_count, cover_path FROM books WHERE title = ?',
+    '诡秘之主',
+  );
+  assert.ok(row, 'prefixed OPF must yield the dc:title, not an unnamed book');
+  assert.equal(row.author, '爱潜水的乌贼');
+  assert.equal(row.page_count, 2);
+  assert.ok(row.cover_path, 'opf:meta cover must still resolve');
+
+  const book = await findBook('诡秘之主');
+  const res = await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/items`, headers: auth() });
+  const body = res.json() as { total: number; items: Array<{ href: string; title: string }> };
+  assert.equal(body.total, 2);
+  assert.deepEqual(body.items.map((item) => item.href), ['xhtml:OEBPS/c0.html', 'xhtml:OEBPS/c1.html']);
+  assert.deepEqual(body.items.map((item) => item.title), ['第一章', '第二章']);
+
+  await rm(target);
+  await ctx.scanner.scan();
+});
+
 test('an epub reports its spine length during the scan', async () => {
     // This was silently null for every book: the parse stage opens the archive
     // from memory (the scanner already has the bytes) but the package reader

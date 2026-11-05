@@ -76,8 +76,9 @@ export function registerOpdsRoutes(app: FastifyInstance, ctx: AppContext): void 
     const book = ctx.shelf.get(currentUser(request).id, (request.params as { id: string }).id);
     if (!formats.includes(book.format)) throw notFound('publication not available');
     const row = ctx.db.get<{ cover_path: string | null }>('SELECT cover_path FROM books WHERE id=?', book.id);
-    if (!row?.cover_path) throw notFound('cover unavailable');
-    const path = resolveInside(ctx.config.dataDir, assertSafeRel(row.cover_path));
+    const rel = ctx.shelf.storedCoverRel(book.id, row?.cover_path ?? null);
+    if (!rel) throw notFound('cover unavailable');
+    const path = resolveInside(ctx.config.dataDir, assertSafeRel(rel));
     await containedFile(path, [ctx.config.dataDir]);
     return reply.type(contentTypeFor(path)).send(createReadStream(path));
   });

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '../../../ui/icon.tsx';
 import { Segmented } from '../../../ui/toolkit.tsx';
 import { Link } from 'react-router-dom';
@@ -6,14 +6,17 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { coverTint } from '../../../ui/cover-tint.ts';
+import { type MenuItems } from '../../../ui/action-menu.tsx';
+import { CoverCheck, useCoverActions, useCoarsePointer, usePickingCard, type Picking } from '../../../ui/cover-actions.tsx';
 import { BookCard, useCover } from '../../shelf/pages/ShelfPage.tsx';
+import { BookSelectBar, BookSelectHead, useBookCommands, useBookPicking } from '../../shelf/book-selection.tsx';
 import { useShelf } from '../../shelf/queries/shelf.queries.ts';
 import { historyQuery, mediaKeys, type Activity } from '../../media/queries/media.queries.ts';
 import { MediaCover } from '../../media/components/cover.tsx';
 import { resolveWork } from '../../media/services/work.ts';
 import { useMediaPreferences } from '../../media/hooks/use-media-preferences.ts';
 import type { SearchItem } from '../../media/api/media-api.ts';
-import type { ContinueReadingItem } from '../../../api/types.ts';
+import type { Book, ContinueReadingItem } from '../../../api/types.ts';
 import '../styles/home.css';
 
 export function greeting(hour: number): string {
@@ -54,14 +57,20 @@ function ResumeCard({ channel, to, cover, title, detail, progress, meter }: {
   </Link>;
 }
 
-function ResumeBook({ book }: { book: ContinueReadingItem }) {
+function ResumeBook({ book, menu, picking }: { book: ContinueReadingItem; menu?: MenuItems; picking?: Picking }) {
   const runtime = useRuntime();
   const src = useCover(runtime.api, book.coverUrl);
   const progress = Math.max(0, Math.min(1, book.percentage));
   const title = book.title || '未命名';
-  return <ResumeCard channel="read" to={`/book/${encodeURIComponent(book.id)}`} title={title} detail={book.chapterTitle ?? ''}
+  const actions = useCoverActions(title, picking ? undefined : menu);
+  const cardPick = usePickingCard(picking);
+  const selected = picking ? cardPick.selected : actions.selected;
+  const card = <ResumeCard channel="read" to={`/book/${encodeURIComponent(book.id)}`} title={title} detail={book.chapterTitle ?? ''}
     progress={progress} meter={`已读 ${Math.round(progress * 100)}%`}
-    cover={src ? <img src={src} alt="" /> : <span className="home-resume-placeholder" style={coverTint(title)}>{title}</span>} />;
+    cover={<>{src ? <img src={src} alt="" /> : <span className="home-resume-placeholder" style={coverTint(title)}>{title}</span>}{cardPick.mark ?? (selected && <CoverCheck />)}</>} />;
+  if (picking) return <div className="home-resume-slot" {...cardPick.props}>{card}</div>;
+  if (!menu) return card;
+  return <div className="home-resume-slot" data-selected={actions.selected ? 'true' : undefined} {...actions.hold}>{card}{actions.menu}{actions.sheet}</div>;
 }
 
 function ResumeMedia({ channel, activity }: { channel: 'video' | 'audiobook'; activity: Activity }) {
@@ -146,16 +155,25 @@ export function HomePage() {
   const videoActivity = showContinue ? unfinished(video.data?.items) : undefined, audioActivity = showContinue ? unfinished(audio.data?.items) : undefined;
   const books = (shelf.data?.items ?? []).slice(0, 8);
   const name = user?.displayName || user?.username || '';
+  const coarse = useCoarsePointer();
+  const visibleBooks = useMemo(() => {
+    const byId = new Map<string, Book>();
+    for (const item of reading.data ?? []) byId.set(item.id, item);
+    for (const item of (shelf.data?.items ?? []).slice(0, 8)) byId.set(item.id, item);
+    return [...byId.values()];
+  }, [reading.data, shelf.data]);
+  const picking = useBookPicking(visibleBooks, user?.id ?? '');
+  const commands = useBookCommands(picking.finish);
 
   // Most recent first, whatever kind it is.
   const resumes: Array<{ at: number; node: ReactNode }> = [];
-  for (const item of readingBooks.slice(0, 2)) resumes.push({ at: item.lastReadAt ?? 0, node: <ResumeBook key={`read:${item.id}`} book={item} /> });
+  for (const item of readingBooks.slice(0, 2)) resumes.push({ at: item.lastReadAt ?? 0, node: <ResumeBook key={`read:${item.id}`} book={item} {...(coarse ? { picking: picking.bind(item) } : { menu: commands.covers.menu(item) })} /> });
   if (videoActivity) resumes.push({ at: videoActivity.updatedAt ?? 0, node: <ResumeMedia key="video" channel="video" activity={videoActivity} /> });
   if (audioActivity) resumes.push({ at: audioActivity.updatedAt ?? 0, node: <ResumeMedia key="audiobook" channel="audiobook" activity={audioActivity} /> });
   resumes.sort((a, b) => b.at - a.at);
 
   return <div className="media-screen media-page home-page">
-    <header className="home-header"><h1>{greeting(new Date().getHours())}{name ? `，${name}` : ''}</h1><p>从上次停下的地方继续</p></header>
+    {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <header className="home-header"><h1>{greeting(new Date().getHours())}{name ? `，${name}` : ''}</h1><p>从上次停下的地方继续</p></header>}
     <div className="home-continue">
       {resumes.map(entry => entry.node)}
       {/* Only a successful answer can say "nothing in progress": while loading the slot keeps
@@ -169,8 +187,10 @@ export function HomePage() {
     </div>
     {books.length > 0 && <section className="home-shelf" aria-label="我的书架">
       <div className="home-section"><h2>我的书架</h2><Link to="/shelf">全部<Icon name="chevron-right" size={16} /></Link></div>
-      <div className="home-shelf-row">{books.map(item => <BookCard key={item.id} book={item} showAuthor={false} showProgress />)}</div>
+      <div className="home-shelf-row">{books.map(item => <BookCard key={item.id} book={item} showAuthor={false} showProgress {...(coarse ? { picking: picking.bind(item) } : { menu: commands.covers.menu(item) })} />)}</div>
     </section>}
+    {commands.ui}
+    {picking.active && <BookSelectBar actions={commands.actionsFor(picking.chosen)} />}
     <Discover channel="video" kind="video" heading="看点什么" to="/media/video" />
     <Discover channel="audiobook" kind="audiobook" heading="听本书" to="/media/audiobook" />
     <Discover channel="music" kind="album" heading="听张专辑" to="/media/music/albums" />

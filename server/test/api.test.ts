@@ -6,7 +6,7 @@
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import JSZip from 'jszip';
@@ -226,6 +226,57 @@ test('manual metadata is never overwritten by a rescan, and can be undone', asyn
     method: 'DELETE', url: `/api/v1/books/${book.id}/metadata/title`, headers: auth(owner.token),
   });
   assert.equal((undone.json() as { book: { title: string } }).book.title, '三体', 'undo restores the embedded value');
+});
+
+test('a custom cover replaces the extracted picture and survives a rescan', async () => {
+  const owner = ctx.db.get('SELECT id FROM users WHERE username = ?', 'owner') ? await login('owner') : await register('owner');
+  const bytes = await makeEpub({ id: 'urn:test:custom-cover', title: '自定封面', creator: '测试作者' });
+  await writeFile(join(booksDir, '自定封面.epub'), bytes);
+  await ctx.scanner.scan();
+  const book = ctx.db.get<{ id: string }>('SELECT id FROM books WHERE identifier = ?', 'urn:test:custom-cover')!;
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const boundary = '----reader-cover';
+  const payload = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="cover.png"\r\nContent-Type: image/png\r\n\r\n`),
+    png,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+
+  const uploaded = await app.inject({
+    method: 'POST', url: `/api/v1/books/${book.id}/cover`, headers: { ...auth(owner.token), 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload,
+  });
+  assert.equal(uploaded.statusCode, 200, uploaded.body);
+  const body = uploaded.json() as { book: { coverUrl: string | null; manualFields: string[] } };
+  assert.ok(body.book.coverUrl?.startsWith(`/api/v1/books/${book.id}/cover?v=`));
+  assert.ok(body.book.manualFields.includes('cover'));
+
+  const cover = await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/cover`, headers: auth(owner.token) });
+  assert.equal(cover.statusCode, 200);
+  assert.equal(cover.headers['content-type'], 'image/png');
+  assert.equal(cover.rawPayload.equals(png), true);
+
+  ctx.db.run('UPDATE book_files SET parse_version = 0 WHERE book_id = ?', book.id);
+  await ctx.scanner.scan();
+  const again = await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/cover`, headers: auth(owner.token) });
+  assert.equal(again.rawPayload.equals(png), true, 'a rescan must keep the custom cover');
+
+  const rejected = await app.inject({
+    method: 'POST', url: `/api/v1/books/${book.id}/cover`, headers: { ...auth(owner.token), 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload: Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="notes.txt"\r\nContent-Type: text/plain\r\n\r\n`),
+      Buffer.from('not a picture'),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(rejected.statusCode, 400);
+
+  const cleared = await app.inject({ method: 'DELETE', url: `/api/v1/books/${book.id}/cover`, headers: auth(owner.token) });
+  assert.equal(cleared.statusCode, 200);
+  assert.equal((cleared.json() as { book: { coverUrl: string | null; manualFields: string[] } }).book.coverUrl, null);
+  assert.equal((await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/cover`, headers: auth(owner.token) })).statusCode, 404);
+  const stored = await readFile(join(ctx.config.dataDir, 'covers', `${book.id}-custom.png`)).then(() => true, () => false);
+  assert.equal(stored, false);
 });
 
 test('members cannot reach admin endpoints', async () => {

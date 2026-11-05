@@ -159,10 +159,16 @@ export class OfflineStore {
   }
 
   async removeBooks(ids: string[]): Promise<void> {
+    const drop = new Set(ids);
+    const droppedNotes = new Set(Object.entries(this.snapshot.notes).filter(([, note]) => drop.has(note.bookId)).map(([id]) => id));
     for (const id of ids) {
       delete this.snapshot.books[id];
       delete this.snapshot.progress[id];
     }
+    for (const id of droppedNotes) delete this.snapshot.notes[id];
+    this.snapshot.dirtyProgress = this.snapshot.dirtyProgress.filter((id) => !drop.has(id));
+    this.snapshot.dirtyNotes = this.snapshot.dirtyNotes.filter((id) => !droppedNotes.has(id));
+    this.snapshot.pendingNoteDeletes = this.snapshot.pendingNoteDeletes.filter((id) => !droppedNotes.has(id));
     await this.persist();
   }
 

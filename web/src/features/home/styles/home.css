@@ -9,6 +9,16 @@
 /* Every "continue" — book, video, audiobook — is the same card, most recent first.
  * Only the label, cover shape and progress colour say which channel it is. */
 .home-continue { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; margin-top: 20px; }
+.home-resume-slot { position: relative; min-width: 0; }
+.home-resume-slot > .home-resume { height: 100%; }
+/* The lens is a circle on the cover's corner, not the wide card's corner.
+   12px and 60px are the card padding and the cover width above. */
+.home-page .home-resume-slot > .book-more,
+.home-page .home-resume-slot .book-more-lens {
+  inset-block-start: calc(12px + 0.15rem);
+  inset-inline-end: auto;
+  inset-inline-start: calc(12px + 60px - 1.75rem - 0.15rem);
+}
 
 .home-resume, .home-empty {
   border: 1px solid var(--color-line);
@@ -35,7 +45,7 @@
 
 /* A fixed cover box: posters and book covers fill it, square art sits centred in it,
  * so the text column starts at the same x on every card. */
-.home-resume-cover { display: grid; place-items: center; flex: none; width: 60px; height: 90px; }
+.home-resume-cover { position: relative; display: grid; place-items: center; flex: none; width: 60px; height: 90px; }
 .home-resume-cover > img, .home-resume-cover > .home-resume-placeholder, .home-resume-cover > .media-cover {
   width: 100%;
   border-radius: var(--radius-sm);

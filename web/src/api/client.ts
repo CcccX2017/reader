@@ -592,6 +592,11 @@ export class ReaderApi {
     return this.call('/api/v1/library/browse/shelf', 'POST', { ...target, action }, options);
   }
 
+  /** Deletes the library files and every server record of these books. Admin only. */
+  async deleteLibraryBooks(bookIds: string[], options: RequestOptions = {}): Promise<{ deleted: number; failed: Array<{ id: string; reason: string }> }> {
+    return this.call('/api/v1/library/books/delete', 'POST', { bookIds }, options);
+  }
+
   /**
    * Whether the mount accepts an upload at all, and whether this user may upload
    * (members only when the `library.memberUpload` setting is on); asked before
@@ -667,6 +672,28 @@ export class ReaderApi {
   async coverBytes(coverUrl: string, options: RequestOptions = {}): Promise<Uint8Array> {
     const response = await this.request(coverUrl, 'GET', undefined, { ...options, binary: true });
     return response.bytes ?? new Uint8Array();
+  }
+
+  /** Replaces the book's cover. The file is a jpg, png, gif or webp. */
+  async setBookCover(id: string, file: File, options: RequestOptions = {}): Promise<{ book: Book }> {
+    const form = new FormData();
+    form.set('file', file);
+    const response = await this.request(`/api/v1/books/${encodeURIComponent(id)}/cover`, 'POST', form, options);
+    this.invalidateCoverLists();
+    return response.json as { book: Book };
+  }
+
+  /** Removes the custom cover so the picture from the book file shows again. */
+  async clearBookCover(id: string, options: RequestOptions = {}): Promise<{ book: Book }> {
+    const response = await this.request(`/api/v1/books/${encodeURIComponent(id)}/cover`, 'DELETE', undefined, options);
+    this.invalidateCoverLists();
+    return response.json as { book: Book };
+  }
+
+  private invalidateCoverLists(): void {
+    for (const key of ['shelf', 'library-books', 'home']) {
+      void this.queryClient.invalidateQueries({ queryKey: [key] });
+    }
   }
 
   // ---- sync ----

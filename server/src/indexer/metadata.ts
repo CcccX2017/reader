@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import JSZip from 'jszip';
 import { XMLParser } from 'fast-xml-parser';
@@ -39,6 +39,11 @@ const xmlParser = new XMLParser({
   // Keep every field as text; epub metadata is famously inconsistent.
   parseTagValue: false,
   parseAttributeValue: false,
+  // epublib (so-novel) writes `<opf:package>`, `<opf:itemref>`, `<dc:title>`.
+  // Those are the same elements as the unprefixed form; matching the prefix
+  // literally drops the title and the spine. Local names are what the lookups
+  // below already use (`package`, `title`, `itemref`).
+  removeNSPrefix: true,
 });
 
 export function sha256(buf: Buffer): string {
@@ -485,4 +490,40 @@ export async function saveCover(
 
 export async function readFileBuffer(absPath: string): Promise<Buffer> {
   return readFile(absPath);
+}
+
+/** A reader-supplied cover, kept beside the extracted one so a rescan cannot replace it. */
+export const CUSTOM_COVER_MAX_BYTES = 8 * 1024 * 1024;
+const CUSTOM_COVER_EXTENSIONS = ['.jpg', '.png', '.gif', '.webp'] as const;
+
+export function customCoverRel(bookId: string, ext: string): string {
+  return `covers/${bookId}-custom${ext}`;
+}
+
+export function isCustomCoverRel(bookId: string, rel: string): boolean {
+  const normalized = rel.replace(/\\/g, '/');
+  return CUSTOM_COVER_EXTENSIONS.some((ext) => normalized === customCoverRel(bookId, ext));
+}
+
+/** Recognises a cover by its bytes. The uploaded filename is not trusted. */
+export function sniffCoverImage(buf: Buffer): { ext: '.jpg' | '.png' | '.gif' | '.webp' } | null {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return { ext: '.jpg' };
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return { ext: '.png' };
+  if (buf.length >= 6 && (buf.subarray(0, 6).toString('ascii') === 'GIF87a' || buf.subarray(0, 6).toString('ascii') === 'GIF89a')) return { ext: '.gif' };
+  if (buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF' && buf.subarray(8, 12).toString('ascii') === 'WEBP') return { ext: '.webp' };
+  return null;
+}
+
+/** Writes the custom cover and removes a previous one stored under another extension. */
+export async function writeCustomCover(dataDir: string, bookId: string, buf: Buffer, ext: string): Promise<string> {
+  const rel = customCoverRel(bookId, ext);
+  const abs = join(dataDir, rel);
+  await mkdir(dirname(abs), { recursive: true });
+  await writeFile(abs, buf);
+  await Promise.all(CUSTOM_COVER_EXTENSIONS.filter((other) => other !== ext).map((other) => rm(join(dataDir, customCoverRel(bookId, other)), { force: true })));
+  return rel;
+}
+
+export async function removeCustomCover(dataDir: string, bookId: string): Promise<void> {
+  await Promise.all(CUSTOM_COVER_EXTENSIONS.map((ext) => rm(join(dataDir, customCoverRel(bookId, ext)), { force: true })));
 }

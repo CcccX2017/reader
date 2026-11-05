@@ -75,7 +75,9 @@ interface StoredFile {
  *    reparsed once, which repairs libraries whose EPUB page counts were lost to
  *    the memory-backed archive reader.
  */
-const PARSE_VERSION = 1;
+// 2: re-read EPUBs whose OPF uses namespace prefixes. Bytes do not change, so
+// mtime+size would otherwise keep the empty title and empty spine forever.
+const PARSE_VERSION = 2;
 
 /** Directories that never contain books, or contain only tooling noise. */
 const SKIP_DIRS = new Set(['.git', '@eaDir', '#recycle', '.DS_Store', 'lost+found', '__MACOSX']);

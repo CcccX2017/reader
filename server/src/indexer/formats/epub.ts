@@ -76,6 +76,9 @@ const xmlParser = new XMLParser({
   trimValues: true,
   parseTagValue: false,
   parseAttributeValue: false,
+  // Same rule as metadata.ts: OPF prefixes (`opf:spine`, `opf:itemref`) are
+  // legal EPUB and are what so-novel writes. The spine walk looks up local names.
+  removeNSPrefix: true,
 });
 
 export const epubHandler = registerFileHandler({

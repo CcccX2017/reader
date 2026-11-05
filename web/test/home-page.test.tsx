@@ -78,6 +78,9 @@ describe('首页', () => {
     expect(read.textContent).toContain('已读 42%');
     expect(root.querySelector('.home-empty')).toBeNull();
     expect(root.querySelectorAll('.home-shelf .book-card').length).toBe(1);
+    expect(read.closest('.home-resume-slot')?.querySelector('.book-more')).toBeTruthy();
+    expect(video.closest('.home-resume-slot')).toBeNull();
+    expect(root.querySelector('.home-shelf .book-more')).toBeTruthy();
     expect(root.querySelector('.home-discover')).toBeNull();
   });
 

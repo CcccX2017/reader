@@ -108,7 +108,11 @@ function stagedBook(count: number, total: number, from: number): BookDoc {
       depth: 0,
     })),
     content: windowOf(from, total, count),
-    loader: { async read(item) { return { html: `<p>${item.title}</p>` }; } },
+    loader: {
+      async read(item) {
+        return { html: `<p>${item.title}</p>` };
+      },
+    },
   });
   // The same hand-off the reader screen performs: a staged document answers to
   // `setWindow`, and the view finds it through this property.
@@ -570,13 +574,7 @@ describe('plain-text chapters are typeset by the reader', () => {
     // copies of the heuristic.
     const container = document.createElement('div');
     document.body.append(container);
-    const legacy = [
-      '<div class="txt-body">',
-      '<h3>第二章 落雨</h3>',
-      '<p>　　雨来了。</p>',
-      '<p>他走在雨里。</p>',
-      '</div>',
-    ].join('\n');
+    const legacy = ['<div class="txt-body">', '<h3>第二章 落雨</h3>', '<p>　　雨来了。</p>', '<p>他走在雨里。</p>', '</div>'].join('\n');
     const view = make(container, txtDoc(legacy));
     await view.open(0, 0);
     const body = shadowOf(container).querySelector('.txt-body');
@@ -610,7 +608,6 @@ describe('plain-text chapters are typeset by the reader', () => {
     expect(shadow.querySelector('p')?.getAttribute('data-authored')).toBe('1');
   });
 });
-
 
 /**
  * A link *inside* a chapter that points at another chapter.
@@ -653,10 +650,7 @@ describe('ReaderView chapter links', () => {
     // the pair (marker + same origin). `document.baseURI` is jsdom's about:blank,
     // so the URL is built against it rather than against a made-up origin.
     const origin = document.baseURI;
-    const href = new URL(
-      `/api/v1/books/b1/assets?__reader-book-resource__=1&ref=OEBPS/ch3.xhtml`,
-      origin,
-    ).href;
+    const href = new URL(`/api/v1/books/b1/assets?__reader-book-resource__=1&ref=OEBPS/ch3.xhtml`, origin).href;
     const seen: string[] = [];
     const view = new ReaderView({
       container,
@@ -704,10 +698,13 @@ describe('ReaderView settings', () => {
     const container = document.createElement('div');
     document.body.append(container);
     const frames: FrameRequestCallback[] = [];
-    const raf = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(callback => { frames.push(callback); return frames.length; });
+    const raf = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
     const view = make(container, reflowableDoc(2));
     await view.open(0, 0);
-    frames.splice(0).forEach(callback => callback(0));
+    frames.splice(0).forEach((callback) => callback(0));
     const measure = vi.spyOn(view as unknown as { measureWithin(): void }, 'measureWithin');
     view.applySettings({ fontScale: 1.1 });
     view.applySettings({ fontScale: 1.2 });
@@ -715,7 +712,7 @@ describe('ReaderView settings', () => {
     // One measurement before the first step, one restore after the last.
     expect(measure).toHaveBeenCalledTimes(1);
     expect(frames).toHaveLength(1);
-    frames.splice(0).forEach(callback => callback(0));
+    frames.splice(0).forEach((callback) => callback(0));
     view.applySettings({ brightness: 0.8 });
     expect(measure).toHaveBeenCalledTimes(1);
     expect(frames).toHaveLength(0);

@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import type { Db } from '../db/index.ts';
 import type { AppConfig } from '../config/index.ts';
 import { assertSafeRel, resolveInside } from '../lib/paths.ts';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.ts';
 import { isPageExtension, supportedExtensions } from '../indexer/formats/index.ts';
+import { removeCustomCover } from '../indexer/metadata.ts';
 
 /**
  * The library as a *tree*, for the file-manager screen.
@@ -429,6 +430,58 @@ export class BrowseService {
       removed += 1;
     }
     return { removed };
+  }
+
+  /**
+   * Deletes the library files of these books and then the books themselves.
+   *
+   * Unlike `remove`, which leaves the index for the next scan, this is the
+   * shelf's 删除: the file is gone and so is every row that named the book
+   * (progress, notes, shelf, cover, overrides). A missing file still drops the
+   * rows. The library root is never a target.
+   */
+  async purgeBooks(bookIds: string[]): Promise<{ deleted: number; failed: Array<{ id: string; reason: string }> }> {
+    if (bookIds.length === 0) throw badRequest('no books given', 'NO_BOOKS');
+    const failed: Array<{ id: string; reason: string }> = [];
+    let deleted = 0;
+    for (const id of [...new Set(bookIds)]) {
+      const book = this.db.get<{ id: string; cover_path: string | null }>('SELECT id, cover_path FROM books WHERE id = ?', id);
+      if (!book) {
+        failed.push({ id, reason: 'NOT_FOUND' });
+        continue;
+      }
+      try {
+        const files = this.db.all<{ rel_path: string }>(
+          `SELECT rel_path FROM book_files WHERE book_id = ?
+           UNION SELECT rel_path FROM acquired_files WHERE book_id = ?`,
+          id, id,
+        );
+        for (const file of files) await this.eraseLibraryPath(file.rel_path);
+        await removeCustomCover(this.config.dataDir, id);
+        if (book.cover_path) await this.eraseDataPath(book.cover_path);
+        this.db.run('DELETE FROM books WHERE id = ?', id);
+        deleted += 1;
+      } catch (error) {
+        failed.push({ id, reason: error instanceof Error ? error.message : 'DELETE_FAILED' });
+      }
+    }
+    return { deleted, failed };
+  }
+
+  /** Removes one library path. A missing file is already the desired end state. */
+  private async eraseLibraryPath(relPath: string): Promise<void> {
+    if (!relPath || relPath === '.' || relPath === '/') throw badRequest('refusing to delete the library root');
+    const abs = resolveInside(this.config.booksDir, relPath);
+    if (abs === resolve(this.config.booksDir)) throw badRequest('refusing to delete the library root');
+    if (!(await lstat(abs).catch(() => null))) return;
+    await this.guardWrite(abs);
+    await rm(abs, { recursive: true, force: true });
+  }
+
+  private async eraseDataPath(relPath: string): Promise<void> {
+    const abs = resolveInside(this.config.dataDir, relPath);
+    if (abs === resolve(this.config.dataDir)) return;
+    await rm(abs, { force: true });
   }
 
   /**

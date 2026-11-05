@@ -1,34 +1,37 @@
-import { coverTint } from '../../../ui/cover-tint.ts';
 import { BookGridSkeleton } from '../../../ui/book-grid-skeleton.tsx';
+import { useCover } from '../../shelf/pages/ShelfPage.tsx';
 import { ActionMenu } from '../../../ui/action-menu.tsx';
 import { Callout, Icon } from '../../../ui/toolkit.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import type { Book, BrowseEntry } from '../../../api/types.ts';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
+import { coverTint } from '../../../ui/cover-tint.ts';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { DialogView, type Dialog } from '../../../ui/dialog.tsx';
 import { formatBytes, formatDate } from '../../../lib/format.ts';
 import { FloatingNotice } from '../../../ui/floating-notice.tsx';
 import { Pager } from '../../../ui/pager.tsx';
 import { describeShelfAction, SHELF_ACTION_LABELS } from '../../../ui/shelf-membership.ts';
+import { useCoverActions, useCoarsePointer, usePickingCard, type Picking } from '../../../ui/cover-actions.tsx';
+import { BookSelectBar, BookSelectHead, useBookCommands, useBookPicking } from '../../shelf/book-selection.tsx';
+import type { MenuItems } from '../../../ui/action-menu.tsx';
 
-function Cover({ book }: { book: Book }) {
+function LibraryBookCard({ book, busy, onShelve, menu, picking }: { book: Book; busy: boolean; onShelve: (book: Book) => void; menu?: (book: Book) => MenuItems; picking?: Picking }) {
+  const actions = useCoverActions(book.title || '未命名', picking ? undefined : menu?.(book));
+  const cardPick = usePickingCard(picking);
+  return <div className="book-card is-row" {...(picking ? cardPick.props : { ...actions.hold, 'data-selected': actions.selected ? 'true' as const : undefined })}>
+    <Link className="book-open" to={`/book/${encodeURIComponent(book.id)}`} aria-label={`${book.title} ${book.author ?? ''}`}><Cover book={book} mark={picking ? cardPick.mark : actions.mark} /><div className="title">{book.title || '未命名'}</div><div className="author">{book.author || '未知作者'}</div></Link>
+    {!picking && actions.menu}
+    {!picking && actions.sheet}
+    {book.shelfState === 'off' && <button type="button" className="book-shelve" aria-label={`把${book.title}加入书架`} disabled={busy} onClick={() => onShelve(book)}><Icon name="plus" />{SHELF_ACTION_LABELS.add}</button>}
+  </div>;
+}
+function Cover({ book, mark }: { book: Book; mark?: ReactNode }) {
   const runtime = useRuntime();
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    let objectUrl: string | null = null;
-    if (!book.coverUrl) { setSrc(null); return; }
-    void runtime.api.coverBytes(book.coverUrl).then(bytes => {
-      if (!live) return;
-      objectUrl = URL.createObjectURL(new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: 'image/jpeg' }));
-      setSrc(objectUrl);
-    }).catch(() => { if (live) setSrc(null); });
-    return () => { live = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [runtime.api, book.coverUrl]);
-  return <div className="cover">{src ? <img src={src} alt="" loading="lazy" /> : <div className="placeholder" style={coverTint(book.title || '')}>{book.title || '无封面'}</div>}<span className="format-badge">{book.format || '书籍'}</span></div>;
+  const src = useCover(runtime.api, book.coverUrl);
+  return <div className="cover">{src ? <img src={src} alt="" loading="lazy" /> : <div className="placeholder" style={coverTint(book.title || '')}>{book.title || '无封面'}</div>}<span className="format-badge">{book.format || '书籍'}</span>{mark}</div>;
 }
 
 function CollectionHeader({ title, subtitle, backTo, actions, className, footer }: { title: string; subtitle: string; backTo?: string; actions?: React.ReactNode; className?: string; footer?: React.ReactNode }) {
@@ -45,6 +48,9 @@ export function LibraryBrowsePage() {
   const books = useQuery({ queryKey: ['library-books', runtime.api.baseUrl, 'browse', path, page, search], queryFn: ({ signal }) => runtime.api.listBooks({ scope: 'library', path, page, pageSize: 60, search, sort: 'title', order: 'asc' }, { signal }) });
   const navigate = (nextPath: string, nextPage = 1, nextSearch = '', replace = false) => setParams({ ...(nextPath ? { path: nextPath } : {}), ...(nextSearch ? { q: nextSearch } : {}), ...(nextPage > 1 ? { page: String(nextPage) } : {}) }, { replace });
   const [uploading, setUploading] = useState(false); const [feedback, setFeedback] = useState<{ text: string; error?: boolean } | null>(null);
+  const coarse = useCoarsePointer();
+  const picking = useBookPicking(books.data?.items ?? [], `${path}|${page}|${search}`);
+  const commands = useBookCommands(picking.finish);
   // Members add books here; everything else that touches files is the admin-only file manager.
   const upload = async (files: File[]) => { setFeedback(null); setUploading(true); try { const result = await runtime.api.upload(files, path, 'rename'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['library-books'] }), queryClient.invalidateQueries({ queryKey: ['library-browse'] }), queryClient.invalidateQueries({ queryKey: ['shelf'] })]); setFeedback(describeUpload(result)); } catch (reason) { setFeedback({ text: reason instanceof Error ? reason.message : '上传失败，请重试', error: true }); } finally { setUploading(false); } };
   const uploadAccess = useQuery({ queryKey: ['library-upload', runtime.api.baseUrl], queryFn: ({ signal }) => runtime.api.uploadProbe({ signal }), enabled: !!role && role !== 'admin' });
@@ -57,7 +63,7 @@ export function LibraryBrowsePage() {
   useEffect(() => { if (books.data && page > pages) navigate(path, pages, search, true); });
   const empty = !books.isPending && !books.error && books.data?.items.length === 0 && page <= pages;
   return <div className="library-screen library-browse-screen">
-    <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo="/shelf" actions={role === 'admin' ? <Link className="button collection-link" to="/library/files"><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} />
+    {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo="/shelf" actions={role === 'admin' ? <Link className="button collection-link" to="/library/files"><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} />}
     {listing.data && listing.data.crumbs.length > 1 && <div className="manager-crumbs library-path" aria-label="当前文件夹">{listing.data.crumbs.map((crumb, index) => <span key={`${crumb.path}-${index}`}>{index > 0 && <span className="manager-crumb-sep">/</span>}<button type="button" className="manager-crumb" onClick={() => navigate(crumb.path)}>{crumb.name}</button></span>)}</div>}
     <main className="manager-body library-browse-body">
       <form className="shelf-search library-search" role="search" onSubmit={(event: FormEvent) => { event.preventDefault(); navigate(path, 1, draft.trim()); }}><Icon name="search" size={18} className="search-glyph" /><input type="search" aria-label="搜索书库" placeholder="在书库中搜索书名、作者" value={draft} onChange={event => setDraft(event.currentTarget.value)} />{draft && <button type="button" className="search-clear" aria-label="清除搜索" onClick={() => { setDraft(''); navigate(path); }}><Icon name="close" /></button>}</form>
@@ -67,10 +73,12 @@ export function LibraryBrowsePage() {
       <FloatingNotice message={feedback?.text ?? ''} error={!!feedback?.error} kind="success" />
       {books.isPending && <><FloatingNotice message="正在加载书库…" busy /><BookGridSkeleton className="library-browse-grid" density="cozy" /></>}{books.error && <Callout tone="error" title="书库加载失败" action={{ label: '重试', onClick: () => void books.refetch() }}>{books.error.message}</Callout>}
       {empty && <div className="empty-state collection-empty"><Icon name="book" className="empty-glyph" /><p>{search ? '没有匹配的书' : '书库还没有书'}</p><p className="muted">{search ? '换个关键词，或者检查一下作者名的写法。' : role === 'admin' ? '前往文件管理添加书籍，再回到这里浏览。' : uploadAccess.data?.allowed ? '使用上方的上传书籍添加书籍，再回到这里浏览。' : '书库的书由管理员添加。'}</p><div className="empty-actions">{search ? <button type="button" className="button" onClick={() => { setDraft(''); navigate(path); }}>清除搜索</button> : role === 'admin' ? <Link className="button primary" to="/library/files"><Icon name="folder" size={16} />文件管理</Link> : null}</div></div>}
-      {books.data && books.data.items.length > 0 && <div className="book-grid library-browse-grid" data-density="cozy" data-show-author="true">{books.data.items.map(book => <div className="book-card is-row" key={book.id}><Link className="book-open" to={`/book/${encodeURIComponent(book.id)}`} aria-label={`${book.title} ${book.author ?? ''}`}><Cover book={book} /><div className="title">{book.title || '未命名'}</div><div className="author">{book.author || '未知作者'}</div></Link>{book.shelfState === 'off' && <button type="button" className="book-shelve" aria-label={`把${book.title}加入书架`} disabled={busy === book.id} onClick={() => void toggle(book)}><Icon name="plus" />{SHELF_ACTION_LABELS.add}</button>}</div>)}</div>}
+      {books.data && books.data.items.length > 0 && <div className="book-grid library-browse-grid" data-density="cozy" data-show-author="true">{books.data.items.map(book => <LibraryBookCard key={book.id} book={book} busy={busy === book.id} onShelve={book => void toggle(book)} {...(coarse ? { picking: picking.bind(book) } : { menu: commands.covers.menu })} />)}</div>}
       {books.data && <div className="manager-status muted">{search ? `找到 ${count} 本` : `${count} 本 · 第 ${page} / ${pages} 页`}</div>}
       {pages > 1 && <Pager className="shelf-pager" page={Math.min(page, pages)} pageCount={pages} busy={books.isFetching} onGo={next => navigate(path, next, search)} />}
     </main>
+    {picking.active && <BookSelectBar actions={commands.actionsFor(picking.chosen)} />}
+    {commands.ui}
   </div>;
 }
 

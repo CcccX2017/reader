@@ -19,6 +19,7 @@
  * question rather than a menu (the shelf's pick dialog).
  */
 import { type JSX, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { LiquidGlass } from 'simple-liquid-glass';
 import { Sheet } from './sheet.tsx';
 import { Icon, type IconName } from './toolkit.tsx';
 import '../styles/action-menu.css';
@@ -42,7 +43,7 @@ export type MenuItems = Array<MenuAction | false | null | undefined>;
 
 const GAP = 4, MARGIN = 8;
 
-export function ActionMenu({ label, items, icon = 'more', className, title, text }: {
+export function ActionMenu({ label, items, icon = 'more', className, title, text, glass = false }: {
   /** The trigger's accessible name; also the menu's name unless `title` is given. */
   label: string;
   items: MenuItems;
@@ -52,6 +53,11 @@ export function ActionMenu({ label, items, icon = 'more', className, title, text
   title?: string;
   /** A visible word beside the glyph (e.g. 筛选); without it the trigger is an icon button. */
   text?: string;
+  /**
+   * Draw the icon trigger as a Liquid Glass lens. The lens is the positioned box;
+   * the button fills it. The menu stays a sibling, so the lens cannot clip it.
+   */
+  glass?: boolean;
 }): JSX.Element | null {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
@@ -65,15 +71,65 @@ export function ActionMenu({ label, items, icon = 'more', className, title, text
   };
   const toggle = () => setOpen((value) => !value);
   const expanded = { 'aria-haspopup': 'menu' as const, 'aria-expanded': open, 'aria-controls': open ? menuId : undefined };
-  // No wrapper: the trigger stays the direct child its screen's layout expects.
+  // No wrapper on a plain trigger: it stays the direct child its screen's layout expects.
+  // A glass trigger is the exception. The lens has to be the box, and the menu is not inside it.
+  const trigger = text
+    ? <button type="button" ref={anchor} className={`button icon-text-button ${classes}`} aria-label={label} {...expanded} onClick={toggle}><Icon name={icon} /><span>{text}</span></button>
+    : <button type="button" ref={anchor} className={`icon-button ${classes}`} aria-label={label} {...expanded} onClick={toggle}><Icon name={icon} /></button>;
   return <>
-    {text
-      ? <button type="button" ref={anchor} className={`button icon-text-button ${classes}`} aria-label={label} {...expanded} onClick={toggle}><Icon name={icon} /><span>{text}</span></button>
-      : <button type="button" ref={anchor} className={`icon-button ${classes}`} aria-label={label} {...expanded} onClick={toggle}><Icon name={icon} /></button>}
+    {glass && !text ? <CoverGlass>{trigger}</CoverGlass> : trigger}
     {open && <ActionDropdown id={menuId} label={title ?? label} anchor={anchor} actions={actions}
       onClose={close}
       onPick={(action) => { close(true); action.onSelect(); }} />}
   </>;
+}
+
+/** A 28px Liquid Glass lens for a cover's ⋯. SVG refraction, including Android's Chromium web view. */
+function glassCanPaint(): boolean {
+  if (typeof document === 'undefined') return false;
+  try { return document.createElement('canvas').getContext('2d') !== null; } catch { return false; }
+}
+
+function CoverGlass({ children }: { children: ReactNode }) {
+  // jsdom and a locked-down web view have no 2D canvas. The library throws there,
+  // so the trigger stays a plain button instead of taking the page down with it.
+  if (!glassCanPaint()) return <>{children}</>;
+  const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const lens = {
+    material: 'clear' as const,
+    refraction: 'lens' as const,
+    lensProfile: 'player' as const,
+    renderer: 'svg' as const,
+    mobileFallback: 'svg' as const,
+    effectMode: still ? 'blur' as const : 'svg' as const,
+    quality: 'high' as const,
+    displacementScale: 6,
+    aberrationIntensity: 0.45,
+    lensOptions: { strength: 0.22, sheen: 1.6, specular: 1.7, bend: 0.6, glow: 0.2 },
+  };
+  return <LiquidGlass
+    className="book-more-lens"
+    {...lens}
+    radius={999}
+    // The library's own root is position:relative and width/height 100%, which
+    // stretches the lens across the card. These win because they are applied after.
+    style={{
+      position: 'absolute',
+      width: '1.75rem',
+      height: '1.75rem',
+      minWidth: '1.75rem',
+      minHeight: '1.75rem',
+      maxWidth: '1.75rem',
+      maxHeight: '1.75rem',
+      flex: 'none',
+      padding: 0,
+      borderRadius: '50%',
+      // Visible overflow: the finger target is a 44px ::before around this 28px disc.
+      // Clipping it would leave only the disc, which a thumb misses.
+      overflow: 'visible',
+      zIndex: 2,
+    }}
+  >{children}</LiquidGlass>;
 }
 
 function ActionDropdown({ id, label, anchor, actions, onClose, onPick }: {

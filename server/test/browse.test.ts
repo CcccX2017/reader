@@ -862,4 +862,36 @@ describe('the library scope of the book list', () => {
     assert.ok(items.length > 0);
     assert.ok(items.every((b) => b.shelfState === undefined));
   });
+
+  test('purging a book deletes the library file and every record', async () => {
+    const rel = '科幻/彻底删除.epub';
+    await writeFile(join(booksDir, '科幻', '彻底删除.epub'), await makeEpub('彻底删除', 'urn:purge-me'));
+    await ctx.scanner.scan();
+    const row = ctx.db.get<{ book_id: string }>('SELECT book_id FROM book_files WHERE rel_path = ?', rel);
+    assert.ok(row);
+    const now = Date.now();
+    ctx.db.run(
+      'INSERT INTO reading_progress (user_id, book_id, locator, percentage, chapter_title, device, updated_at) VALUES (?,?,?,?,?,?,?)',
+      userId, row.book_id, 'epubcfi(/6)', 0.2, '第一章', 'test', now,
+    );
+    ctx.db.run(
+      'INSERT INTO notes (id, user_id, book_id, type, locator, text, comment, color, updated_at, deleted) VALUES (?,?,?,?,?,?,?,?,?,0)',
+      'note-purge', userId, row.book_id, 'bookmark', '', '', '', '', now,
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/library/books/delete',
+      headers: auth(),
+      payload: { bookIds: [row.book_id] },
+    });
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal((res.json() as { deleted: number }).deleted, 1);
+    await assert.rejects(stat(join(booksDir, '科幻', '彻底删除.epub')));
+    assert.equal(ctx.db.get('SELECT id FROM books WHERE id = ?', row.book_id), undefined);
+    assert.equal(ctx.db.get('SELECT book_id FROM book_files WHERE book_id = ?', row.book_id), undefined);
+    assert.equal(ctx.db.get('SELECT book_id FROM user_books WHERE book_id = ?', row.book_id), undefined);
+    assert.equal(ctx.db.get('SELECT book_id FROM reading_progress WHERE book_id = ?', row.book_id), undefined);
+    assert.equal(ctx.db.get('SELECT id FROM notes WHERE id = ?', 'note-purge'), undefined);
+  });
 });
