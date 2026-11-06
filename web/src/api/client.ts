@@ -15,6 +15,7 @@ import type {
   Facets,
   ReadingState,
   InstanceInfo,
+  LibraryScanResult,
   Manifest,
   Note,
   NoteType,
@@ -636,6 +637,17 @@ export class ReaderApi {
   async uploadProbe(options: RequestOptions = {}): Promise<{ writable: boolean; allowed: boolean }> {
     const result = await this.get<{ writable: boolean; allowed?: boolean }>('/api/v1/library/upload', options);
     return { writable: result.writable, allowed: result.allowed ?? true };
+  }
+
+  /**
+   * Runs one library scan and waits for it.
+   *
+   * Concurrent callers share the server's in-flight Promise. Used by pull-to-refresh
+   * on the home, shelf and library screens — any signed-in user may call it.
+   */
+  async scanLibrary(options: RequestOptions = {}): Promise<LibraryScanResult> {
+    const body = await this.call<{ result: LibraryScanResult }>('/api/v1/library/scan', 'POST', undefined, options);
+    return body.result;
   }
 
   /**

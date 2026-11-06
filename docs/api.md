@@ -370,7 +370,7 @@ pdf / 单图没有独立目录，回落到 items。来源章节出版物（`chap
 > | `GET /library/browse`、`POST /library/browse/shelf` | ✓ | ✓（`shelf` 只改自己的书架） |
 > | `POST /library/browse/move` / `rename` / `mkdir` / `delete` / `metadata` | ✓ | `403 ADMIN_REQUIRED` |
 > | `GET /library/upload`、`POST /library/upload` | ✓ | 业务设置「书库 → 允许成员上传书籍」开启时（默认开启）✓，只能新增书籍文件（见下）；关闭时 `POST` 返回 `403 UPLOAD_DISABLED` |
-> | `POST /library/scan` | ✓ | `403 ADMIN_REQUIRED` |
+> | `POST /library/scan` | ✓ | ✓（只读扫描；并发共享同一次） |
 
 ### `GET /library/browse?path=<相对路径>&page=<页>`
 
@@ -771,9 +771,9 @@ manifest 的每个条目还带 `ref`，即这个文件对应的**资源引用**�
 → `{ "myBooks": 3, "libraryBooks": 10, "files": 12, "missingFiles": 1,
      "formats": [{"format":"epub","n":9}], "scan": {...} }`
 
-### `POST /library/scan` — 管理员
+### `POST /library/scan`
 
-触发一次扫描，同步等待结果。并发调用会共享同一次扫描。
+触发一次扫描，同步等待结果。任意已登录用户可调用（首页/书架/书库下拉刷新）；并发调用会共享同一次扫描。
 
 → `{ "result": { "running": false, "scanned": 12, "added": 1, "updated": 0, "unchanged": 11,
 "removed": 0, "failed": 0, "lastError": null, "startedAt": ..., "finishedAt": ..., "durationMs": 840 } }`

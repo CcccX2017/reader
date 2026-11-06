@@ -61,6 +61,30 @@ describe('ReaderApi navigation query cache', () => {
     await api.listBooks();
     expect(transport.countMatching(request => request.url.startsWith('/api/v1/books'))).toBe(2);
   });
+
+  it('refetches book lists after a library scan', async () => {
+    const transport = new FakeTransport();
+    let total = 1;
+    transport.respondWith(request => {
+      if (request.method === 'POST' && request.url === '/api/v1/library/scan') {
+        total = 2;
+        return { status: 200, headers: {}, json: { result: { running: false, added: 1, updated: 0, removed: 0, scanned: 2, unchanged: 1, failed: 0, lastError: null, startedAt: 1, finishedAt: 2, durationMs: 1 } } };
+      }
+      return { status: 200, headers: {}, json: { items: Array.from({ length: total }, (_, i) => ({ id: `book-${i}` })), total } };
+    });
+    const api = await apiWith(transport);
+    expect((await api.listBooks()).total).toBe(1);
+    await api.scanLibrary();
+    expect((await api.listBooks()).total).toBe(2);
+    expect(transport.countMatching(request => request.url.startsWith('/api/v1/books'))).toBe(2);
+  });
+
+  it('marks book and browse caches dirty after a library scan', () => {
+    expect(affectedNavigationQuery('/api/v1/library/scan', '/api/v1/books?scope=shelf')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/library/scan', '/api/v1/library/browse?page=1')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/library/scan', '/api/v1/library/continue')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/library/scan', '/api/v1/media/browse?channel=music')).toBe(false);
+  });
 });
 
 describe('a shared in-flight navigation query', () => {

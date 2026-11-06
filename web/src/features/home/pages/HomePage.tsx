@@ -1,8 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '../../../ui/icon.tsx';
 import { Segmented } from '../../../ui/toolkit.tsx';
 import { Link } from 'react-router-dom';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { coverTint } from '../../../ui/cover-tint.ts';
@@ -17,6 +17,9 @@ import { resolveWork } from '../../media/services/work.ts';
 import { useMediaPreferences } from '../../media/hooks/use-media-preferences.ts';
 import type { SearchItem } from '../../media/api/media-api.ts';
 import type { Book, ContinueReadingItem } from '../../../api/types.ts';
+import { usePullToRefresh } from '../../../shared/ui/use-pull-to-refresh.ts';
+import { syncLibraryOnce } from '../../../shared/library/sync-library.ts';
+import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
 import '../styles/home.css';
 
 export function greeting(hour: number): string {
@@ -140,6 +143,7 @@ function Discover({ channel, kind, heading, to }: { channel: 'video' | 'audioboo
 /** 首页: where you left off across reading and media, the shelf, then something to pick up. */
 export function HomePage() {
   const runtime = useRuntime();
+  const queryClient = useQueryClient();
   const user = useAuthStore(state => state.verifiedUser ?? state.session?.user ?? null);
   const reading = useQuery({
     queryKey: ['home', 'reading', runtime.api.baseUrl, user?.id],
@@ -164,6 +168,8 @@ export function HomePage() {
   }, [reading.data, shelf.data]);
   const picking = useBookPicking(visibleBooks, user?.id ?? '');
   const commands = useBookCommands(picking.finish);
+  const onRefresh = useCallback(() => syncLibraryOnce(runtime.api, queryClient), [runtime.api, queryClient]);
+  const pull = usePullToRefresh(onRefresh);
 
   // Most recent first, whatever kind it is.
   const resumes: Array<{ at: number; node: ReactNode }> = [];
@@ -172,7 +178,9 @@ export function HomePage() {
   if (audioActivity) resumes.push({ at: audioActivity.updatedAt ?? 0, node: <ResumeMedia key="audiobook" channel="audiobook" activity={audioActivity} /> });
   resumes.sort((a, b) => b.at - a.at);
 
-  return <div className="media-screen media-page home-page">
+  // Events on the whole page (greeting / 继续 count); scrollTop comes from the shelf pane.
+  return <div ref={pull.ref} className="media-screen media-page home-page">
+    <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
     {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <header className="home-header"><h1>{greeting(new Date().getHours())}{name ? `，${name}` : ''}</h1><p>从上次停下的地方继续</p></header>}
     <div className="home-continue">
       {resumes.map(entry => entry.node)}
@@ -185,14 +193,17 @@ export function HomePage() {
           ? <section className="home-empty" aria-label="继续阅读" role="alert"><strong>在读的书读取失败</strong><button type="button" className="home-retry" onClick={() => void reading.refetch()}>重试<Icon name="chevron-right" size={16} /></button></section>
           : !resumes.length && <section className="home-empty" aria-label="继续阅读"><strong>还没有在读的书</strong><Link to="/shelf">去书架挑一本<Icon name="chevron-right" size={16} /></Link></section>)}
     </div>
-    {books.length > 0 && <section className="home-shelf" aria-label="我的书架">
-      <div className="home-section"><h2>我的书架</h2><Link to="/shelf">全部<Icon name="chevron-right" size={16} /></Link></div>
-      <div className="home-shelf-row">{books.map(item => <BookCard key={item.id} book={item} showAuthor showProgress {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })} />)}</div>
-    </section>}
+    {/* Greeting、继续、「我的书架」标题固定；只有书格（及下方影音行）在标题下滚动。 */}
+    <section className="home-shelf" aria-label="我的书架">
+      {books.length > 0 && <div className="home-section"><h2>我的书架</h2><Link to="/shelf">全部<Icon name="chevron-right" size={16} /></Link></div>}
+      <div ref={pull.scrollRef} className="home-shelf-scroll">
+        {books.length > 0 && <div className="book-grid" data-show-author="true" data-show-progress="true">{books.map(item => <BookCard key={item.id} book={item} showAuthor showProgress {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })} />)}</div>}
+        <Discover channel="video" kind="video" heading="看点什么" to="/media/video" />
+        <Discover channel="audiobook" kind="audiobook" heading="听本书" to="/media/audiobook" />
+        <Discover channel="music" kind="album" heading="听张专辑" to="/media/music/albums" />
+      </div>
+    </section>
     {commands.ui}
     {picking.active && <BookSelectBar actions={commands.actionsFor(picking.chosen)} />}
-    <Discover channel="video" kind="video" heading="看点什么" to="/media/video" />
-    <Discover channel="audiobook" kind="audiobook" heading="听本书" to="/media/audiobook" />
-    <Discover channel="music" kind="album" heading="听张专辑" to="/media/music/albums" />
   </div>;
 }

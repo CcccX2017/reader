@@ -1,5 +1,31 @@
-/* 首页: continue cards (one shape for every channel), the shelf row, then random media rows.
+/* 首页: greeting / 继续 / 「我的书架」标题固定；书格在标题下的 .home-shelf-scroll 里滚。
  * Uses the shared theme tokens only; channel colour comes from --color-ch-*. */
+.media-screen.home-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* Nav / mini-player clearance moves onto the scrolling pane. */
+  padding-bottom: 0;
+}
+.home-header, .home-continue, .home-page > .shelf-select-head, .home-page > .pull-refresh { flex: none; }
+.home-shelf {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.home-shelf > .home-section { flex: none; margin-top: 16px; margin-bottom: 8px; }
+.home-shelf-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(96px + var(--safe-bottom));
+  scrollbar-width: thin;
+}
 .home-header h1 { margin: 6px 0 0; font-family: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', serif; font-size: 28px; font-weight: 600; line-height: 1.2; color: var(--color-ink); }
 .home-header p { margin: 6px 0 0; font-size: var(--text-ui); color: var(--color-muted); }
 
@@ -82,12 +108,13 @@
 .media-screen .home-retry { min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
 .home-empty-pending strong { color: var(--color-muted); }
 
-.home-section { display: flex; align-items: center; gap: 4px 16px; margin: 32px 0 12px; }
+.home-section { display: flex; align-items: center; gap: 4px 16px; margin: 24px 0 12px; }
+.home-shelf-scroll > .home-discover:first-of-type .home-section { margin-top: 28px; }
 .home-section h2 { flex: 1; margin: 0; font-family: 'Songti SC', 'Noto Serif SC', serif; font-size: var(--text-title); font-weight: 600; }
 .home-section a { display: inline-flex; align-items: center; color: var(--color-muted); font-size: var(--text-label); text-decoration: none; }
 @media (hover: hover) and (pointer: fine) { .home-section a:hover { color: var(--color-brand-text); }}
+/* Media discover rows stay a sideways strip; 我的书架 uses the shared .book-grid. */
 .home-shelf-row { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
-.home-shelf-row .book-card { flex: none; width: 112px; }
 
 /* The row's own view switch: the toolkit control, compacted to sit beside a section title. */
 .home-section .segmented { flex: none; border-radius: var(--radius-pill); }

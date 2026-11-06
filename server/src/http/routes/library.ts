@@ -818,10 +818,10 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
 
   // ---- instance administration ----
 
-  app.post('/api/v1/library/scan', { preHandler: auth }, async (request) => {
-    const user = currentUser(request);
-    requireAdmin(request);
-    void user;
+  // Any signed-in user may nudge a scan: the mount is only read, concurrent
+  // callers share one Promise, and pull-to-refresh on the home/shelf/library
+  // screens needs this without making every member an administrator.
+  app.post('/api/v1/library/scan', { preHandler: auth }, async () => {
     const result = await ctx.scanner.scan();
     return { result };
   });

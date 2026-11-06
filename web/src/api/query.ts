@@ -88,6 +88,14 @@ export function affectedNavigationQuery(mutation: string, query: string): boolea
   if (/^\/api\/v1\/sync(?:\/|$)/.test(mutation)) return query.startsWith('/api/v1/library/continue');
   if (mutation.startsWith('/api/v1/media/')) return affectedByMediaWrite(mutation, query);
   if (/^\/api\/v1\/(notes|tts|ai|auth)(?:\/|$)/.test(mutation)) return false;
+  // Pull-to-refresh and admin scans rewrite the catalog; without this the
+  // transport cache (5 min staleTime) keeps serving the pre-scan book lists.
+  if (mutation === '/api/v1/library/scan') {
+    return query.startsWith('/api/v1/books')
+      || query.startsWith('/api/v1/library/browse')
+      || query.startsWith('/api/v1/library/continue')
+      || query.startsWith('/api/v1/library/facets');
+  }
   if (mutation === '/api/v1/library/upload') return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/browse');
   if (mutation === '/api/v1/library/browse/shelf') return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/continue');
   if (/^\/api\/v1\/library\/browse\//.test(mutation)) return query.startsWith('/api/v1/library/browse') || query.startsWith('/api/v1/books');

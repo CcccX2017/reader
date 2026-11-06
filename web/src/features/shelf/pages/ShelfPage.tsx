@@ -1,7 +1,8 @@
 import { coverTint } from '../../../ui/cover-tint.ts';
 import { BookGridSkeleton } from '../../../ui/book-grid-skeleton.tsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Book, ContinueReadingItem, ReadingState } from '../../../api/types.ts';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
@@ -11,6 +12,9 @@ import { IconButton, Callout, Icon } from '../../../ui/toolkit.tsx';
 import { DialogView, type Dialog } from '../../../ui/dialog.tsx';
 import { FloatingNotice } from '../../../ui/floating-notice.tsx';
 import { useSwipeTabs } from '../../../shared/ui/use-swipe-tabs.ts';
+import { usePullToRefresh } from '../../../shared/ui/use-pull-to-refresh.ts';
+import { syncLibraryOnce } from '../../../shared/library/sync-library.ts';
+import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
 import { Pager } from '../../../ui/pager.tsx';
 import { type MenuItems } from '../../../ui/action-menu.tsx';
 import { CoverCheck, useCoverActions, useCoarsePointer, usePickingCard, type Picking } from '../../../ui/cover-actions.tsx';
@@ -74,6 +78,7 @@ const isReadingState = (value: string | null): value is ReadingState => READING_
 
 export function ShelfPage() {
   const runtime = useRuntime();
+  const queryClient = useQueryClient();
   const settings = useSettingsStore(state => state.settings);
   const [params, setParams] = useSearchParams();
   const page = Math.max(1, Number(params.get('page')) || 1);
@@ -118,6 +123,12 @@ export function ShelfPage() {
     go({ status: next });
     return true;
   });
+  const onRefresh = useCallback(() => syncLibraryOnce(runtime.api, queryClient), [runtime.api, queryClient]);
+  const pull = usePullToRefresh(onRefresh);
+  const setScroll = useCallback((element: HTMLDivElement | null) => {
+    swipe(element);
+    pull.ref(element);
+  }, [swipe, pull.ref]);
   const coarse = useCoarsePointer();
   const picking = useBookPicking(cards, `${page}|${sort}|${queryText}|${status ?? ''}|${series ?? ''}|${tag ?? ''}`);
   const commands = useBookCommands(picking.finish);
@@ -130,7 +141,8 @@ export function ShelfPage() {
   const subtitle = queryText ? (query.data?.total ? `「${queryText}」匹配 ${query.data.total} 本` : `没有匹配「${queryText}」的书`) : '收藏好书，随时接着读'; // count and sort live in the sticky toolbar below; saying them twice is noise
   const densityLabel = settings.shelfDensity === 'compact' ? '紧凑' : settings.shelfDensity === 'comfortable' ? '宽松' : '适中';
   return <div className="shelf-screen shelf-host">
-    <div ref={swipe} id="shelf-scroll" className="shelf">
+    <div ref={setScroll} id="shelf-scroll" className="shelf">
+    <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
     {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <header className="shelf-head">
       <div className="shelf-head-text"><h1 className="shelf-title">{queryText ? '筛选结果' : '书架'}</h1><p className="shelf-subtitle muted">{subtitle}</p></div>
       <div className="shelf-head-actions">

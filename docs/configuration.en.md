@@ -80,7 +80,7 @@ Check whether the mount uses `:ro`. After switching to `:rw` and recreating the 
 
 ### The UI opens but books are missing
 
-Check that the mounted files are readable and supported, then wait for the next automatic check (every 60 seconds by default, see Scan settings); administrators can also call `POST /api/v1/library/scan` to scan immediately. The scanner skips directories such as `.git`, `@eaDir`, and `#recycle` and does not follow symlinks. Use the library file page to inspect the actual directory.
+Check that the mounted files are readable and supported, then wait for the next automatic check (every 60 seconds by default, see Scan settings); any signed-in user can also call `POST /api/v1/library/scan` to scan immediately (pull-to-refresh on home/shelf/library). The scanner skips directories such as `.git`, `@eaDir`, and `#recycle` and does not follow symlinks. Use the library file page to inspect the actual directory.
 
 ## Media libraries
 

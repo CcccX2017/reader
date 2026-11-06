@@ -323,13 +323,11 @@ test('members cannot reach admin endpoints', async () => {
   assert.equal(created.statusCode, 201);
 
   const memberToken = await login('family');
-  for (const [method, url] of [
-    ['POST', '/api/v1/library/scan'],
-    ['GET', '/api/v1/admin/users'],
-  ] as const) {
-    const res = await app.inject({ method, url, headers: auth(memberToken.token) });
-    assert.equal(res.statusCode, 403, `${method} ${url} must be admin-only`);
-  }
+  const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/users', headers: auth(memberToken.token) });
+  assert.equal(denied.statusCode, 403, 'GET /api/v1/admin/users must be admin-only');
+  const scan = await app.inject({ method: 'POST', url: '/api/v1/library/scan', headers: auth(memberToken.token) });
+  assert.equal(scan.statusCode, 200, 'a member may trigger a library scan for pull-to-refresh');
+  assert.equal((scan.json() as { result: { running: boolean } }).result.running, false);
 });
 
 test('per-user state is isolated', async () => {

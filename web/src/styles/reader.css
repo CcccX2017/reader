@@ -1156,10 +1156,10 @@ book-content {
     var(--shelf-measure) - 1.8rem - var(--safe-left) - var(--safe-right) - 2 * var(--shelf-search-inset)
   );
   /*
-   * The gutters themselves, and they have to be on the *row* rather than as
-   * `padding-inline` on the input: the magnifier and the clear button are absolutely
-   * positioned against this box, so padding here would move them out of the field they
-   * are drawn inside and leave them floating in the margin.
+   * The gutters themselves live on the *row* rather than the input. The magnifier and
+   * clear button are absolutely positioned against this box's padding edge, so their
+   * `inset-inline-*` values add `--shelf-search-inset` back in — otherwise they sit on
+   * the pill's border in the gutter (「清除按钮压在搜索框右边框上」).
    */
   padding-inline: var(--shelf-search-inset);
   /*
@@ -1205,7 +1205,8 @@ book-content {
  */
 .search-glyph {
   position: absolute;
-  inset-inline-start: 1.5rem;
+  /* Past the row gutter, then into the pill — see `.shelf-search` padding-inline. */
+  inset-inline-start: calc(var(--shelf-search-inset) + 0.7rem);
   inset-block: 0;
   margin-block: auto;
   /*
@@ -1276,7 +1277,8 @@ book-content {
  */
 .search-clear {
   position: absolute;
-  inset-inline-end: 0.3rem;
+  /* Past the row gutter so the circle sits inside the pill, not on its rim. */
+  inset-inline-end: calc(var(--shelf-search-inset) + 0.3rem);
   /*
    * Centred on the field by the geometry both boxes share, not by a transform.
    *
@@ -3274,14 +3276,6 @@ book-content {
  * would sit on top of the cover beside it. Their own offsets are therefore the field's
  * border plus the row's padding, which is one number rather than a coincidence.
  */
-.library-search .search-glyph {
-  inset-inline-start: calc(var(--shelf-search-inset) + 0.7rem);
-}
-
-.library-search .search-clear {
-  inset-inline-end: calc(var(--shelf-search-inset) + 0.3rem);
-}
-
 /*
  * The covers, laid out as a shop rather than as a shelf.
  *

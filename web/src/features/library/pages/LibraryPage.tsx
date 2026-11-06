@@ -4,7 +4,7 @@ import { ActionMenu } from '../../../ui/action-menu.tsx';
 import { Callout, Icon } from '../../../ui/toolkit.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import type { Book, BrowseEntry } from '../../../api/types.ts';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { coverTint } from '../../../ui/cover-tint.ts';
@@ -17,6 +17,9 @@ import { describeShelfAction, SHELF_ACTION_LABELS } from '../../../ui/shelf-memb
 import { useCoverActions, useCoarsePointer, usePickingCard, type Picking } from '../../../ui/cover-actions.tsx';
 import { BookSelectBar, BookSelectHead, useBookCommands, useBookPicking } from '../../shelf/book-selection.tsx';
 import type { MenuItems } from '../../../ui/action-menu.tsx';
+import { usePullToRefresh } from '../../../shared/ui/use-pull-to-refresh.ts';
+import { syncLibraryOnce } from '../../../shared/library/sync-library.ts';
+import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
 
 function LibraryBookCard({ book, busy, onShelve, menu, picking }: { book: Book; busy: boolean; onShelve: (book: Book) => void; menu?: (book: Book) => MenuItems; picking?: Picking }) {
   const actions = useCoverActions(book.title || '未命名', picking ? undefined : menu?.(book));
@@ -51,6 +54,8 @@ export function LibraryBrowsePage() {
   const coarse = useCoarsePointer();
   const picking = useBookPicking(books.data?.items ?? [], `${path}|${page}|${search}`);
   const commands = useBookCommands(picking.finish);
+  const onRefresh = useCallback(() => syncLibraryOnce(runtime.api, queryClient), [runtime.api, queryClient]);
+  const pull = usePullToRefresh(onRefresh);
   // Members add books here; everything else that touches files is the admin-only file manager.
   const upload = async (files: File[]) => { setFeedback(null); setUploading(true); try { const result = await runtime.api.upload(files, path, 'rename'); await Promise.all([queryClient.invalidateQueries({ queryKey: ['library-books'] }), queryClient.invalidateQueries({ queryKey: ['library-browse'] }), queryClient.invalidateQueries({ queryKey: ['shelf'] })]); setFeedback(describeUpload(result)); } catch (reason) { setFeedback({ text: reason instanceof Error ? reason.message : '上传失败，请重试', error: true }); } finally { setUploading(false); } };
   const uploadAccess = useQuery({ queryKey: ['library-upload', runtime.api.baseUrl], queryFn: ({ signal }) => runtime.api.uploadProbe({ signal }), enabled: !!role && role !== 'admin' });
@@ -67,7 +72,8 @@ export function LibraryBrowsePage() {
     : undefined;
   return <div className="library-screen library-browse-screen">
     {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo="/shelf" actions={role === 'admin' ? <Link className="button collection-link" to="/library/files"><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} footer={crumbs} />}
-    <main className="manager-body library-browse-body">
+    <main ref={pull.ref} className="manager-body library-browse-body">
+      <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
       <form className="shelf-search library-search" role="search" onSubmit={(event: FormEvent) => { event.preventDefault(); navigate(path, 1, draft.trim()); }}><Icon name="search" size={18} className="search-glyph" /><input type="search" aria-label="搜索书库" placeholder="在书库中搜索书名、作者" value={draft} onChange={event => setDraft(event.currentTarget.value)} />{draft && <button type="button" className="search-clear" aria-label="清除搜索" onClick={() => { setDraft(''); navigate(path); }}><Icon name="close" /></button>}</form>
       {/* The way into a folder: the books below are this folder's and everything under it,
           and each chip narrows the scope one level (the crumbs above widen it again). */}

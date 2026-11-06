@@ -1,0 +1,35 @@
+/* Pull-to-refresh cue at the top of home / shelf / library scrollers. */
+.pull-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  flex: none;
+  box-sizing: border-box;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  pointer-events: none;
+  transition: color var(--motion-duration) var(--motion-ease);
+}
+.pull-refresh[data-armed='true'] { color: var(--color-brand-text); }
+.pull-refresh-mark {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  transform: rotate(0deg);
+  transition: transform var(--motion-duration) var(--motion-ease);
+}
+.pull-refresh[data-armed='true'] .pull-refresh-mark { transform: rotate(180deg); }
+.pull-refresh[data-refreshing='true'] .pull-refresh-mark {
+  animation: pull-refresh-spin 0.8s linear infinite;
+}
+@keyframes pull-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh[data-refreshing='true'] .pull-refresh-mark { animation: none; }
+}
