@@ -2,14 +2,42 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { MediaPageFrame } from '../../media/components/MediaPageFrame.tsx';
 import { MediaAccountPanel } from '../../media/components/settings.tsx';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
+import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { OpdsAccess } from '../../../ui/opds-access.tsx';
 
 /** 账号与连接 (/me/account): who is signed in, and to which server. */
 export function AccountPage() {
-  const account = useRuntime().mediaApi.accountInfo();
-  if (!account) return <Navigate to="/me" replace />;
+  const runtime = useRuntime();
+  const user = useAuthStore(state => state.verifiedUser ?? state.session?.user ?? null);
+  const account = runtime.mediaApi.accountInfo();
+  if (!account || !user) return <Navigate to="/me" replace />;
+  // Prefer the store's user so a just-saved display name / avatar shows without a reload.
+  const shown = {
+    ...account,
+    displayName: user.displayName,
+    username: user.username,
+    role: user.role,
+    avatarUrl: user.avatarUrl ?? null,
+  };
   return <MediaPageFrame className="media-secondary-page" title="账号与连接" backTo="/me" backLabel="返回我的">
-    <MediaAccountPanel account={account} />
+    <MediaAccountPanel
+      account={shown}
+      api={runtime.api}
+      onDisplayName={async displayName => {
+        const next = await runtime.api.updateDisplayName(displayName);
+        useAuthStore.getState().setUser(next);
+      }}
+      onAvatar={async file => {
+        const next = await runtime.api.setAvatar(file);
+        useAuthStore.getState().setUser(next);
+        return next;
+      }}
+      onClearAvatar={async () => {
+        const next = await runtime.api.clearAvatar();
+        useAuthStore.getState().setUser(next);
+        return next;
+      }}
+    />
   </MediaPageFrame>;
 }
 

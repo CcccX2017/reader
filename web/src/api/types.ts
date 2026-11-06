@@ -21,6 +21,8 @@ export interface User {
   displayName: string;
   role: 'admin' | 'member';
   createdAt: number;
+  /** Relative API path for the avatar image, or null/absent when none is set. */
+  avatarUrl?: string | null;
 }
 
 export interface InstanceInfo {

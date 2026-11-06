@@ -16,6 +16,7 @@
  */
 export const MIGRATIONS_SQL = `
 ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN avatar_path TEXT NOT NULL DEFAULT '';
 ALTER TABLE source_instances ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0;
 CREATE UNIQUE INDEX IF NOT EXISTS source_single_default ON source_instances(is_default) WHERE is_default = 1;
 ALTER TABLE book_files ADD COLUMN parse_version INTEGER NOT NULL DEFAULT 0;
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('admin', 'member')),
   disabled      INTEGER NOT NULL DEFAULT 0,
+  avatar_path   TEXT NOT NULL DEFAULT '',
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL
 );

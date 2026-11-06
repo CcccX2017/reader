@@ -20,6 +20,7 @@
   flex: none;
   width: 56px;
   height: 56px;
+  overflow: hidden;
   border-radius: 50%;
   background: var(--color-brand);
   color: var(--color-on-brand);
@@ -27,6 +28,7 @@
   font-weight: 700;
   box-shadow: 0 0 0 3px var(--color-surface);
 }
+.mine-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .mine-profile-text { min-width: 0; }
 .mine-profile-text strong { display: flex; align-items: center; gap: 8px; font-size: var(--text-title); font-weight: 600; overflow-wrap: anywhere; }

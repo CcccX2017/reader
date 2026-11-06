@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MediaSelect } from './select.tsx';
 import type { MediaAccount } from '../api/media-api.ts';
 import { readMediaPreferences, saveMediaPreferences, type MediaPreferences } from '../services/preferences.ts';
+import { useAvatar } from '../../../shared/ui/use-avatar.ts';
+import type { ReaderApi } from '../../../api/client.ts';
+import type { User } from '../../../api/types.ts';
+
 
 /**
  * 影音浏览: the media screens' per-device browsing preferences, the 影音浏览 section
@@ -40,12 +44,101 @@ export function MediaBrowseSettings({ scope }: { scope: string }) {
 }
 
 /** 账号与连接: who is signed in and to which server. Never shows tokens. */
-export function MediaAccountPanel({ account }: { account: MediaAccount }) {
+export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onClearAvatar }: {
+  account: MediaAccount;
+  /** Needed to fetch the current avatar through Authorization. */
+  api?: ReaderApi;
+  /** Saves the display name; empty clears it back to the username. */
+  onDisplayName?(displayName: string): Promise<void>;
+  /** Uploads a new avatar; the previous file is overwritten. */
+  onAvatar?(file: File): Promise<User>;
+  /** Removes the avatar so the initial letter shows again. */
+  onClearAvatar?(): Promise<User>;
+}) {
+  const stored = account.displayName === account.username ? '' : account.displayName;
+  const [draft, setDraft] = useState(stored);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const [preview, setPreview] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const remote = useAvatar(api, account.avatarUrl);
+  useEffect(() => { setDraft(stored); }, [stored]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  const name = account.displayName || account.username;
+  const dirty = draft.trim() !== stored.trim();
+  const face = preview ?? remote;
+  const upload = async (file: File | undefined) => {
+    if (!file || !onAvatar) return;
+    setAvatarBusy(true); setAvatarError('');
+    const local = URL.createObjectURL(file);
+    setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return local; });
+    try {
+      await onAvatar(file);
+    } catch (reason) {
+      setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+      setAvatarError(reason instanceof Error ? reason.message : '头像更新失败');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+  const clear = async () => {
+    if (!onClearAvatar) return;
+    setAvatarBusy(true); setAvatarError('');
+    try {
+      await onClearAvatar();
+      setPreview(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+    } catch (reason) {
+      setAvatarError(reason instanceof Error ? reason.message : '清除头像失败');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+  const avatar = onAvatar ? <>
+    <button type="button" className="media-account-avatar is-upload" aria-label="更换头像" disabled={avatarBusy} onClick={() => inputRef.current?.click()}>
+      {face ? <img src={face} alt="" /> : Array.from(name)[0]}
+    </button>
+    <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/gif,image/webp" aria-label="选择头像图片" onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(file); }} />
+  </> : <div className="media-account-avatar" aria-hidden="true">{face ? <img src={face} alt="" /> : Array.from(name)[0]}</div>;
   return <section className="media-account-panel">
-    <div className="media-account-avatar" aria-hidden="true">{Array.from(account.displayName || account.username)[0]}</div>
-    <h2>{account.displayName || account.username}</h2>
+    <h2>{name}</h2>
     <p>@{account.username} · {account.role === 'admin' ? '管理员' : '普通用户'}</p>
     <p className="media-manager-note">共享作品资料，收藏、队列和播放进度按账号隔离</p>
     <dl><dt>当前服务器</dt><dd>{account.server || window.location.origin}</dd></dl>
+    {(onDisplayName || onAvatar) && <form className="media-account-profile" onSubmit={event => {
+      event.preventDefault();
+      if (!onDisplayName || !dirty || busy) return;
+      setBusy(true); setError(''); setSaved(false);
+      void onDisplayName(draft.trim()).then(() => {
+        setSaved(true);
+      }).catch(reason => {
+        setError(reason instanceof Error ? reason.message : '保存失败');
+      }).finally(() => setBusy(false));
+    }}>
+      {(onAvatar || face) && <div className="media-setting-field media-account-avatar-field">
+        <span>头像</span>
+        <div className="media-account-avatar-control">
+          {avatar}
+          {(account.avatarUrl || preview) && onClearAvatar && <button type="button" className="button" disabled={avatarBusy} onClick={() => void clear()}>{avatarBusy ? '处理中…' : '清除'}</button>}
+        </div>
+      </div>}
+      {onDisplayName && <label className="media-setting-field">显示名
+        <input
+          aria-label="显示名"
+          maxLength={100}
+          value={draft}
+          placeholder={account.username}
+          disabled={busy}
+          onChange={event => { setDraft(event.currentTarget.value); setSaved(false); setError(''); }}
+        />
+      </label>}
+      <div className="media-account-name-actions">
+        {onDisplayName && <button type="submit" className="button primary" disabled={!dirty || busy}>{busy ? '保存中…' : '保存'}</button>}
+        {saved && !dirty && <span role="status">已保存</span>}
+        {(error || avatarError) && <span role="alert">{error || avatarError}</span>}
+      </div>
+    </form>}
   </section>;
 }

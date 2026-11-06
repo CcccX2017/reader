@@ -42,8 +42,21 @@ it('uses the active player for live playback options',async()=>{
   act(()=>Array.from(root.querySelectorAll('button')).find(b=>b.textContent==='打开播放器')!.click());expect(onPlayback).toHaveBeenCalled();
 });
 it('shows account identity without exposing credentials',async()=>{
-  const api=new MediaApi({baseUrl:'https://reader.example',currentSession:()=>({user:{username:'lin',displayName:'林间',role:'member'},accessToken:'secret-access',refreshToken:'secret-refresh'})} as unknown as ReaderApi);
-  expect(api.accountInfo()).toEqual({username:'lin',displayName:'林间',role:'member',server:'https://reader.example'});
+  const api=new MediaApi({baseUrl:'https://reader.example',currentSession:()=>({user:{username:'lin',displayName:'林间',role:'member',avatarUrl:null},accessToken:'secret-access',refreshToken:'secret-refresh'})} as unknown as ReaderApi);
+  expect(api.accountInfo()).toEqual({username:'lin',displayName:'林间',role:'member',server:'https://reader.example',avatarUrl:null});
   await act(async()=>render(<MediaAccountPanel account={api.accountInfo()!}/>,root));
   expect(root.textContent).toContain('@lin');expect(root.textContent).toContain('https://reader.example');expect(root.textContent).not.toContain('secret');
+});
+it('lets the reader rename their display name from 账号与连接',async()=>{
+  const save=vi.fn(async(name:string)=>{expect(name).toBe('林间');});
+  await act(async()=>render(<MediaAccountPanel account={{username:'lin',displayName:'lin',role:'member',server:'https://reader.example',avatarUrl:null}} onDisplayName={save}/>,root));
+  const input=root.querySelector<HTMLInputElement>('input[aria-label="显示名"]')!;
+  expect(input.placeholder).toBe('lin');
+  await act(async()=>{
+    const write=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;
+    write.call(input,'林间');
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  await act(async()=>{root.querySelector<HTMLButtonElement>('button[type=submit]')!.click();});
+  expect(save).toHaveBeenCalledWith('林间');
 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp,mkdir,rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Db } from '../src/db/index.ts';
@@ -56,4 +56,89 @@ test('admin users, persisted registration policy, bounded invites and immediate 
   assert.equal((await register('disabled-invite',disabled.code)).json().error.code,'INVITE_INVALID');
   const expired=new RegistrationService(db).create('expired',1,1);db.run('UPDATE registration_invites SET expires_at=0 WHERE id=?',expired.invite.id);
   assert.equal((await register('expired-invite',expired.code)).json().error.code,'INVITE_INVALID');
+});
+
+test('a signed-in user can change their display name without signing out', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'reader-display-name-'));
+  await mkdir(join(root, 'books'));
+  await mkdir(join(root, 'data'));
+  const config = { booksDir: join(root, 'books'), dataDir: join(root, 'data'), jwtSecret: 'display-name-test-secret', accessTokenTtl: 604800, refreshTokenTtl: 31536000, logLevel: 'silent', corsOrigins: [], webDir: '', publicUrl: '' } as unknown as AppConfig;
+  const db = new Db(join(root, 'data', 'reader.db'));
+  const users = new UserService(db, config);
+  const app = buildApp({ db, config, users } as AppContext);
+  t.after(async () => { await app.close(); db.close(); await rm(root, { recursive: true, force: true }); });
+  const registered = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { username: 'lin', password: 'password123' } });
+  assert.equal(registered.statusCode, 201);
+  const headers = { authorization: 'Bearer ' + registered.json().session.accessToken };
+  const renamed = await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: '林间' } });
+  assert.equal(renamed.statusCode, 200, renamed.body);
+  assert.equal(renamed.json().user.displayName, '林间');
+  assert.equal((await app.inject({ url: '/api/v1/auth/me', headers })).json().user.displayName, '林间');
+  // Empty clears back to the username; the session stays valid.
+  const cleared = await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: '  ' } });
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(cleared.json().user.displayName, 'lin');
+  assert.equal((await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: 'x'.repeat(101) } })).statusCode, 400);
+});
+
+test('a signed-in user can replace their avatar; a new upload overwrites the old one', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'reader-avatar-'));
+  await mkdir(join(root, 'books'));
+  await mkdir(join(root, 'data'));
+  const config = { booksDir: join(root, 'books'), dataDir: join(root, 'data'), jwtSecret: 'avatar-test-secret', accessTokenTtl: 604800, refreshTokenTtl: 31536000, logLevel: 'silent', corsOrigins: [], webDir: '', publicUrl: '' } as unknown as AppConfig;
+  const db = new Db(join(root, 'data', 'reader.db'));
+  const users = new UserService(db, config);
+  const app = buildApp({ db, config, users } as AppContext);
+  t.after(async () => { await app.close(); db.close(); await rm(root, { recursive: true, force: true }); });
+
+  const registered = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { username: 'lin', password: 'password123' } });
+  assert.equal(registered.statusCode, 201);
+  const userId = registered.json().user.id as string;
+  const headers = { authorization: 'Bearer ' + registered.json().session.accessToken };
+  assert.equal(registered.json().user.avatarUrl, null);
+
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const boundary = '----reader-avatar';
+  const part = (name: string, type: string, bytes: Buffer) => Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: ${type}\r\n\r\n`),
+    bytes,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const uploaded = await app.inject({
+    method: 'POST', url: '/api/v1/auth/avatar',
+    headers: { ...headers, 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload: part('a.png', 'image/png', png),
+  });
+  assert.equal(uploaded.statusCode, 200, uploaded.body);
+  const avatarUrl = uploaded.json().user.avatarUrl as string;
+  assert.ok(avatarUrl.startsWith(`/api/v1/users/${userId}/avatar?v=`));
+  assert.equal((await readFile(join(root, 'data', 'avatars', `${userId}.png`))).equals(png), true);
+
+  const fetched = await app.inject({ method: 'GET', url: avatarUrl.split('?')[0]!, headers });
+  assert.equal(fetched.statusCode, 200);
+  assert.equal(fetched.headers['content-type'], 'image/png');
+  assert.equal(fetched.rawPayload.equals(png), true);
+
+  // JPEG overwrites the previous PNG file.
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+  const replaced = await app.inject({
+    method: 'POST', url: '/api/v1/auth/avatar',
+    headers: { ...headers, 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload: part('b.jpg', 'image/jpeg', jpeg),
+  });
+  assert.equal(replaced.statusCode, 200, replaced.body);
+  assert.equal(await readFile(join(root, 'data', 'avatars', `${userId}.png`)).then(() => true, () => false), false);
+  assert.equal((await readFile(join(root, 'data', 'avatars', `${userId}.jpg`))).equals(jpeg), true);
+
+  const rejected = await app.inject({
+    method: 'POST', url: '/api/v1/auth/avatar',
+    headers: { ...headers, 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload: part('notes.txt', 'text/plain', Buffer.from('not a picture')),
+  });
+  assert.equal(rejected.statusCode, 400);
+
+  const cleared = await app.inject({ method: 'DELETE', url: '/api/v1/auth/avatar', headers });
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(cleared.json().user.avatarUrl, null);
+  assert.equal((await app.inject({ method: 'GET', url: `/api/v1/users/${userId}/avatar`, headers })).statusCode, 404);
 });

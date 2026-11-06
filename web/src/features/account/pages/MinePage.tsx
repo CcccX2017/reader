@@ -8,6 +8,7 @@ import { useThemeState } from '../../../shared/theme/use-theme.ts';
 import { ConfirmSheet } from '../../../ui/sheet.tsx';
 import { useSyncStore } from '../../../shared/stores/sync.store.ts';
 import { connectionLabel } from '../../../app/AppNav.tsx';
+import { useAvatar } from '../../../shared/ui/use-avatar.ts';
 import '../../home/styles/home.css';
 import '../styles/mine.css';
 
@@ -51,13 +52,14 @@ export function MinePage() {
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const name = user?.displayName || user?.username || '';
+  const avatar = useAvatar(runtime.api, user?.avatarUrl);
   // The same sync-engine verdict the sidebar shows; on a phone this page is the only place it appears.
   const connection = connectionLabel(useSyncStore(state => state.status.state));
   return <>
     <div className="media-screen media-page mine-page">
       <header className="home-header"><h1>我的</h1></header>
       {user && <section className="mine-profile" aria-label="当前账号">
-        <div className="mine-avatar" aria-hidden="true">{Array.from(name)[0]}</div>
+        <div className="mine-avatar" aria-hidden="true">{avatar ? <img src={avatar} alt="" /> : Array.from(name)[0]}</div>
         <div className="mine-profile-text">
           <strong>{name}<span className="mine-role">{admin ? '管理员' : '成员'}</span></strong>
           <small><span className="mine-dot" data-state={connection.state} aria-hidden="true" />{connection.label} {serverHost(runtime.api.baseUrl)}</small>

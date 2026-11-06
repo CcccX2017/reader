@@ -60,6 +60,9 @@ function queryTokenAllowed(request: FastifyRequest): boolean {
   // here is a read of audio derived from a sentence the client already holds.
   if (path === '/api/v1/tts') return true;
 
+  // Avatars are loaded by `<img>`, which cannot set Authorization.
+  if (/^\/api\/v1\/users\/[^/]+\/avatar$/.test(path)) return true;
+
   if (!path.startsWith('/api/v1/books/')) return false;
   return path.endsWith('/assets') || path.endsWith('/cover') || path.endsWith('/content');
 }

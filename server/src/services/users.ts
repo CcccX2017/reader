@@ -3,8 +3,9 @@ import type { Db } from '../db/index.ts';
 import type { AppConfig } from '../config/index.ts';
 import { hashPassword, verifyPassword } from './passwords.ts';
 import { hashToken, newRefreshToken, signAccessToken } from './tokens.ts';
-import { conflict, forbidden, notFound, unauthorized } from '../lib/errors.ts';
+import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.ts';
 import { RegistrationService } from './registration.ts';
+import { removeAvatar, sniffAvatarImage, writeAvatar } from './avatars.ts';
 
 export type Role = 'admin' | 'member';
 
@@ -15,6 +16,7 @@ export interface UserRow {
   password_hash: string;
   role: Role;
   disabled: number;
+  avatar_path?: string;
   created_at: number;
   updated_at: number;
   auth_version?: number;
@@ -26,15 +28,19 @@ export interface PublicUser {
   displayName: string;
   role: Role;
   createdAt: number;
+  /** Relative API path for the avatar image, or null when none is set. */
+  avatarUrl: string | null;
 }
 
 export function toPublicUser(row: UserRow): PublicUser {
+  const avatar = (row.avatar_path ?? '').trim();
   return {
     id: row.id,
     username: row.username,
     displayName: row.display_name || row.username,
     role: row.role,
     createdAt: row.created_at,
+    avatarUrl: avatar ? `/api/v1/users/${row.id}/avatar?v=${row.updated_at}` : null,
   };
 }
 
@@ -94,6 +100,7 @@ export class UserService {
         // The first user to register owns the instance.
         role: input.role ?? (this.count() === 0 ? 'admin' : 'member'),
         disabled: 0,
+        avatar_path: '',
         created_at: now,
         updated_at: now,
       };
@@ -226,6 +233,40 @@ export class UserService {
     );
     // A password change must invalidate every other device's session.
     this.revokeAll(userId);
+  }
+
+  /**
+   * The name shown on 我的 and in shared lists. Empty clears it back to the
+   * username. Does not touch sessions: a display name is not a credential.
+   */
+  setDisplayName(userId: string, displayName: string): PublicUser {
+    const row = this.byId(userId);
+    if (!row) throw notFound('user not found');
+    const next = displayName.trim();
+    if (next.length > 100) throw badRequest('显示名最多 100 个字', 'DISPLAY_NAME_TOO_LONG');
+    this.db.run('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?', next, Date.now(), userId);
+    return toPublicUser({ ...row, display_name: next, updated_at: Date.now() });
+  }
+
+  /** Replaces the avatar. A previous file under another extension is removed. */
+  async setAvatar(userId: string, bytes: Buffer): Promise<PublicUser> {
+    const row = this.byId(userId);
+    if (!row) throw notFound('user not found');
+    const sniffed = sniffAvatarImage(bytes);
+    if (!sniffed) throw badRequest('头像只接受 jpg、png、gif 或 webp', 'AVATAR_TYPE');
+    const rel = await writeAvatar(this.config.dataDir, userId, bytes, sniffed.ext);
+    const now = Date.now();
+    this.db.run('UPDATE users SET avatar_path = ?, updated_at = ? WHERE id = ?', rel, now, userId);
+    return toPublicUser({ ...row, avatar_path: rel, updated_at: now });
+  }
+
+  async clearAvatar(userId: string): Promise<PublicUser> {
+    const row = this.byId(userId);
+    if (!row) throw notFound('user not found');
+    await removeAvatar(this.config.dataDir, userId);
+    const now = Date.now();
+    this.db.run('UPDATE users SET avatar_path = ?, updated_at = ? WHERE id = ?', '', now, userId);
+    return toPublicUser({ ...row, avatar_path: '', updated_at: now });
   }
 
   setDisabled(userId: string, disabled: boolean): void {

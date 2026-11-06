@@ -727,11 +727,27 @@ body:has(>#app>.media-screen) { background: var(--color-bg); }
 .media-user-option>span {min-width:0;overflow-wrap:anywhere;line-height:1.6}
 .media-user-option>input {flex-shrink:0}
 .media-account-panel {max-width:640px;margin:32px auto}
-.media-account-avatar {display:grid;place-items:center;width:60px;height:60px;border-radius:50%;background:var(--media-selection);color:var(--media-accent);font-size:26px}
-.media-account-panel h2 {font-size:var(--text-display);margin:16px 0 4px;overflow-wrap:anywhere}
+/* Match /me `.mine-avatar`. `.media-screen` beats the shared button radius rule. */
+.media-screen .media-account-avatar {display:grid;place-items:center;box-sizing:border-box;flex:none;width:56px;height:56px;min-height:0;overflow:hidden;border:0;padding:0;border-radius:50%;background:var(--color-brand);color:var(--color-on-brand);font:inherit;font-size:var(--text-display);font-weight:700;box-shadow:0 0 0 3px var(--color-surface)}
+.media-screen .media-account-avatar img {width:100%;height:100%;object-fit:cover;border-radius:50%}
+.media-screen .media-account-avatar.is-upload {cursor:pointer}
+@media (hover: hover) and (pointer: fine) {
+  .media-screen .media-account-avatar.is-upload:hover:not(:disabled) {outline:2px solid var(--color-brand);outline-offset:2px}
+}
+.media-screen .media-account-avatar.is-upload:disabled {opacity:.6;cursor:wait}
+.media-account-panel h2 {font-size:var(--text-display);margin:0 0 4px;overflow-wrap:anywhere}
 .media-account-panel p {font-size:var(--text-label);color:var(--muted);overflow-wrap:anywhere}
 .media-account-panel dl {font-size:var(--text-meta);line-height:1.8}
 .media-account-panel dd {margin:8px 0;overflow-wrap:anywhere}
+.media-account-profile {margin-top:24px;padding-top:8px;border-top:1px solid var(--border)}
+.media-account-profile .media-setting-field {display:flex;align-items:center;gap:24px;padding:14px 0;font-size:var(--text-ui)}
+.media-account-profile .media-setting-field>span {flex:none}
+.media-account-avatar-field {align-items:center}
+.media-account-avatar-control {display:flex;align-items:center;gap:12px}
+.media-account-profile .media-setting-field input {box-sizing:border-box;width:min(16rem,100%);min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:inherit;font-size:var(--text-title)}
+.media-account-name-actions {display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:8px}
+.media-account-name-actions [role=status] {font-size:var(--text-meta);color:var(--muted)}
+.media-account-name-actions [role=alert] {font-size:var(--text-meta);color:var(--color-danger, #b42318)}
 .media-settings-playing {display:flex;align-items:center;gap:12px;background:var(--surface);padding:14px;border-radius:var(--radius-sm);margin-bottom:8px}
 .media-settings-playing>span {flex:1;min-width:0}
 .media-settings-playing small,.media-settings-playing strong {display:block;overflow-wrap:anywhere}

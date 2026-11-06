@@ -18,7 +18,7 @@ export interface AiScanJob {id:string;libraryId:string;path:string;state:'queued
 export interface AiScanBatch {id:string;jobId:string;batch:number;pathCount:number;paths:string[];raw:string|null;items:unknown[];state:'running'|'complete'|'failed';error:string|null;startedAt:number;finishedAt:number|null}
 export interface Playback {id:string;itemId?:string;partId:string;streamUrl:string;contentType:string;expiresAt:number;position:number;start:number;end:number|null;revision:number;playbackMode?:'auto'|'direct'|'proxy'}
 export interface Progress {position:number;revision:number;completed:boolean}
-export interface MediaAccount {username:string;displayName:string;role:'admin'|'member';server:string}
+export interface MediaAccount {username:string;displayName:string;role:'admin'|'member';server:string;avatarUrl:string|null}
 
 export class MediaApi {
   constructor(private readonly reader:ReaderApi) {}
@@ -30,7 +30,7 @@ export class MediaApi {
   aiScanBatches(id:string){return this.request<{items:AiScanBatch[]}>(`ai-scan-jobs/${encodeURIComponent(id)}/batches`);}
   deleteAiScanJob(id:string){return this.request<void>(`ai-scan-jobs/${encodeURIComponent(id)}`,'DELETE');}
   preferenceScope(){return JSON.stringify([this.reader.baseUrl,this.reader.currentSession()?.user.id??'anonymous']);}
-  accountInfo():MediaAccount|null {const user=this.reader.currentSession()?.user;return user?{username:user.username,displayName:user.displayName,role:user.role,server:this.reader.baseUrl}:null;}
+  accountInfo():MediaAccount|null {const user=this.reader.currentSession()?.user;return user?{username:user.username,displayName:user.displayName,role:user.role,server:this.reader.baseUrl,avatarUrl:user.avatarUrl??null}:null;}
   request<T>(path:string,method='GET',body?:unknown,signal?:AbortSignal):Promise<T> {
     return this.reader.mediaRequest<T>('/api/v1/media/'+path,method,body,signal?{signal}:{});
   }

@@ -245,6 +245,37 @@ export class ReaderApi {
     return result.user;
   }
 
+  /** Updates the signed-in account's display name. Empty clears it back to the username. */
+  async updateDisplayName(displayName: string): Promise<User> {
+    const result = await this.call<{ user: User }>('/api/v1/auth/me', 'PATCH', { displayName });
+    return this.applyUser(result.user);
+  }
+
+  /** Replaces the signed-in account's avatar (jpg/png/gif/webp, max 10MB). */
+  async setAvatar(file: File, options: RequestOptions = {}): Promise<User> {
+    if (file.size > 10 * 1024 * 1024) throw new Error('头像图片不能超过 10MB');
+    const form = new FormData();
+    form.set('file', file);
+    const response = await this.request('/api/v1/auth/avatar', 'POST', form, options);
+    return this.applyUser((response.json as { user: User }).user);
+  }
+
+  /** Removes the signed-in account's avatar. */
+  async clearAvatar(options: RequestOptions = {}): Promise<User> {
+    const response = await this.request('/api/v1/auth/avatar', 'DELETE', undefined, options);
+    return this.applyUser((response.json as { user: User }).user);
+  }
+
+  private async applyUser(user: User): Promise<User> {
+    if (this.session) {
+      const next = { ...this.session, user };
+      this.session = next;
+      await this.sessions.save(next);
+      for (const listener of this.listeners) listener(next);
+    }
+    return user;
+  }
+
   async adminUsers(): Promise<{users:import('./types.ts').ManagedUser[]}> { return this.get('/api/v1/admin/users'); }
   async adminCreateUser(input:{username:string;password:string;displayName:string;role:'admin'|'member'}): Promise<unknown> { return this.call('/api/v1/admin/users','POST',input); }
   async adminUpdateUser(id:string,input:{disabled?:boolean;role?:'admin'|'member'}): Promise<unknown> { return this.call('/api/v1/admin/users/'+encodeURIComponent(id),'PATCH',input); }

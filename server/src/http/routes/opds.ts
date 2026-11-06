@@ -4,6 +4,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative } from 'node:path';
 import type { AppContext } from '../context.ts';
 import { authenticate, currentUser } from '../auth.ts';
+import { toPublicUser } from '../../services/users.ts';
 import { OpdsCredentials, xml } from '../../services/opds.ts';
 import { FilePublications } from '../../publications/files.ts';
 import { allFileHandlers, contentTypeFor } from '../../indexer/formats/index.ts';
@@ -21,7 +22,7 @@ export function registerOpdsRoutes(app: FastifyInstance, ctx: AppContext): void 
     try {
       const id = credentials.authenticate(request.headers.authorization);
       const user = ctx.users.byId(id)!;
-      request.currentUser = { id, username: user.username, displayName: user.display_name, role: user.role, createdAt: user.created_at };
+      request.currentUser = toPublicUser(user);
     } catch (error) { reply.header('www-authenticate', 'Basic realm="Reader OPDS", charset="UTF-8"'); throw error; }
   };
   app.addHook('onSend', async (request, reply, payload) => {
