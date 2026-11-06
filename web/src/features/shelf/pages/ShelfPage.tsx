@@ -149,11 +149,12 @@ export function ShelfPage() {
         <IconButton icon="tune" label={`书架设置 · ${densityLabel}`} onClick={() => setSettingsOpen(true)} />
       </div>
     </header>}
-    <div className="shelf-discovery">
-      {picking.active ? null : <nav className="collection-links shelf-links" aria-label="发现书籍">
-        <Link className="button collection-link" to="/library"><Icon name="library" size={18} /><span>书库</span><Icon name="chevron-right" /></Link>
-        <Link className="button collection-link" to="/sources"><Icon name="search" size={18} /><span>书源</span><Icon name="chevron-right" /></Link>
-      </nav>}
+    <div className="shelf-discovery" data-picking={picking.active ? 'true' : undefined}>
+      {/* Keep the links in layout while picking: unmounting them jumps the grid under the finger. */}
+      <nav className="collection-links shelf-links" aria-label="发现书籍" aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
+        <Link className="button collection-link" to="/library" tabIndex={picking.active ? -1 : undefined}><Icon name="library" size={18} /><span>书库</span><Icon name="chevron-right" /></Link>
+        <Link className="button collection-link" to="/sources" tabIndex={picking.active ? -1 : undefined}><Icon name="search" size={18} /><span>书源</span><Icon name="chevron-right" /></Link>
+      </nav>
       <form className="shelf-search" role="search" onSubmit={onSearch}>
         <Icon name="search" size={18} className="search-glyph" />
         <input type="search" aria-label="筛选书架" placeholder="在书架中筛选书名、作者、系列" value={search} onChange={event => setSearch(event.currentTarget.value)} />

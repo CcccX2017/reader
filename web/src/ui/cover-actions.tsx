@@ -27,16 +27,29 @@ export function useCoarsePointer(): boolean {
 
 /**
  * Long-press a book on a phone: a short hold selects it, a scroll cancels.
- * The click that the browser fires after the hold must not open the book.
+ * The click that the browser fires after the hold must not open the book —
+ * and must not toggle the same book straight back off.
  */
 export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
   const suppress = useRef(false);
   const timer = useRef(0);
+  const clearSuppress = useRef(0);
   const ready = useRef(false);
+  /** Selection already applied while the finger is still down. */
+  const committed = useRef(false);
   const stop = useRef<(() => void) | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
-  useEffect(() => () => stop.current?.(), []);
+  useEffect(() => () => {
+    stop.current?.();
+    window.clearTimeout(clearSuppress.current);
+  }, []);
+
+  const armSuppress = () => {
+    suppress.current = true;
+    window.clearTimeout(clearSuppress.current);
+    clearSuppress.current = window.setTimeout(() => { suppress.current = false; }, 700);
+  };
 
   const onPointerDown = (event: ReactPointerEvent) => {
     if (!enabled || event.pointerType === 'mouse') return;
@@ -44,21 +57,26 @@ export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
     const startY = event.clientY;
     stop.current?.();
     ready.current = false;
+    committed.current = false;
     const finish = (commit: boolean) => {
-      const fire = commit && ready.current;
+      // Timer may already have selected; release then only keeps the click lock.
+      const shouldFire = commit && ready.current && !committed.current;
+      const keepSuppress = committed.current || shouldFire;
       ready.current = false;
       window.clearTimeout(timer.current);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', abort);
       stop.current = null;
-      if (!fire) return;
-      // The sheet opens after the finger lifts, so the release cannot land on a row.
-      suppress.current = true;
-      window.setTimeout(() => { suppress.current = false; }, 700);
+      if (keepSuppress) armSuppress();
+      if (!shouldFire) return;
+      committed.current = true;
       onSelectRef.current();
     };
     const move = (ev: PointerEvent) => {
+      // Entering selection swaps chrome and can shift the card under the finger.
+      // That is not a scroll cancel once the book is already selected.
+      if (committed.current) return;
       if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 24) finish(false);
     };
     const up = () => finish(true);
@@ -66,11 +84,9 @@ export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
     stop.current = () => finish(false);
     timer.current = window.setTimeout(() => {
       ready.current = true;
+      committed.current = true;
       try { navigator.vibrate?.(12); } catch { /* optional */ }
-      // Select while the finger is still down. The click the browser sends on
-      // release has to be swallowed, or it toggles the same book straight off.
-      suppress.current = true;
-      window.setTimeout(() => { suppress.current = false; }, 700);
+      armSuppress();
       onSelectRef.current();
     }, 450);
     window.addEventListener('pointermove', move);
@@ -80,7 +96,8 @@ export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
 
   const onClickCapture = (event: MouseEvent) => {
     if (!suppress.current) return;
-    suppress.current = false;
+    // Keep suppress armed: a reflow under the finger can emit more than one click,
+    // and clearing on the first one let the second toggle the book off mid-hold.
     event.preventDefault();
     event.stopPropagation();
   };

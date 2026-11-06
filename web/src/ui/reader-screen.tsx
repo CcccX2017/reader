@@ -109,7 +109,7 @@ export class ReaderScreen {
   private chrome: ChromeState = {
     title: '',
     author: '',
-    chromeVisible: true,
+    chromeVisible: false,
     statusText: '',
     statusState: 'idle',
     progress: 0,
@@ -176,7 +176,7 @@ export class ReaderScreen {
   /** 时长统计: active reading time for the open book (see ReadingTimeTracker). */
   private readonly readingTime: ReadingTimeTracker;
   private manifest: Manifest | null = null;
-  private chromeVisible = true;
+  private chromeVisible = false;
   /**
    * True while a window is being fetched for a chapter jump.
    *
@@ -248,7 +248,7 @@ export class ReaderScreen {
     // The topbar and the footer are one state (see the stylesheet), and one attribute
     // is what makes "cannot be half-hidden" true by construction rather than by two
     // rules that have to be kept in agreement.
-    this.element.dataset['chrome'] = 'visible';
+    this.element.dataset['chrome'] = 'hidden';
     // The reading theme (the app's, or 黑白灰) and the reading paper, on this
     // container only; see resolveReaderSurface.
     this.applyReadingTheme();
@@ -446,7 +446,8 @@ export class ReaderScreen {
       toc: [],
     });
     this.setStatus('loading', '正在载入…');
-    this.setChromeVisible(true);
+    // Open into immersion: the toolbar is a tap away, not a default overlay.
+    this.setChromeVisible(false);
 
     try {
       this.manifest = await this.loadManifest(book);
