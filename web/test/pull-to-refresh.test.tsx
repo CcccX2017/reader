@@ -1,18 +1,30 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { isPullPointer, usePullToRefresh } from '../src/shared/ui/use-pull-to-refresh.ts';
 import { PullRefreshIndicator } from '../src/ui/pull-refresh.tsx';
 
+/** DevTools phone mouse → pointer (not a real finger; those go through TouchEvent). */
 function pointer(type: string, init: PointerEventInit): PointerEvent {
   return new window.PointerEvent(type, {
-    bubbles: true, composed: true, cancelable: true, pointerType: 'touch', isPrimary: true, pointerId: 1, ...init,
+    bubbles: true, composed: true, cancelable: true, pointerType: 'mouse', isPrimary: true, pointerId: 1, ...init,
   });
 }
 
 let root: Root | null = null;
-afterEach(() => { act(() => root?.unmount()); root = null; document.body.replaceChildren(); });
+let previousTouchPoints: PropertyDescriptor | undefined;
+beforeEach(() => {
+  previousTouchPoints = Object.getOwnPropertyDescriptor(navigator, 'maxTouchPoints');
+  Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 5 });
+});
+afterEach(() => {
+  act(() => root?.unmount());
+  root = null;
+  document.body.replaceChildren();
+  if (previousTouchPoints) Object.defineProperty(navigator, 'maxTouchPoints', previousTouchPoints);
+  else Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 0 });
+});
 
 function mount(onRefresh: () => Promise<void>) {
   let latest = { distance: 0, refreshing: false, armed: false };
@@ -93,6 +105,29 @@ describe('usePullToRefresh', () => {
     expect(host.textContent).toContain('正在同步书库');
   });
 
+  it('refreshes from a real touch stream (phones cannot rely on pointer preventDefault)', async () => {
+    const onRefresh = vi.fn(async () => undefined);
+    const { latest, scroller } = mount(onRefresh);
+    const touch = (type: string, y: number) => {
+      const target = scroller;
+      const t = { identifier: 1, clientX: 100, clientY: y, target, screenX: 100, screenY: y, pageX: 100, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
+      target.dispatchEvent(new window.TouchEvent(type, {
+        bubbles: true, cancelable: true, composed: true,
+        touches: type === 'touchend' || type === 'touchcancel' ? [] : [t as unknown as Touch],
+        targetTouches: type === 'touchend' || type === 'touchcancel' ? [] : [t as unknown as Touch],
+        changedTouches: [t as unknown as Touch],
+      }));
+    };
+    await act(async () => {
+      touch('touchstart', 40);
+      touch('touchmove', 200);
+      touch('touchend', 200);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(latest().distance).toBe(0);
+  });
+
   it('lets a pull on the page surface refresh while an inner pane reports scrollTop', async () => {
     const onRefresh = vi.fn(async () => undefined);
     let latest = { distance: 0, refreshing: false, armed: false };
@@ -122,7 +157,6 @@ describe('usePullToRefresh', () => {
   });
 
   it('accepts a DevTools mouse on a coarse/touch viewport, not a plain desktop mouse', async () => {
-    const previous = Object.getOwnPropertyDescriptor(navigator, 'maxTouchPoints');
     Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 0 });
     expect(isPullPointer({ pointerType: 'touch', isPrimary: true })).toBe(true);
     expect(isPullPointer({ pointerType: 'mouse', isPrimary: true })).toBe(false);
@@ -133,15 +167,12 @@ describe('usePullToRefresh', () => {
     const onRefresh = vi.fn(async () => undefined);
     const { latest, scroller } = mount(onRefresh);
     await act(async () => {
-      scroller.dispatchEvent(pointer('pointerdown', { clientX: 100, clientY: 40, pointerType: 'mouse' }));
-      scroller.dispatchEvent(pointer('pointermove', { clientX: 100, clientY: 200, pointerType: 'mouse' }));
-      scroller.dispatchEvent(pointer('pointerup', { clientX: 100, clientY: 200, pointerType: 'mouse' }));
+      scroller.dispatchEvent(pointer('pointerdown', { clientX: 100, clientY: 40 }));
+      scroller.dispatchEvent(pointer('pointermove', { clientX: 100, clientY: 200 }));
+      scroller.dispatchEvent(pointer('pointerup', { clientX: 100, clientY: 200 }));
       await new Promise(resolve => setTimeout(resolve, 20));
     });
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(latest().distance).toBe(0);
-
-    if (previous) Object.defineProperty(navigator, 'maxTouchPoints', previous);
-    else Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 0 });
   });
 });

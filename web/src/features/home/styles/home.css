@@ -21,11 +21,15 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  /* none: keep browser chrome from claiming the top-edge pull as its own reload. */
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(96px + var(--safe-bottom));
   scrollbar-width: thin;
 }
+/* While pulling, lock the page and the shelf pane so the cue can move instead. */
+.home-page[data-pulling='true'],
+.home-shelf-scroll[data-pulling='true'] { touch-action: none; }
 .home-header h1 { margin: 6px 0 0; font-family: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', serif; font-size: 28px; font-weight: 600; line-height: 1.2; color: var(--color-ink); }
 .home-header p { margin: 6px 0 0; font-size: var(--text-ui); color: var(--color-muted); }
 

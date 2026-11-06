@@ -3,17 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 /**
  * Pull-to-refresh on a vertical scroller.
  *
- * Real phones send `pointerType: 'touch'`. Chrome DevTools' device mode often
- * still reports `mouse` while the page is under `(pointer: coarse)` / touch
- * points — treat that as a pull too, so PC mobile debugging works. A plain
- * desktop mouse (fine pointer, no touch points) stays out so text selection is
- * undisturbed. The gesture starts only when the scroll host is at the top and
- * the finger moves clearly downward.
+ * Phones need non-passive `touchmove` + `preventDefault`: `pointermove`'s
+ * preventDefault does not cancel the browser's scroll/overscroll, so a real
+ * device never shows the cue that DevTools (mouse → pointer) does. Mouse /
+ * DevTools still go through pointer events; touch-typed pointer events are
+ * ignored so one gesture is not handled twice.
  *
- * `ref` is the event surface (where the finger starts). `scrollRef` is optional:
- * when the page chrome is fixed and only an inner pane scrolls (首页), pass the
- * pane as `scrollRef` so a pull on the greeting still refreshes, but only while
- * that pane is scrolled to the top.
+ * `ref` is the event surface. `scrollRef` is optional: when the page chrome is
+ * fixed and only an inner pane scrolls (首页), pass that pane so a pull on the
+ * greeting still refreshes, but only while the pane is at the top. Touch
+ * listeners are also attached to that pane — WebKit only honours
+ * `preventDefault` reliably on the element that would otherwise scroll.
  */
 const THRESHOLD = 64;
 const MAX_PULL = 104;
@@ -54,12 +54,18 @@ function damp(dy: number): number {
   return Math.min(MAX_PULL, Math.max(0, dy) * DAMP);
 }
 
+function touchPoint(event: TouchEvent): { x: number; y: number; id: number } | null {
+  const touch = event.touches[0] ?? event.changedTouches[0];
+  if (!touch) return null;
+  return { x: touch.clientX, y: touch.clientY, id: touch.identifier };
+}
+
 /**
  * Returns callback refs for the event surface (and optional scroll host), plus
  * the live pull state used to render {@link PullRefreshIndicator}.
  */
 export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshState & {
-  /** Element that receives pointer events (often the page or the scroller). */
+  /** Element that receives pointer/touch events (often the page or the scroller). */
   ref: (element: HTMLElement | null) => void;
   /** When set, its `scrollTop` gates the gesture instead of `ref`'s. */
   scrollRef: (element: HTMLElement | null) => void;
@@ -80,19 +86,27 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
     detach.current = null;
     const element = surfaceRef.current;
     if (!element) return;
+    const scrollHost = scrollHostRef.current;
+    // Touch must reach the scroller itself on WebKit; pointer stays on the surface.
+    const touchRoots = scrollHost && scrollHost !== element ? [element, scrollHost] : [element];
 
     let start: { x: number; y: number; id: number } | null = null;
     let tracking = false;
+    /** 'touch' | 'pointer' — which stream owns the in-flight gesture. */
+    let stream: 'touch' | 'pointer' | null = null;
 
     const setPull = (next: number) => {
       live.current.distance = next;
       setDistance(next);
       element.style.setProperty('--pull-distance', `${next}px`);
+      element.dataset['pulling'] = next > 0 || live.current.refreshing ? 'true' : 'false';
+      if (scrollHost) scrollHost.dataset['pulling'] = element.dataset['pulling'];
     };
 
     const finish = async (shouldRefresh: boolean) => {
       tracking = false;
       start = null;
+      stream = null;
       if (!shouldRefresh || live.current.refreshing) {
         setPull(0);
         return;
@@ -111,33 +125,39 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
       }
     };
 
-    const down = (event: PointerEvent) => {
+    const begin = (x: number, y: number, id: number, path: EventTarget[], kind: 'touch' | 'pointer') => {
       start = null;
       tracking = false;
+      stream = null;
       if (live.current.refreshing) return;
-      if (!isPullPointer(event)) return;
       if (scrollTop() > 1) return;
-      if (ownsGesture(event.composedPath(), element)) return;
-      start = { x: event.clientX, y: event.clientY, id: event.pointerId };
+      if (ownsGesture(path, element)) return;
+      start = { x, y, id };
+      stream = kind;
     };
 
-    const move = (event: PointerEvent) => {
-      if (!start || start.id !== event.pointerId || live.current.refreshing) return;
-      const dx = event.clientX - start.x;
-      const dy = event.clientY - start.y;
+    const move = (x: number, y: number, id: number, event: Event) => {
+      if (!start || start.id !== id || live.current.refreshing) return;
+      const dx = x - start.x;
+      const dy = y - start.y;
       if (!tracking) {
-        if (dy < 8) return;
+        if (dy <= 0) return;
         // A sideways swipe belongs to the tab gesture, not pull-to-refresh.
         if (Math.abs(dx) > Math.abs(dy) * 0.7) {
           start = null;
+          stream = null;
           return;
         }
         if (scrollTop() > 1) {
           start = null;
+          stream = null;
           return;
         }
+        // Claim the gesture before the browser starts scrolling — after that,
+        // touchmove is often not cancelable and the cue never appears on phones.
+        if (event.cancelable) event.preventDefault();
+        if (dy < 8) return;
         tracking = true;
-        try { element.setPointerCapture(event.pointerId); } catch { /* optional */ }
       }
       if (dy <= 0) {
         setPull(0);
@@ -147,27 +167,105 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
       setPull(damp(dy));
     };
 
-    const up = (event: PointerEvent) => {
-      if (!start || start.id !== event.pointerId) return;
+    const end = (id: number) => {
+      if (!start || start.id !== id) return;
       const shouldRefresh = tracking && live.current.distance >= THRESHOLD;
       void finish(shouldRefresh);
     };
 
-    const cancel = (event: PointerEvent) => {
-      if (!start || start.id !== event.pointerId) return;
+    const onTouchStart = (event: TouchEvent) => {
+      if (stream === 'touch' && start) return; // already tracking on the other root
+      if (event.touches.length !== 1) return;
+      const point = touchPoint(event);
+      if (!point) return;
+      begin(point.x, point.y, point.id, event.composedPath(), 'touch');
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (stream !== 'touch' || !start) return;
+      let touch: Touch | undefined;
+      for (let i = 0; i < event.touches.length; i += 1) {
+        if (event.touches[i]!.identifier === start.id) {
+          touch = event.touches[i];
+          break;
+        }
+      }
+      if (!touch) return;
+      move(touch.clientX, touch.clientY, touch.identifier, event);
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (stream !== 'touch' || !start) return;
+      let ended = false;
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        if (event.changedTouches[i]!.identifier === start.id) ended = true;
+      }
+      if (ended) end(start.id);
+    };
+
+    const onTouchCancel = (event: TouchEvent) => {
+      if (stream !== 'touch' || !start) return;
+      for (let i = 0; i < event.changedTouches.length; i += 1) {
+        if (event.changedTouches[i]!.identifier === start.id) {
+          void finish(false);
+          return;
+        }
+      }
+    };
+
+    // Mouse / DevTools only — phones use the touch stream above.
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      if (!isPullPointer(event)) return;
+      begin(event.clientX, event.clientY, event.pointerId, event.composedPath(), 'pointer');
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (stream !== 'pointer' || !start || start.id !== event.pointerId) return;
+      move(event.clientX, event.clientY, event.pointerId, event);
+      if (tracking) {
+        try { element.setPointerCapture(event.pointerId); } catch { /* optional */ }
+      }
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (stream !== 'pointer') return;
+      end(event.pointerId);
+    };
+
+    const onPointerCancel = (event: PointerEvent) => {
+      if (stream !== 'pointer' || !start || start.id !== event.pointerId) return;
       void finish(false);
     };
 
-    element.addEventListener('pointerdown', down);
-    element.addEventListener('pointermove', move, { passive: false });
-    element.addEventListener('pointerup', up);
-    element.addEventListener('pointercancel', cancel);
+    // Capture so a pull that starts on the inner scroller still reaches us before
+    // the browser commits to rubber-band scrolling.
+    const touchOpts: AddEventListenerOptions = { capture: true };
+    const moveOpts: AddEventListenerOptions = { capture: true, passive: false };
+    for (const root of touchRoots) {
+      root.addEventListener('touchstart', onTouchStart, touchOpts);
+      root.addEventListener('touchmove', onTouchMove, moveOpts);
+      root.addEventListener('touchend', onTouchEnd, touchOpts);
+      root.addEventListener('touchcancel', onTouchCancel, touchOpts);
+    }
+    element.addEventListener('pointerdown', onPointerDown);
+    element.addEventListener('pointermove', onPointerMove, { passive: false });
+    element.addEventListener('pointerup', onPointerUp);
+    element.addEventListener('pointercancel', onPointerCancel);
     detach.current = () => {
-      element.removeEventListener('pointerdown', down);
-      element.removeEventListener('pointermove', move);
-      element.removeEventListener('pointerup', up);
-      element.removeEventListener('pointercancel', cancel);
+      for (const root of touchRoots) {
+        root.removeEventListener('touchstart', onTouchStart, touchOpts);
+        root.removeEventListener('touchmove', onTouchMove, moveOpts);
+        root.removeEventListener('touchend', onTouchEnd, touchOpts);
+        root.removeEventListener('touchcancel', onTouchCancel, touchOpts);
+        delete root.dataset['pulling'];
+      }
+      element.removeEventListener('pointerdown', onPointerDown);
+      element.removeEventListener('pointermove', onPointerMove);
+      element.removeEventListener('pointerup', onPointerUp);
+      element.removeEventListener('pointercancel', onPointerCancel);
       element.style.removeProperty('--pull-distance');
+      delete element.dataset['pulling'];
     };
   }, []);
 
@@ -178,7 +276,9 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
 
   const scrollRef = useCallback((element: HTMLElement | null) => {
     scrollHostRef.current = element;
-  }, []);
+    // Re-bind so touch listeners attach to the scroller once it mounts.
+    if (surfaceRef.current) bind();
+  }, [bind]);
 
   return {
     ref,

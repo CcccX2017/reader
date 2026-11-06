@@ -944,8 +944,10 @@ book-content {
 
 .shelf {
   overflow-y: auto;
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   padding: 0 0 var(--safe-bottom);
+
   /*
    * On a wide window the shelf is centred and capped rather than stretched.
    *
@@ -3450,9 +3452,12 @@ book-content {
 .manager-body {
   flex: 1 1 auto;
   overflow-y: auto;
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   min-height: 0;
 }
+.shelf[data-pulling='true'],
+.manager-body[data-pulling='true'] { touch-action: none; }
 
 .manager-list {
   padding: 0;

@@ -740,6 +740,26 @@ export class ReaderApi {
     return response.json as { book: Book };
   }
 
+  /**
+   * Writes manual metadata overrides (title, author, …). A rescan never clears them.
+   * Same allowlist as `PATCH /books/:id/metadata` on the server.
+   */
+  async patchBookMetadata(
+    id: string,
+    fields: Partial<Pick<Book, 'title' | 'author' | 'publisher' | 'language' | 'isbn' | 'description' | 'series' | 'pubdate'> & {
+      seriesIndex: number | null;
+      tags: string;
+    }>,
+    options: RequestOptions = {},
+  ): Promise<{ book: Book }> {
+    return this.call(`/api/v1/books/${encodeURIComponent(id)}/metadata`, 'PATCH', fields, options);
+  }
+
+  /** Drops one manual field so the embedded / filename value shows again. */
+  async clearBookMetadataField(id: string, field: string, options: RequestOptions = {}): Promise<{ book: Book }> {
+    return this.call(`/api/v1/books/${encodeURIComponent(id)}/metadata/${encodeURIComponent(field)}`, 'DELETE', undefined, options);
+  }
+
   private invalidateCoverLists(): void {
     for (const key of ['shelf', 'library-books', 'home']) {
       void this.queryClient.invalidateQueries({ queryKey: [key] });
