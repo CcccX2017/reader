@@ -1597,7 +1597,7 @@ book-content {
   text-align: start;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.2rem;
   min-width: 0;
   width: 100%;
 }
@@ -1612,7 +1612,7 @@ book-content {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0;
   min-width: 0;
   width: 100%;
   font: inherit;
@@ -1867,6 +1867,7 @@ book-content {
 }
 
 .book-card .title {
+  margin-top: 0.35rem;
   font-size: var(--text-label);
   line-height: 1.3;
   font-weight: 520;
@@ -1874,13 +1875,10 @@ book-content {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  /* Two lines are always occupied, so the author names of a row of covers line
-     up even when one title is short — a ragged baseline under a grid is the
-     difference between "a shelf" and "a list". */
-  min-height: 2.6em;
 }
 
 .book-card .author {
+  margin-top: 0.1rem;
   font-size: var(--text-meta);
   color: var(--reader-muted);
   white-space: nowrap;

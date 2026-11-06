@@ -517,14 +517,14 @@ Android 壳在原生层处理系统栏（`MainActivity.applyInsets`），WebView
 ### 3.7 弹层：只有一种 Sheet
 
 所有设置、编辑表单、选择列表、详情和确认框都用 `web/src/ui/sheet.tsx` 的 `Sheet`
-（确认框是 `ConfirmSheet`），样式只在 `web/src/styles/sheet.css`。不再使用居中弹窗、
-SweetAlert、Mantine `Modal`、自绘遮罩或角落浮动卡片。
+（确认框是 `ConfirmSheet`），样式只在 `web/src/styles/sheet.css`。不再使用
+SweetAlert、Mantine `Modal`、自绘遮罩或角落浮动卡片；宽屏上的短提问用居中的 compact Sheet。
 
 | 视口 | 形态 |
 | --- | --- |
 | ≤700px | 底部 Sheet：圆角顶边、把手。普通 Sheet 固定高 `min(80dvh, 视口减顶部安全区)`，内容在 Sheet 内部滚动；`compact` 高度随内容（到上限后同样内部滚动）；阅读器内固定 `min(62dvh, …)`、最高 36rem。独立窗口 PWA（`data-host="pwa"`）里普通 Sheet 从视口 20% 处铺到底 |
 | ≥701px | 右侧抽屉：距边 1rem，宽 30rem；`size="wide"` 宽 42rem 给复杂表单 |
-| ≥701px，`size="compact"` | 确认、单行输入、短选择列表：跟手，出现在触发它的点按位置或聚焦控件的下方（放不下则上方），宽 24rem，始终留在窗口内；找不到触发点时回到右上角 |
+| ≥701px，`size="compact"` | 确认、单行输入、短选择列表：视口居中的卡片，宽 24rem |
 
 - 原生 `<dialog>` + `showModal()`：顶层、背景惰性、焦点限制在内部，关闭后焦点回到打开它的控件。
 - 三个出口始终相同：标题栏 ✕（「关闭」）、Esc、点背景；`busy` 时三者都禁用。

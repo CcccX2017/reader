@@ -3,15 +3,15 @@ import { useRef, useState, type JSX } from 'react';
 import type { Book, BookListPage, ContinueReadingItem } from '../../api/types.ts';
 import { useRuntime } from '../../app/providers/runtime-context.tsx';
 import type { MenuItems } from '../../ui/action-menu.tsx';
+import { DialogView, type Dialog } from '../../ui/dialog.tsx';
 import { rememberCover } from './cover-cache.ts';
 
 /**
  * Sets or restores one book's cover from the ⋯ menu.
  *
- * The file picker has to open inside the menu click, so the chosen book is
- * remembered on a ref and the hidden input is clicked immediately. The chosen
- * file is shown at once; the lists then pick up the new cover address without
- * a success toast.
+ * "设置封面" opens a short choice: pick a local image, or paste an http(s) URL
+ * the server downloads and stores. The file picker still has to open inside the
+ * menu/choice click so the browser allows it.
  */
 export function useCustomCover(onError: (message: string) => void) {
   const runtime = useRuntime();
@@ -19,6 +19,8 @@ export function useCustomCover(onError: (message: string) => void) {
   const inputRef = useRef<HTMLInputElement>(null);
   const bookId = useRef('');
   const [busy, setBusy] = useState(false);
+  const [chooser, setChooser] = useState(false);
+  const [urlAsk, setUrlAsk] = useState(false);
 
   const show = (book: Book, file?: Blob) => {
     if (file && book.coverUrl) rememberCover(runtime.api, book.coverUrl, file);
@@ -34,8 +36,13 @@ export function useCustomCover(onError: (message: string) => void) {
     queryClient.setQueriesData({ queryKey: ['home', 'reading'] }, (data: unknown) => Array.isArray(data) ? (data as ContinueReadingItem[]).map(merge) : data);
   };
 
-  const pick = (id: string) => {
+  /** Opens the local-or-URL choice for one book. */
+  const open = (id: string) => {
     bookId.current = id;
+    setChooser(true);
+  };
+
+  const pickFile = () => {
     inputRef.current?.click();
   };
 
@@ -47,6 +54,22 @@ export function useCustomCover(onError: (message: string) => void) {
     try {
       const { book } = await runtime.api.setBookCover(id, file);
       show(book, file);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : '封面更新失败，请稍后重试。');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyUrl = async (url: string) => {
+    const id = bookId.current;
+    const trimmed = url.trim();
+    if (!id || !trimmed) return;
+    setBusy(true);
+    onError('');
+    try {
+      const { book } = await runtime.api.setBookCoverFromUrl(id, trimmed);
+      show(book);
     } catch (error) {
       onError(error instanceof Error ? error.message : '封面更新失败，请稍后重试。');
     } finally {
@@ -69,10 +92,33 @@ export function useCustomCover(onError: (message: string) => void) {
 
   const input: JSX.Element = <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/gif,image/webp" aria-label="选择封面图片" onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(file); }} />;
 
+  const ui: JSX.Element = <>
+    {chooser && <DialogView
+      dialog={{ kind: 'pick', title: '设置封面', options: [
+        { value: 'file', label: '选择本地图片' },
+        { value: 'url', label: '使用网络链接' },
+      ], resolve: (_value: string | null) => undefined } satisfies Dialog}
+      destructive=""
+      onClose={answer => {
+        setChooser(false);
+        if (answer === 'file') pickFile();
+        else if (answer === 'url') setUrlAsk(true);
+      }}
+    />}
+    {urlAsk && <DialogView
+      dialog={{ kind: 'prompt', title: '封面图片链接', value: '', resolve: (_value: string | null) => undefined } satisfies Dialog}
+      destructive=""
+      onClose={answer => {
+        setUrlAsk(false);
+        if (typeof answer === 'string' && answer.trim()) void applyUrl(answer);
+      }}
+    />}
+  </>;
+
   const menu = (book: { id: string; manualFields?: string[] }): MenuItems => [
-    { label: '设置封面', disabled: busy, onSelect: () => pick(book.id) },
+    { label: '设置封面', disabled: busy, onSelect: () => open(book.id) },
     book.manualFields?.includes('cover') ? { label: '恢复原封面', disabled: busy, onSelect: () => void clear(book.id) } : undefined,
   ];
 
-  return { input, menu, busy, pick, clear };
+  return { input, ui, menu, busy, open, pick: open, clear };
 }

@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import JSZip from 'jszip';
 import { XMLParser } from 'fast-xml-parser';
+import { badRequest } from '../lib/errors.ts';
 import { parseFilename } from './filename.ts';
 
 /**
@@ -545,4 +546,69 @@ export async function writeCustomCover(dataDir: string, bookId: string, buf: Buf
 
 export async function removeCustomCover(dataDir: string, bookId: string): Promise<void> {
   await Promise.all(CUSTOM_COVER_EXTENSIONS.map((ext) => rm(join(dataDir, customCoverRel(bookId, ext)), { force: true })));
+}
+
+/**
+ * Downloads a cover from an http(s) URL into memory. The bytes are sniffed later —
+ * Content-Type is not trusted. Self-hosted boxes often pull from a LAN NAS, so
+ * private addresses are allowed; credentials in the URL are not.
+ */
+export async function fetchCoverFromUrl(urlInput: string, fetcher: typeof fetch = fetch): Promise<Buffer> {
+  let url: URL;
+  try {
+    url = new URL(urlInput.trim());
+  } catch {
+    throw badRequest('请填写有效的图片链接', 'COVER_URL');
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw badRequest('封面链接只支持 http 或 https', 'COVER_URL');
+  }
+  if (url.username || url.password) {
+    throw badRequest('封面链接不能带账号密码', 'COVER_URL');
+  }
+
+  let response: Response;
+  try {
+    response = await fetcher(url.href, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000),
+      headers: { accept: 'image/*,*/*;q=0.8' },
+    });
+  } catch (error) {
+    const failure = error as { name?: string } | null;
+    if (failure?.name === 'TimeoutError' || failure?.name === 'AbortError') {
+      throw badRequest('封面链接读取超时，请稍后重试', 'COVER_URL_TIMEOUT');
+    }
+    throw badRequest('无法读取封面链接，请检查地址或网络', 'COVER_URL_FETCH');
+  }
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw badRequest(`封面链接返回 HTTP ${response.status}`, 'COVER_URL_FETCH');
+  }
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > CUSTOM_COVER_MAX_BYTES) {
+    await response.body?.cancel().catch(() => undefined);
+    throw badRequest('封面图片不能超过 8MB', 'COVER_TOO_LARGE');
+  }
+  if (!response.body) throw badRequest('封面链接没有返回图片', 'COVER_URL_FETCH');
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) break;
+      total += next.value.length;
+      if (total > CUSTOM_COVER_MAX_BYTES) {
+        throw badRequest('封面图片不能超过 8MB', 'COVER_TOO_LARGE');
+      }
+      chunks.push(Buffer.from(next.value));
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+  if (!total) throw badRequest('封面链接没有返回图片', 'COVER_URL_FETCH');
+  return Buffer.concat(chunks);
 }

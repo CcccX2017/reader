@@ -2,7 +2,7 @@
  * The one overlay form (web/src/ui/sheet.tsx, docs/ui.md §3.7).
  *
  * Phones: a bottom sheet as tall as its content. Wider windows: a drawer on the
- * right edge — full height, or as tall as its content for `compact`. Callers add a
+ * right edge — full height — or a centred card for `compact`. Callers add a
  * class for their *content*; nothing outside this file sets a sheet's position,
  * size, radius, backdrop or header.
  */
@@ -268,8 +268,8 @@
 }
 
 @keyframes sheet-pop {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 @keyframes sheet-slide {
@@ -327,24 +327,18 @@
     animation-name: sheet-slide;
   }
 
+  /* Confirmations, prompts and short picks: a centred card, not a side drawer. */
   .sheet[data-size='compact'] {
-    bottom: auto;
-  }
-
-  /* Opened by a tap or a focused control: beside the opener, positioned by sheet.tsx. */
-  .sheet[data-size='compact'][data-anchored] {
+    inset: 50% auto auto 50%;
     right: auto;
     bottom: auto;
     width: min(24rem, calc(100vw - 2rem));
+    transform: translate(-50%, -50%);
     box-shadow: 0 12px 40px color-mix(in srgb, #000 18%, transparent);
   }
 
-  .sheet[data-size='compact'][data-anchored][open] {
+  .sheet[data-size='compact'][open] {
     animation-name: sheet-pop;
-  }
-
-  .sheet[data-size='compact'][data-anchored]::backdrop {
-    background: color-mix(in srgb, var(--color-scrim, rgb(0 0 0 / 0.4)) 45%, transparent);
   }
 
   .sheet[data-size='wide'] {

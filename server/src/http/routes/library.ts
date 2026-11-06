@@ -16,7 +16,7 @@ import {
   imageContentType,
   type ContentItem,
 } from '../../indexer/formats/index.ts';
-import { CUSTOM_COVER_MAX_BYTES, removeCustomCover, sniffCoverImage, writeCustomCover } from '../../indexer/metadata.ts';
+import { CUSTOM_COVER_MAX_BYTES, fetchCoverFromUrl, removeCustomCover, sniffCoverImage, writeCustomCover } from '../../indexer/metadata.ts';
 import { sendAssetPayload } from '../assets.ts';
 import { FilePublications } from '../../publications/files.ts';
 import { withSignal } from '../request-signal.ts';
@@ -499,22 +499,32 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
   /**
    * A cover chosen by the reader. Stored beside the extracted picture and
    * recorded as a manual override, so the next scan keeps it.
+   *
+   * Accepts either a multipart file or JSON `{ url }` — the server downloads
+   * the image so the cover stays available after the remote host goes away.
    */
   app.post('/api/v1/books/:id/cover', { preHandler: auth }, async (request) => {
     const user = currentUser(request);
     const { id } = request.params as { id: string };
     ctx.shelf.bookById(id);
-    if (!request.isMultipart()) throw badRequest('expected multipart/form-data', 'NOT_MULTIPART');
     let bytes: Buffer | null = null;
-    for await (const part of request.parts()) {
-      if (part.type !== 'file') continue;
-      if (bytes) {
-        part.file.resume();
-        continue;
+    if (request.isMultipart()) {
+      for await (const part of request.parts()) {
+        if (part.type !== 'file') continue;
+        if (bytes) {
+          part.file.resume();
+          continue;
+        }
+        bytes = await readCoverBytes(part.file);
       }
-      bytes = await readCoverBytes(part.file);
+      if (!bytes) throw badRequest('没有上传封面图片', 'NO_FILE');
+    } else {
+      const body = (request.body ?? {}) as { url?: unknown };
+      if (typeof body.url !== 'string' || !body.url.trim()) {
+        throw badRequest('请上传封面图片或填写图片链接', 'NO_COVER');
+      }
+      bytes = await fetchCoverFromUrl(body.url);
     }
-    if (!bytes) throw badRequest('没有上传封面图片', 'NO_FILE');
     const sniffed = sniffCoverImage(bytes);
     if (!sniffed) throw badRequest('封面只接受 jpg、png、gif 或 webp', 'COVER_TYPE');
     const rel = await writeCustomCover(ctx.config.dataDir, id, bytes, sniffed.ext);

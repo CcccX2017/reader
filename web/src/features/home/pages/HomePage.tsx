@@ -167,7 +167,7 @@ export function HomePage() {
 
   // Most recent first, whatever kind it is.
   const resumes: Array<{ at: number; node: ReactNode }> = [];
-  for (const item of readingBooks.slice(0, 2)) resumes.push({ at: item.lastReadAt ?? 0, node: <ResumeBook key={`read:${item.id}`} book={item} {...(coarse ? { picking: picking.bind(item) } : { menu: commands.covers.menu(item) })} /> });
+  for (const item of readingBooks.slice(0, 2)) resumes.push({ at: item.lastReadAt ?? 0, node: <ResumeBook key={`read:${item.id}`} book={item} {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })} /> });
   if (videoActivity) resumes.push({ at: videoActivity.updatedAt ?? 0, node: <ResumeMedia key="video" channel="video" activity={videoActivity} /> });
   if (audioActivity) resumes.push({ at: audioActivity.updatedAt ?? 0, node: <ResumeMedia key="audiobook" channel="audiobook" activity={audioActivity} /> });
   resumes.sort((a, b) => b.at - a.at);
@@ -187,7 +187,7 @@ export function HomePage() {
     </div>
     {books.length > 0 && <section className="home-shelf" aria-label="我的书架">
       <div className="home-section"><h2>我的书架</h2><Link to="/shelf">全部<Icon name="chevron-right" size={16} /></Link></div>
-      <div className="home-shelf-row">{books.map(item => <BookCard key={item.id} book={item} showAuthor={false} showProgress {...(coarse ? { picking: picking.bind(item) } : { menu: commands.covers.menu(item) })} />)}</div>
+      <div className="home-shelf-row">{books.map(item => <BookCard key={item.id} book={item} showAuthor showProgress {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })} />)}</div>
     </section>}
     {commands.ui}
     {picking.active && <BookSelectBar actions={commands.actionsFor(picking.chosen)} />}

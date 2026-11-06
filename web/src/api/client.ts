@@ -714,6 +714,13 @@ export class ReaderApi {
     return response.json as { book: Book };
   }
 
+  /** Replaces the book's cover by downloading an http(s) image URL on the server. */
+  async setBookCoverFromUrl(id: string, url: string, options: RequestOptions = {}): Promise<{ book: Book }> {
+    const response = await this.request(`/api/v1/books/${encodeURIComponent(id)}/cover`, 'POST', { url }, options);
+    this.invalidateCoverLists();
+    return response.json as { book: Book };
+  }
+
   /** Removes the custom cover so the picture from the book file shows again. */
   async clearBookCover(id: string, options: RequestOptions = {}): Promise<{ book: Book }> {
     const response = await this.request(`/api/v1/books/${encodeURIComponent(id)}/cover`, 'DELETE', undefined, options);

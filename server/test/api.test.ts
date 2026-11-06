@@ -279,6 +279,41 @@ test('a custom cover replaces the extracted picture and survives a rescan', asyn
   assert.equal(stored, false);
 });
 
+test('a cover can be set from an http image URL', async () => {
+  const { createServer } = await import('node:http');
+  const owner = ctx.db.get('SELECT id FROM users WHERE username = ?', 'owner') ? await login('owner') : await register('owner');
+  const bytes = await makeEpub({ id: 'urn:test:cover-url', title: '链接封面', creator: '测试作者' });
+  await writeFile(join(booksDir, '链接封面.epub'), bytes);
+  await ctx.scanner.scan();
+  const book = ctx.db.get<{ id: string }>('SELECT id FROM books WHERE identifier = ?', 'urn:test:cover-url')!;
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const upstream = createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'image/png', 'content-length': String(png.length) });
+    res.end(png);
+  });
+  await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+  const { port } = upstream.address() as { port: number };
+  try {
+    const uploaded = await app.inject({
+      method: 'POST', url: `/api/v1/books/${book.id}/cover`, headers: { ...auth(owner.token), 'content-type': 'application/json' },
+      payload: { url: `http://127.0.0.1:${port}/cover.png` },
+    });
+    assert.equal(uploaded.statusCode, 200, uploaded.body);
+    const body = uploaded.json() as { book: { coverUrl: string | null; manualFields: string[] } };
+    assert.ok(body.book.coverUrl?.startsWith(`/api/v1/books/${book.id}/cover?v=`));
+    assert.ok(body.book.manualFields.includes('cover'));
+    const cover = await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/cover`, headers: auth(owner.token) });
+    assert.equal(cover.statusCode, 200);
+    assert.equal(cover.rawPayload.equals(png), true);
+    assert.equal((await app.inject({
+      method: 'POST', url: `/api/v1/books/${book.id}/cover`, headers: { ...auth(owner.token), 'content-type': 'application/json' },
+      payload: { url: 'ftp://example.com/a.png' },
+    })).statusCode, 400);
+  } finally {
+    await new Promise<void>((resolve, reject) => upstream.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
 test('members cannot reach admin endpoints', async () => {
   const owner = await login('owner');
   const created = await app.inject({
