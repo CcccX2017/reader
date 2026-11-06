@@ -25,6 +25,9 @@ const root = document.getElementById('app');
 if (!root) throw new Error('missing #app root element');
 const appRoot: HTMLElement = root;
 
+const ver = navigator.userAgent.match(/Version\/(\d+(?:\.\d+)*)/i)?.[1];
+if (ver) document.documentElement.dataset.safari = ver;
+
 declare global {
   interface Window {
     readerApp?: Awaited<ReturnType<typeof createAppRuntime>>;

@@ -311,7 +311,7 @@ describe('BookShadowHost', () => {
     const host = createBookHost();
     const sheet = host.shadow.querySelector('style')?.textContent ?? '';
     const paged = /:host\(\[data-paginated='true'\]\) .book-flow \{[^}]*\}/.exec(sheet)?.[0] ?? '';
-    expect(paged).toContain('padding-block: 0');
+    expect(paged).toContain('padding-block: var(--reader-paginated-padding-block, 0)');
     expect(paged).not.toMatch(/padding:\s*0/);
   });
 
