@@ -4054,7 +4054,8 @@ svg.icon { display: inline-block; width: 1em; height: 1em; flex-shrink: 0; verti
 .shelf-links .collection-link.button > span:last-child { flex: 0 0 auto; font-size: var(--text-title); line-height: 1; }
 .shelf-screen .shelf-search input, .library-search input { border-radius: var(--radius-lg); min-height: 48px; }
 .library-browse-screen .library-search { margin-top: .35rem; }
-.library-path { margin-top: .75rem; padding: .25rem 0 0; }
+/* Inside the collection header so desktop measure/centring matches the title row. */
+.collection-header .library-path { margin-top: .5rem; padding: .25rem 0 0; }
 .library-path .manager-crumb { min-height: 44px; }
 .collection-empty.empty-state { width: calc(100% - 2rem); max-width: 30rem; margin: clamp(1.5rem, 7vh, 4rem) auto 2rem; padding: 1.75rem 1.25rem; gap: .7rem; border: 1px solid var(--reader-line); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--reader-surface) 45%, var(--reader-paper)); }
 .collection-empty .empty-glyph { box-sizing: content-box; width: 30px; height: 30px; padding: 1rem; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--reader-accent) 9%, transparent); color: var(--reader-accent); opacity: 1; margin-bottom: .5rem; }
