@@ -7,6 +7,9 @@ server/dist/
 web/dist/
 android/.kotlin/
 
+# Vite dependency pre-bundle cache (local, regenerable)
+.vite/
+
 # runtime data: sqlite db, covers, token secret
 data/
 server/data/
