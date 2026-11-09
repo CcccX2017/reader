@@ -42,6 +42,10 @@ const onShelf = (book: SelectableBook) => book.shelfState !== 'off';
  *
  * `null` is browsing. An array, even an empty one, is the selection screen.
  * `resetKey` drops the selection when the list the reader is looking at changes.
+ *
+ * Pages keep the browsing header in layout (hidden) and overlay `BookSelectHead`,
+ * and pin `BookSelectBar` with `position: fixed`, so entering selection does not
+ * shove the grid under a still-down finger.
  */
 export function useBookPicking<T extends { id: string }>(books: T[], resetKey: unknown) {
   const [picked, setPicked] = useState<string[] | null>(null);
@@ -173,5 +177,22 @@ export function BookSelectHead({ allPicked, count, onAll, onCancel }: { allPicke
 }
 
 export function BookSelectBar({ actions }: { actions: SelectAction[] }) {
+  // Cover the phone tab bar while selecting: the toolbar sits at the same bottom
+  // edge, and the nav must not accept taps or route changes underneath it.
+  useEffect(() => {
+    document.body.dataset['bookSelecting'] = 'true';
+    const nav = document.querySelector('.app-nav');
+    if (nav instanceof HTMLElement) {
+      nav.setAttribute('inert', '');
+      nav.setAttribute('aria-hidden', 'true');
+    }
+    return () => {
+      delete document.body.dataset['bookSelecting'];
+      if (nav instanceof HTMLElement) {
+        nav.removeAttribute('inert');
+        nav.removeAttribute('aria-hidden');
+      }
+    };
+  }, []);
   return <div className="shelf-select-bar" role="toolbar" aria-label="已选书籍的操作">{actions.map(action => <button key={action.label} type="button" className="shelf-select-action" data-danger={action.danger ? 'true' : undefined} disabled={action.disabled} onClick={action.onSelect}><Icon name={action.icon} size={24} /><span>{action.label}</span></button>)}</div>;
 }

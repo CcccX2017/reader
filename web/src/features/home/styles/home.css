@@ -8,7 +8,11 @@
   /* Nav / mini-player clearance moves onto the scrolling pane. */
   padding-bottom: 0;
 }
-.home-header, .home-continue, .home-page > .shelf-select-head, .home-page > .pull-refresh { flex: none; }
+.home-header, .home-continue, .home-page > .select-head-slot, .home-page > .pull-refresh { flex: none; }
+.home-page > .select-head-slot > .shelf-select-head {
+  padding-block: 0.25rem 0.5rem;
+  background: var(--color-bg);
+}
 .home-shelf {
   display: flex;
   flex-direction: column;
@@ -26,6 +30,9 @@
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(96px + var(--safe-bottom));
   scrollbar-width: thin;
+}
+.home-shelf-scroll[data-selecting='true'] {
+  padding-bottom: calc(12rem + var(--safe-bottom));
 }
 /* Touch: hide the shelf scroller chrome; the pane still scrolls. */
 @media (pointer: coarse) {

@@ -183,7 +183,12 @@ export function HomePage() {
   // Events on the whole page (greeting / 继续 count); scrollTop comes from the shelf pane.
   return <div ref={pull.ref} className="media-screen media-page home-page">
     <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
-    {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <header className="home-header"><h1>{greeting(new Date().getHours())}{name ? `，${name}` : ''}</h1><p>从上次停下的地方继续</p></header>}
+    <div className="select-head-slot">
+      <header className="home-header" data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
+        <h1>{greeting(new Date().getHours())}{name ? `，${name}` : ''}</h1><p>从上次停下的地方继续</p>
+      </header>
+      {picking.active && <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} />}
+    </div>
     <div className="home-continue">
       {resumes.map(entry => entry.node)}
       {/* Only a successful answer can say "nothing in progress": while loading the slot keeps
@@ -198,7 +203,7 @@ export function HomePage() {
     {/* Greeting、继续、「我的书架」标题固定；只有书格（及下方影音行）在标题下滚动。 */}
     <section className="home-shelf" aria-label="我的书架">
       {books.length > 0 && <div className="home-section"><h2>我的书架</h2><Link to="/shelf">全部<Icon name="chevron-right" size={16} /></Link></div>}
-      <div ref={pull.scrollRef} className="home-shelf-scroll">
+      <div ref={pull.scrollRef} className="home-shelf-scroll" data-selecting={picking.active ? 'true' : undefined}>
         {books.length > 0 && <div className="book-grid" data-show-author="true" data-show-progress="true">{books.map(item => <BookCard key={item.id} book={item} showAuthor showProgress {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })} />)}</div>}
         {media && <>
           <Discover channel="video" kind="video" heading="看点什么" to="/media/video" />

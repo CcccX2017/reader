@@ -1,7 +1,26 @@
-import { useEffect, useRef, useState, type JSX, type MouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type JSX, type MouseEvent, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
 import type { MenuItems } from './action-menu.tsx';
 import { ActionMenu, ActionSheet } from './action-menu.tsx';
 import { Icon } from './icon.tsx';
+
+/** Keep a just-selected cover clear of the fixed `.shelf-select-bar`. */
+function revealCardAboveSelectBar(card: HTMLElement | null): void {
+  if (!card) return;
+  const run = () => {
+    const bar = document.querySelector('.shelf-select-bar');
+    const limit = bar instanceof HTMLElement
+      ? bar.getBoundingClientRect().top - 12
+      : window.innerHeight - 12;
+    const rect = card.getBoundingClientRect();
+    if (rect.bottom <= limit) return;
+    const delta = rect.bottom - limit;
+    const scroller = card.closest('.shelf-scroll, .library-browse-scroll, .home-shelf-scroll');
+    if (scroller instanceof HTMLElement) scroller.scrollTop += delta;
+    else window.scrollBy(0, delta);
+  };
+  // Wait for the bar + `data-selecting` padding to land before measuring.
+  requestAnimationFrame(() => requestAnimationFrame(run));
+}
 
 function coarseNow(): boolean {
   try {
@@ -131,7 +150,32 @@ export interface Picking {
 
 /** Long-press starts selection; a tap while it is open toggles the book and does not open it. */
 export function usePickingCard(picking: Picking | undefined) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const wasActive = useRef(false);
   const hold = useHoldToSelect(() => picking?.onHold(), !!picking && !picking.active);
+  useLayoutEffect(() => {
+    const active = !!picking?.active;
+    // Only the book that opened selection needs lifting; wait for the finger to lift
+    // so a mid-hold scroll does not yank the cover out from under the contact.
+    const shouldReveal = active && !!picking?.selected && !wasActive.current;
+    wasActive.current = active;
+    if (!shouldReveal) return;
+    const card = cardRef.current;
+    let done = false;
+    const reveal = () => {
+      if (done) return;
+      done = true;
+      revealCardAboveSelectBar(card);
+    };
+    window.addEventListener('pointerup', reveal);
+    window.addEventListener('pointercancel', reveal);
+    const fallback = window.setTimeout(reveal, 500);
+    return () => {
+      window.removeEventListener('pointerup', reveal);
+      window.removeEventListener('pointercancel', reveal);
+      window.clearTimeout(fallback);
+    };
+  }, [picking?.active, picking?.selected]);
   const onClickCapture = (event: MouseEvent) => {
     hold.onClickCapture(event);
     if (event.defaultPrevented || !picking?.active) return;
@@ -141,9 +185,11 @@ export function usePickingCard(picking: Picking | undefined) {
   };
   const onContextMenu = (event: MouseEvent) => { if (picking) event.preventDefault(); };
   const selected = !!picking?.selected;
+  const setCardRef: Ref<HTMLDivElement> = (node) => { cardRef.current = node; };
   return {
     selected,
     props: picking ? {
+      ref: setCardRef,
       ...(picking.active ? {} : hold),
       onClickCapture,
       onContextMenu,

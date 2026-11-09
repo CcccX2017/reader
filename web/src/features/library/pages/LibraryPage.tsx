@@ -71,7 +71,12 @@ export function LibraryBrowsePage() {
     ? <div className="manager-crumbs library-path" aria-label="当前文件夹">{listing.data.crumbs.map((crumb, index) => <span key={`${crumb.path}-${index}`}>{index > 0 && <span className="manager-crumb-sep">/</span>}<button type="button" className="manager-crumb" onClick={() => navigate(crumb.path)}>{crumb.name}</button></span>)}</div>
     : undefined;
   return <div className="library-screen library-browse-screen">
-    {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo="/shelf" actions={role === 'admin' ? <Link className="button collection-link" to="/library/files"><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} footer={crumbs} />}
+    <div className="select-head-slot">
+      <div data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
+        <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo="/shelf" actions={role === 'admin' ? <Link className="button collection-link" to="/library/files"><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} footer={crumbs} />
+      </div>
+      {picking.active && <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} />}
+    </div>
     {/* Header / search / folders stay put; only the book pane scrolls (same split as 书架). */}
     <main ref={pull.ref} className="manager-body library-browse-body">
       <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
@@ -79,7 +84,7 @@ export function LibraryBrowsePage() {
       {/* The way into a folder: the books below are this folder's and everything under it,
           and each chip narrows the scope one level (the crumbs above widen it again). */}
       {folders.length > 0 && <nav className="library-folders" aria-label="子文件夹">{folders.map(folder => <button key={folder.path} type="button" className="chip" onClick={() => navigate(folder.path)}><Icon name="folder" size={14} />{folder.name}</button>)}</nav>}
-      <div ref={pull.scrollRef} className="library-browse-scroll">
+      <div ref={pull.scrollRef} className="library-browse-scroll" data-selecting={picking.active ? 'true' : undefined}>
         <FloatingNotice message={feedback?.text ?? ''} error={!!feedback?.error} kind="success" />
         {books.isPending && <><FloatingNotice message="正在加载书库…" busy /><BookGridSkeleton className="library-browse-grid" density="cozy" /></>}{books.error && <Callout tone="error" title="书库加载失败" action={{ label: '重试', onClick: () => void books.refetch() }}>{books.error.message}</Callout>}
         {empty && <div className="empty-state collection-empty"><Icon name="book" className="empty-glyph" /><p>{search ? '没有匹配的书' : '书库还没有书'}</p><p className="muted">{search ? '换个关键词，或者检查一下作者名的写法。' : role === 'admin' ? '前往文件管理添加书籍，再回到这里浏览。' : uploadAccess.data?.allowed ? '使用上方的上传书籍添加书籍，再回到这里浏览。' : '书库的书由管理员添加。'}</p><div className="empty-actions">{search ? <button type="button" className="button" onClick={() => { setDraft(''); navigate(path); }}>清除搜索</button> : role === 'admin' ? <Link className="button primary" to="/library/files"><Icon name="folder" size={16} />文件管理</Link> : null}</div></div>}

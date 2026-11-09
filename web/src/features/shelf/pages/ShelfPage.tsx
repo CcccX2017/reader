@@ -144,12 +144,16 @@ export function ShelfPage() {
   return <div className="shelf-screen shelf-host">
     <div ref={setSurface} className="shelf">
     <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
-    {picking.active ? <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} /> : <header className="shelf-head">
-      <div className="shelf-head-text"><h1 className="shelf-title">{queryText ? '筛选结果' : '书架'}</h1><p className="shelf-subtitle muted">{subtitle}</p></div>
-      <div className="shelf-head-actions">
-        <IconButton icon="tune" label={`书架设置 · ${densityLabel}`} onClick={() => setSettingsOpen(true)} />
-      </div>
-    </header>}
+    {/* Keep the browsing head in layout; overlay the select head so the grid does not jump. */}
+    <div className="select-head-slot">
+      <header className="shelf-head" data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
+        <div className="shelf-head-text"><h1 className="shelf-title">{queryText ? '筛选结果' : '书架'}</h1><p className="shelf-subtitle muted">{subtitle}</p></div>
+        <div className="shelf-head-actions">
+          <IconButton icon="tune" label={`书架设置 · ${densityLabel}`} onClick={() => setSettingsOpen(true)} />
+        </div>
+      </header>
+      {picking.active && <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} />}
+    </div>
     <div className="shelf-discovery" data-picking={picking.active ? 'true' : undefined}>
       {/* Keep the links in layout while picking: unmounting them jumps the grid under the finger. */}
       <nav className="collection-links shelf-links" aria-label="发现书籍" aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
@@ -174,7 +178,7 @@ export function ShelfPage() {
           : <button type="button" className="chip shelf-group" aria-haspopup="dialog" onClick={() => setGroupsOpen(true)}>分组</button>}
       </div>
       {(!query.isPending && (cards.length > 0 || queryText || filtered)) && <div className="shelf-toolbar"><span className="shelf-count muted">{queryText ? `找到 ${query.data?.total ?? 0} 本` : `共 ${query.data?.total ?? 0} 本`}</span><div className="shelf-sort" role="group" aria-label="排序方式">{SHELF_SORTS.map(option => <button key={option.value} type="button" className="chip" aria-pressed={option.value === sort} onClick={() => onSort(option.value)}>{option.label}</button>)}</div></div>}
-      <div ref={pull.scrollRef} id="shelf-scroll" className="shelf-scroll">
+      <div ref={pull.scrollRef} id="shelf-scroll" className="shelf-scroll" data-selecting={picking.active ? 'true' : undefined}>
         {query.isPending && <><FloatingNotice message="正在加载书架…" busy /><BookGridSkeleton density={settings.shelfDensity} /></>}
         {query.error && <Callout tone="error" title="书架加载失败" action={{ label: '重试', onClick: () => void query.refetch() }}>{query.error.message}</Callout>}
         {query.data && cards.length === 0 && filtered && !queryText && <div className="empty-state collection-empty"><Icon name="book" className="empty-glyph" /><p>{status ? `还没有${READING_LABELS[status]}的书` : '这个分组里没有书'}</p><p className="muted">{status === 'want' ? '在书籍的“⋯”菜单里可以标记想读。' : '换一个分类，或查看全部书籍。'}</p><div className="empty-actions"><button type="button" className="button" onClick={clearFilters}>查看全部书籍</button></div></div>}

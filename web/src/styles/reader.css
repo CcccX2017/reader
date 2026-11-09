@@ -1006,6 +1006,29 @@ book-content {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Reserve the browsing header's height; overlay the select head so the grid stays put. */
+.select-head-slot {
+  position: relative;
+  flex: none;
+  width: 100%;
+}
+.select-head-slot > [data-picking-hidden='true'] {
+  visibility: hidden;
+  pointer-events: none;
+}
+.select-head-slot > .shelf-select-head {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  margin: 0;
+  max-width: none;
+  width: 100%;
+  box-sizing: border-box;
+  align-content: center;
+  padding-inline: calc(0.9rem + var(--safe-left)) calc(0.9rem + var(--safe-right));
+  background: var(--color-bg);
+}
 .shelf-select-side {
   justify-self: start;
   border: 0;
@@ -1045,9 +1068,27 @@ book-content {
   background: var(--color-surface);
   border-top: 1px solid var(--color-line);
 }
+/* Fixed at the viewport bottom so mounting it does not shove the book pane.
+ * On a phone it replaces the tab bar (same bottom edge, higher z-index). */
+.shelf-screen > .shelf-select-bar,
+.library-browse-screen > .shelf-select-bar,
+.home-page > .shelf-select-bar {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
 @media (max-width: 700px) {
-  body[data-app-nav='top'] .shelf-select-bar {
-    padding-bottom: 0.75rem;
+  body[data-book-selecting] .app-nav {
+    pointer-events: none;
+  }
+}
+@media (min-width: 701px) {
+  body[data-app-nav] .shelf-screen > .shelf-select-bar,
+  body[data-app-nav] .library-browse-screen > .shelf-select-bar,
+  body[data-app-nav] .home-page > .shelf-select-bar {
+    left: var(--app-nav-width);
   }
 }
 .shelf-select-action {
@@ -1078,34 +1119,9 @@ book-content {
   cursor: default;
 }
 
-/* 首页 scrolls as one page, so the bar stays on screen. 书库 already pins it under its scroller.
-   The shelf header's padding reads --shelf-gutter-end, which exists only on .shelf.
-   Used from the library that whole shorthand is dropped, and 全选 / 取消 sit on the
-   screen edge while the search field below keeps its own inset. This padding is the
-   library header's, so the selection bar occupies the same box as 书库. */
-.library-browse-screen > .shelf-select-head {
-  flex: none;
-  width: 100%;
-  max-width: none;
-  box-sizing: border-box;
-  margin: 0;
+/* 首页 / 书库 selection chrome: select head overlays the reserved slot. */
+.library-browse-screen .select-head-slot > .shelf-select-head {
   padding: calc(1.25rem + var(--safe-top)) calc(0.9rem + var(--safe-right)) 0.75rem calc(0.9rem + var(--safe-left));
-}
-.home-page > .shelf-select-head {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  max-width: none;
-  margin: 0;
-  padding: 0.25rem 0 0.5rem;
-  background: var(--color-bg);
-}
-.home-page > .shelf-select-bar {
-  position: fixed;
-  z-index: 5;
-  left: 0;
-  right: 0;
-  bottom: 0;
 }
 .home-page .shelf-select-action,
 .home-page .shelf-select-side {
@@ -1127,16 +1143,6 @@ book-content {
   .home-page .shelf-select-action:hover,
   .home-page .shelf-select-side:hover {
     background: transparent;
-  }
-}
-@media (max-width: 700px) {
-  body[data-app-nav='top'] .home-page > .shelf-select-bar {
-    bottom: calc(var(--app-nav-bar) + var(--safe-bottom));
-  }
-}
-@media (min-width: 701px) {
-  body[data-app-nav] .home-page > .shelf-select-bar {
-    left: var(--app-nav-width);
   }
 }
 
@@ -1398,10 +1404,18 @@ book-content {
   padding-bottom: calc(1.35rem + var(--safe-bottom));
   scrollbar-width: thin;
 }
+/* Clearance for the fixed select bar (covers the tab bar and rises into the page). */
+.shelf-scroll[data-selecting='true'] {
+  padding-bottom: calc(12rem + var(--safe-bottom));
+}
 /* Touch: hide the book-pane chrome; the grid still scrolls. */
 @media (pointer: coarse) {
-  .shelf-scroll { scrollbar-width: none; }
-  .shelf-scroll::-webkit-scrollbar { display: none; }
+  .shelf-scroll {
+    scrollbar-width: none;
+  }
+  .shelf-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /*
@@ -3551,9 +3565,16 @@ book-content {
   padding-bottom: calc(1.35rem + var(--safe-bottom));
   scrollbar-width: thin;
 }
+.library-browse-scroll[data-selecting='true'] {
+  padding-bottom: calc(12rem + var(--safe-bottom));
+}
 @media (pointer: coarse) {
-  .library-browse-scroll { scrollbar-width: none; }
-  .library-browse-scroll::-webkit-scrollbar { display: none; }
+  .library-browse-scroll {
+    scrollbar-width: none;
+  }
+  .library-browse-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* 书库's subfolders: one scrollable row of chips under the search field, on its gutter. */
@@ -5421,12 +5442,12 @@ html[data-safari='27.2'] .reader-screen .topbar {
   .collection-header,
   .library-browse-body,
   .library-files-screen .manager-body,
-  .library-browse-screen > .shelf-select-head {
+  .library-browse-screen > .select-head-slot {
     width: calc(100% - 2 * var(--page-gutter) + 1.8rem);
     max-width: var(--collection-measure);
     margin-inline: auto;
   }
-  .library-browse-screen > .shelf-select-head {
+  .library-browse-screen .select-head-slot > .shelf-select-head {
     padding-top: 2rem;
   }
   .library-files-screen .manager-row {
