@@ -1789,13 +1789,22 @@ book-content {
 }
 
 /* A phone has no hover. Long-press selects the book and the actions arrive in a
-   bottom sheet, so the corner lens stays off the cover. The check is the selection. */
+   bottom sheet, so the corner lens stays off the cover. The check is the selection.
+   Covers must not lift as a native image drag under the hold. */
 @media (pointer: coarse) {
   .book-card,
   .home-resume-slot {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+  }
+  .book-card .cover img,
+  .home-resume-cover img {
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    /* Hits go to the card/link; the bitmap itself cannot start a drag ghost. */
+    pointer-events: none;
   }
 }
 
@@ -1892,6 +1901,7 @@ book-content {
   height: 100%;
   object-fit: cover;
   display: block;
+  -webkit-user-drag: none;
 }
 
 /*

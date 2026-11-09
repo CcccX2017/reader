@@ -71,7 +71,7 @@ function ResumeBook({ book, menu, picking }: { book: ContinueReadingItem; menu?:
   const selected = picking ? cardPick.selected : actions.selected;
   const card = <ResumeCard channel="read" to={`/book/${encodeURIComponent(book.id)}`} title={title} detail={book.chapterTitle ?? ''}
     progress={progress} meter={`已读 ${Math.round(progress * 100)}%`}
-    cover={<>{src ? <img src={src} alt="" /> : <span className="home-resume-placeholder" style={coverTint(title)}>{title}</span>}{cardPick.mark ?? (selected && <CoverCheck />)}</>} />;
+    cover={<>{src ? <img src={src} alt="" draggable={false} /> : <span className="home-resume-placeholder" style={coverTint(title)}>{title}</span>}{cardPick.mark ?? (selected && <CoverCheck />)}</>} />;
   if (picking) return <div className="home-resume-slot" {...cardPick.props}>{card}</div>;
   if (!menu) return card;
   return <div className="home-resume-slot" data-selected={actions.selected ? 'true' : undefined} {...actions.hold}>{card}{actions.menu}{actions.sheet}</div>;

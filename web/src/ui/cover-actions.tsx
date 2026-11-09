@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type JSX, type MouseEvent, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type JSX, type MouseEvent, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
 import type { MenuItems } from './action-menu.tsx';
 import { ActionMenu, ActionSheet } from './action-menu.tsx';
 import { Icon } from './icon.tsx';
@@ -126,7 +126,12 @@ export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
     event.preventDefault();
   };
 
-  return { onPointerDown, onClickCapture, onContextMenu };
+  const onDragStart = (event: DragEvent) => {
+    // A long-press must not lift the cover as a native drag image.
+    event.preventDefault();
+  };
+
+  return { onPointerDown, onClickCapture, onContextMenu, onDragStart };
 }
 
 /** The round check on a selected cover's bottom-right. */
@@ -184,6 +189,7 @@ export function usePickingCard(picking: Picking | undefined) {
     picking.onToggle();
   };
   const onContextMenu = (event: MouseEvent) => { if (picking) event.preventDefault(); };
+  const onDragStart = (event: DragEvent) => { event.preventDefault(); };
   const selected = !!picking?.selected;
   const setCardRef: Ref<HTMLDivElement> = (node) => { cardRef.current = node; };
   return {
@@ -193,6 +199,7 @@ export function usePickingCard(picking: Picking | undefined) {
       ...(picking.active ? {} : hold),
       onClickCapture,
       onContextMenu,
+      onDragStart,
       role: picking.active ? 'checkbox' as const : undefined,
       'aria-checked': picking.active ? picking.selected : undefined,
       'data-selected': selected ? 'true' as const : undefined,
