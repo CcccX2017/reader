@@ -11,6 +11,8 @@ export interface Session {
   user: User;
   accessToken: string;
   accessTokenExpiresAt: number;
+  resourceToken?: string;
+  resourceTokenExpiresAt?: number;
   refreshToken: string;
   refreshTokenExpiresAt: number;
 }
@@ -23,9 +25,13 @@ export interface User {
   createdAt: number;
   /** Relative API path for the avatar image, or null/absent when none is set. */
   avatarUrl?: string | null;
+  mediaEnabled?: boolean;
+  features?: {media:boolean};
+  mediaState?: 'disabled'|'stopping'|'starting'|'ready'|'failed'|'closed';
 }
 
 export interface InstanceInfo {
+  features?: {media:boolean};
   registrationMode?: 'closed' | 'open' | 'invite';
   invitationRequired?: boolean;
   name: string;
@@ -207,6 +213,7 @@ export interface Note {
 
 export interface SyncPull {
   serverTime: number;
+  hasMore?: boolean;
   progress: Progress[];
   notes: Note[];
 }

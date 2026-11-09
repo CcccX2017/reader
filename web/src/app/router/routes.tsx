@@ -1,31 +1,26 @@
-import { Navigate, type RouteObject } from 'react-router-dom';
+import { Navigate, Outlet, type RouteObject } from 'react-router-dom';
 import { AppShell, MediaLayout } from '../App.tsx';
 import { MediaCatalogPage } from '../../features/media/pages/MediaCatalogPage.tsx';
 import { MediaSearchPage } from '../../features/media/pages/MediaSearchPage.tsx';
 import { MediaFavoritesPage } from '../../features/media/pages/MediaFavoritesPage.tsx';
 import { MediaHistoryPage } from '../../features/media/pages/MediaHistoryPage.tsx';
-import { MediaDetailPage } from '../../features/media/pages/MediaDetailPage.tsx';
 import { MediaQueuePage } from '../../features/media/pages/MediaQueuePage.tsx';
-import { MediaPlayerPage } from '../../features/media/pages/MediaPlayerPage.tsx';
 import { RouteErrorBoundary } from './error-boundary.tsx';
 import { ShelfPage } from '../../features/shelf/pages/ShelfPage.tsx';
-import { LibraryPage, LibraryBrowsePage, LibraryFilesPage } from '../../features/library/pages/LibraryPage.tsx';
-import { SourcesPage } from '../../features/sources/pages/SourcesPage.tsx';
 import { MinePage } from '../../features/account/pages/MinePage.tsx';
 import { LegacySettingsRedirect, SettingsPage } from '../../features/account/pages/SettingsPage.tsx';
 import { AccountPage, OpdsPage } from '../../features/account/pages/AccountPages.tsx';
 import { HomePage } from '../../features/home/pages/HomePage.tsx';
 import { SearchPage } from '../../features/search/pages/SearchPage.tsx';
-import { MediaFoldersPage } from '../../features/media/pages/MediaFoldersPage.tsx';
-import { MediaNarratorsPage } from '../../features/media/pages/MediaNarratorsPage.tsx';
 import {
   ReaderPage,
   MediaLibrariesPage, MediaLibraryCreatePage, MediaLibraryEditPage, MediaLibraryPermissionsPage, MediaTasksPage,
   MediaMetadataEditPage, MediaMatchPage, MediaChaptersPage, MediaEditionPage, MediaStructurePage,
   SourceEditorPage, SourceCredentialsPage, SourceExtensionPage, StatsPage,
   AdminUsersPage, AdminRegistrationPage, AdminServicesPage,
+  MediaDetailPage, MediaPlayerPage, MediaFoldersPage, MediaNarratorsPage,
+  LibraryPage, LibraryBrowsePage, LibraryFilesPage, SourcesPage, SourceCatalogPage,
 } from './lazy-pages.tsx';
-import { SourceCatalogPage } from '../../features/sources/pages/SourceCatalogPage.tsx';
 
 export const routes = [{
   path: '/', element: <AppShell />, errorElement: <RouteErrorBoundary />, children: [
@@ -55,11 +50,10 @@ export const routes = [{
     // 我的 (/me).
     { path: 'settings', element: <Navigate to="/shelf" replace /> },
     { path: 'book/:bookId', element: <ReaderPage /> },
-    // 我的 shares MediaLayout so it follows the chosen theme and keeps the channel rail.
     // Every row of it opens a page under /me, so back from any of them returns to 我的:
     // all personal preferences are sections of one page (/me/settings), administration
     // is one page per job (/me/admin/*). Old panel links (/me/theme, …) redirect.
-    { path: 'me', element: <MediaLayout />, children: [
+    { path: 'me', element: <Outlet />, children: [
       { index: true, element: <MinePage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'stats', element: <StatsPage /> },
@@ -107,6 +101,4 @@ export const routes = [{
     { path: '*', element: <Navigate to="/" replace /> },
   ],
 }] satisfies RouteObject[];
-
-
 

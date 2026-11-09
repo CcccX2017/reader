@@ -95,6 +95,7 @@ interface LoadedBook {
  * that is a function of it. The stage is handed in as children.
  */
 export class ReaderScreen {
+  private pdfLoading: AbortController | null = null;
   readonly element: HTMLDivElement;
   private readonly stage: HTMLDivElement;
   private readonly ui: Root;
@@ -419,6 +420,10 @@ export class ReaderScreen {
 
   /** Opens a book: fetch bytes, parse, restore position, start reporting. */
   async open(book: Book): Promise<void> {
+    this.pdfLoading?.abort();
+    this.doc?.pdf?.dispose();
+    const pdfLoading = new AbortController();
+    this.pdfLoading = pdfLoading;
     this.closeAlternatives();
     this.chapterRefresh?.abort();
     this.chapterRefresh = null;
@@ -508,11 +513,19 @@ export class ReaderScreen {
         return;
       }
 
-      const bytes = await this.fetchBookBytes(book, this.manifest);
-      if (token !== this.loadingToken) return;
-
-      const loaded = await this.loadDoc(book, this.manifest, bytes);
-      if (token !== this.loadingToken) return;
+      let loaded: LoadedBook;
+      if (book.format === 'pdf') {
+        const cached = await this.publicationCache.resource(book.id, OFFLINE_FILE);
+        const source = cached?.byteLength ? cached : await this.options.api.pdfSource(book.id, { signal: pdfLoading.signal });
+        if (token !== this.loadingToken) return;
+        const { loadPdf } = await import('../formats/pdf.ts');
+        loaded = { doc: await loadPdf(source, pdfLoading.signal), notes: [] };
+      } else {
+        const bytes = await this.fetchBookBytes(book, this.manifest);
+        if (token !== this.loadingToken) return;
+        loaded = await this.loadDoc(book, this.manifest, bytes);
+      }
+      if (token !== this.loadingToken) { loaded.doc.pdf?.dispose(); return; }
 
       this.doc = loaded.doc;
       opened = true;
@@ -658,6 +671,8 @@ export class ReaderScreen {
   }
 
   dispose(): void {
+    this.pdfLoading?.abort();
+    this.doc?.pdf?.dispose();
     this.themeOff?.();
     this.closeAlternatives();
     this.chapterRefresh?.abort();
@@ -889,6 +904,8 @@ export class ReaderScreen {
       kind,
       baseUrl: this.options.api.baseUrl,
       accessToken: () => this.options.api.currentSession()?.accessToken ?? null,
+      resourceToken: () => this.options.api.currentSession()?.resourceToken ?? null,
+      prepareRequest: () => this.prepareSpeechRequest(),
       nativeBridge: this.options.speechBridge ?? null,
       onError: (message) => {
         failure = message;
@@ -1278,6 +1295,13 @@ export class ReaderScreen {
     void this.renderToc();
   }
 
+  private prepareSpeechRequest(): Promise<void> | void {
+    const session = this.options.api.currentSession();
+    if (session && Math.min(session.accessTokenExpiresAt, session.resourceTokenExpiresAt ?? Infinity) <= Date.now() + 5 * 60_000) {
+      return this.options.api.renewSessionIfNeeded();
+    }
+  }
+
   /**
    * Builds the view, the gestures and the key bindings against the stage.
    *
@@ -1293,14 +1317,10 @@ export class ReaderScreen {
     this.view?.dispose();
     if (!this.doc) return;
     const doc = this.doc;
-    // The token the browser cannot attach for itself. Built once per view rather
-    // than per chapter: the reader's session does not change while a book is open,
-    // and a signer that read the token lazily would have to be rebuilt whenever one
-    // arrived — which is a second lifecycle to keep in step with the first.
-    const token = this.options.api.currentSession()?.accessToken;
     const signAssetUrl = makeAssetSigner({
       baseUrl: this.options.api.baseUrl,
-      ...(token ? { accessToken: token } : { accessToken: '' }),
+      accessToken: () => this.options.api.currentSession()?.accessToken ?? null,
+      resourceToken: () => this.options.api.currentSession()?.resourceToken ?? null,
     });
     this.view = new ReaderView({
       onSelection: (anchor, rect) => {
@@ -2115,7 +2135,7 @@ export class ReaderScreen {
     this.patch({});
     // Fixed-layout fit and direction changes are structural, so the current page
     // has to be re-rendered rather than merely re-styled.
-    if (this.doc?.layout === 'fixed' && ('fit' in patch || 'comicDirection' in patch)) {
+    if (this.doc?.layout === 'fixed' && !this.doc.pdf && ('fit' in patch || 'comicDirection' in patch)) {
       const index = this.view?.currentSectionIndex() ?? 0;
       await this.view?.open(index, 0);
     }
@@ -2180,6 +2200,8 @@ export class ReaderScreen {
       kind,
       baseUrl: this.options.api.baseUrl,
       accessToken: () => this.options.api.currentSession()?.accessToken ?? null,
+      resourceToken: () => this.options.api.currentSession()?.resourceToken ?? null,
+      prepareRequest: () => this.prepareSpeechRequest(),
       nativeBridge: this.options.speechBridge ?? null,
       onError: (message) => this.flashStatus(message, 3200),
     });

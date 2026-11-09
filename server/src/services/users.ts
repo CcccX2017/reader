@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/index.ts';
 import type { AppConfig } from '../config/index.ts';
 import { hashPassword, verifyPassword } from './passwords.ts';
-import { hashToken, newRefreshToken, signAccessToken } from './tokens.ts';
+import { hashToken, newRefreshToken, signAccessToken, signResourceToken } from './tokens.ts';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.ts';
 import { RegistrationService } from './registration.ts';
 import { removeAvatar, sniffAvatarImage, writeAvatar } from './avatars.ts';
+import { BusinessSettingsReader } from './business-settings.ts';
+import { AuthWorkLimiter } from './auth-limits.ts';
 
 export type Role = 'admin' | 'member';
 
@@ -20,6 +22,7 @@ export interface UserRow {
   created_at: number;
   updated_at: number;
   auth_version?: number;
+  media_enabled?: number;
 }
 
 export interface PublicUser {
@@ -30,6 +33,7 @@ export interface PublicUser {
   createdAt: number;
   /** Relative API path for the avatar image, or null when none is set. */
   avatarUrl: string | null;
+  mediaEnabled: boolean;
 }
 
 export function toPublicUser(row: UserRow): PublicUser {
@@ -41,10 +45,12 @@ export function toPublicUser(row: UserRow): PublicUser {
     role: row.role,
     createdAt: row.created_at,
     avatarUrl: avatar ? `/api/v1/users/${row.id}/avatar?v=${row.updated_at}` : null,
+    mediaEnabled: row.media_enabled !== 0,
   };
 }
 
 export class UserService {
+  private readonly passwordWork = new AuthWorkLimiter();
   constructor(
     private readonly db: Db,
     private readonly config: AppConfig,
@@ -80,6 +86,7 @@ export class UserService {
     password: string;
     displayName?: string;
     role?: Role;
+    mediaEnabled?: boolean;
   }, admission?: () => void): Promise<PublicUser> {
     const username = input.username.trim();
     if (username.length < 3) throw conflict('username must be at least 3 characters', 'USERNAME_TOO_SHORT');
@@ -87,7 +94,7 @@ export class UserService {
     const existing = this.db.get<{ id: string }>('SELECT id FROM users WHERE username = ? COLLATE NOCASE', username);
     if (existing) throw conflict('username already taken', 'USERNAME_TAKEN');
 
-    const passwordHash = await hashPassword(input.password);
+    const passwordHash = await this.passwordWork.run(() => hashPassword(input.password));
     return this.db.transaction(() => {
       admission?.();
       if (this.db.get('SELECT id FROM users WHERE username = ? COLLATE NOCASE', username)) throw conflict('username already taken', 'USERNAME_TAKEN');
@@ -101,13 +108,14 @@ export class UserService {
         role: input.role ?? (this.count() === 0 ? 'admin' : 'member'),
         disabled: 0,
         avatar_path: '',
+        media_enabled: (input.mediaEnabled ?? new BusinessSettingsReader(this.db).read('modules').newUserMediaEnabled) ? 1 : 0,
         created_at: now,
         updated_at: now,
       };
       this.db.run(
-        `INSERT INTO users (id, username, display_name, password_hash, role, disabled, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?)`,
-        row.id, row.username, row.display_name, row.password_hash, row.role, row.disabled, row.created_at, row.updated_at,
+        `INSERT INTO users (id, username, display_name, password_hash, role, disabled, created_at, updated_at, media_enabled)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
+        row.id, row.username, row.display_name, row.password_hash, row.role, row.disabled, row.created_at, row.updated_at, row.media_enabled!,
       );
       // A new account must see the whole shared library straight away. Without
       // this, a book scanned before the account existed would stay invisible
@@ -132,6 +140,7 @@ export class UserService {
     password: string;
     displayName?: string;
     role?: Role;
+    mediaEnabled?: boolean;
   }): Promise<PublicUser> {
     const requestedRole = input.role ?? 'member';
     return this.create({ ...input, role: requestedRole });
@@ -141,19 +150,20 @@ export class UserService {
     user: PublicUser;
     accessToken: string;
     accessTokenExpiresAt: number;
+    resourceToken: string;
+    resourceTokenExpiresAt: number;
     refreshToken: string;
     refreshTokenExpiresAt: number;
   }> {
     const row = this.db.get<UserRow>('SELECT * FROM users WHERE username = ? COLLATE NOCASE', username.trim());
     // Always run a hash comparison so a missing user and a wrong password take
     // comparable time and cannot be distinguished by timing.
-    const ok = row
-      ? await verifyPassword(password, row.password_hash)
-      : await verifyPassword(password, 'scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAA');
+    const ok = await this.passwordWork.run(() => verifyPassword(password, row?.password_hash ?? 'scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAA'));
     if (!row || !ok) throw unauthorized('invalid username or password', 'BAD_CREDENTIALS');
     if (row.disabled === 1) throw forbidden('account disabled', 'ACCOUNT_DISABLED');
 
     const access = signAccessToken(this.config, { id: row.id, role: row.role, authVersion: row.auth_version ?? 0 });
+    const resource = signResourceToken(this.config, { id: row.id, role: row.role, authVersion: row.auth_version ?? 0 });
     const refresh = newRefreshToken();
     const refreshExpiresAt = Date.now() + this.config.refreshTokenTtl * 1000;
     this.db.run(
@@ -165,6 +175,8 @@ export class UserService {
       user: toPublicUser(row),
       accessToken: access.token,
       accessTokenExpiresAt: access.expiresAt,
+      resourceToken: resource.token,
+      resourceTokenExpiresAt: resource.expiresAt,
       refreshToken: refresh.token,
       refreshTokenExpiresAt: refreshExpiresAt,
     };
@@ -175,6 +187,8 @@ export class UserService {
     user: PublicUser;
     accessToken: string;
     accessTokenExpiresAt: number;
+    resourceToken: string;
+    resourceTokenExpiresAt: number;
     refreshToken: string;
     refreshTokenExpiresAt: number;
   }> {
@@ -192,6 +206,7 @@ export class UserService {
     this.db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', Date.now(), row.id);
 
     const access = signAccessToken(this.config, { id: user.id, role: user.role, authVersion: user.auth_version ?? 0 });
+    const resource = signResourceToken(this.config, { id: user.id, role: user.role, authVersion: user.auth_version ?? 0 });
     const next = newRefreshToken();
     const expiresAt = Date.now() + this.config.refreshTokenTtl * 1000;
     this.db.run(
@@ -203,6 +218,8 @@ export class UserService {
       user: toPublicUser(user),
       accessToken: access.token,
       accessTokenExpiresAt: access.expiresAt,
+      resourceToken: resource.token,
+      resourceTokenExpiresAt: resource.expiresAt,
       refreshToken: next.token,
       refreshTokenExpiresAt: expiresAt,
     };
@@ -223,13 +240,13 @@ export class UserService {
   async changePassword(userId: string, currentPassword: string, nextPassword: string): Promise<void> {
     const row = this.byId(userId);
     if (!row) throw notFound('user not found');
-    if (!(await verifyPassword(currentPassword, row.password_hash))) {
+    if (!(await this.passwordWork.run(() => verifyPassword(currentPassword, row.password_hash)))) {
       throw unauthorized('current password is incorrect', 'BAD_CREDENTIALS');
     }
     if (nextPassword.length < 8) throw conflict('password must be at least 8 characters', 'PASSWORD_TOO_SHORT');
     this.db.run(
       'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, updated_at = ? WHERE id = ?',
-      await hashPassword(nextPassword), Date.now(), userId,
+      await this.passwordWork.run(() => hashPassword(nextPassword)), Date.now(), userId,
     );
     // A password change must invalidate every other device's session.
     this.revokeAll(userId);
@@ -278,10 +295,14 @@ export class UserService {
     this.db.run('UPDATE users SET role = ?, updated_at = ? WHERE id = ?', role, Date.now(), userId);
   }
 
+  setMediaEnabled(userId: string, enabled: boolean): void {
+    this.db.run('UPDATE users SET media_enabled = ?, updated_at = ? WHERE id = ?', enabled ? 1 : 0, Date.now(), userId);
+  }
+
   async resetPassword(userId: string, password: string): Promise<void> {
     if (!this.byId(userId)) throw notFound('用户不存在');
     if (password.length < 8 || password.length > 1024) throw conflict('密码须为 8–1024 位','PASSWORD_TOO_SHORT');
-    const hash = await hashPassword(password);
+    const hash = await this.passwordWork.run(() => hashPassword(password));
     this.db.transaction(()=>{
       this.db.run('UPDATE users SET password_hash=?,auth_version=auth_version+1,updated_at=? WHERE id=?',hash,Date.now(),userId);
       this.revokeAll(userId);

@@ -13,18 +13,21 @@ import { registerSourceRoutes } from './routes/sources.ts';
 import { registerOpdsRoutes } from './routes/opds.ts';
 import { registerMediaRoutes } from './routes/media.ts';
 import {registerMediaProxy} from './routes/media-proxy.ts';
+import {AppError} from '../lib/errors.ts';
 import type {MediaService} from '../media/start-runtime.ts';
 import { isOriginAllowed, resolveCorsOrigin } from './cors.ts';
 import {BusinessSettings} from '../services/business-settings.ts';
 import {TtsService} from '../services/tts.ts';
 import {registerBusinessSettingsRoutes} from './routes/business-settings.ts';
 import {registerAiRoutes} from './routes/ai.ts';
+import { serializeRequest } from './request-log.ts';
+import { registerAuthProtection } from './auth-protection.ts';
 
 export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyInstance {
   ctx.settings??=new BusinessSettings(ctx.db,ctx.config);
   ctx.tts=new TtsService(ctx.config,ctx.settings.read('tts'));
   const app = Fastify({
-    logger: { level: ctx.config.logLevel },
+    logger: { level: ctx.config.logLevel, serializers: { req: serializeRequest } },
     // Book bodies are streamed straight from disk, so a JSON limit this small is
     // fine and protects the server from oversized sync payloads. Uploads are the
     // exception and are not bounded here: a multipart body is streamed by the
@@ -32,7 +35,7 @@ export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyIns
     // limit is what bounds a request. Raising this number would instead let one
     // JSON request (a sync batch, a batch metadata edit) hold 400MB of heap.
     bodyLimit: 8 * 1024 * 1024,
-    trustProxy: true,
+    trustProxy: ctx.config.trustProxy ?? false,
     // Source publications use opaque plugin-owned references, often longer than
     // the router's default 100-character parameter limit.
     routerOptions: { maxParamLength: 16_384 },
@@ -55,19 +58,25 @@ export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyIns
   });
 
   app.addHook('onRequest', async (request, reply) => {
+    reply.header('referrer-policy', 'no-referrer');
     if (!isOriginAllowed(ctx.config, request)) {
       reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'origin not allowed' } });
       return;
     }
     reply.header('access-control-allow-origin', resolveCorsOrigin(ctx.config, request));
-    reply.header('access-control-allow-headers', 'authorization, content-type');
-    reply.header('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    reply.header('access-control-allow-headers', 'authorization, content-type, range');
+    reply.header('access-control-allow-methods', 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS');
+    reply.header('access-control-expose-headers', 'accept-ranges, content-length, content-range, retry-after');
     // `vary: origin` is required whenever the allowed origin is reflected rather
     // than fixed, otherwise a shared cache will serve one origin's response to
     // another.
     reply.header('vary', 'origin');
+    if(request.method!=='OPTIONS'&&/^\/api\/v1\/media(?:\/|\?|$)/.test(request.raw.url??'')&&!ctx.settings!.read('modules').mediaEnabled){
+      throw new AppError(403,'MEDIA_DISABLED','影音模块已关闭');
+    }
   });
 
+  registerAuthProtection(app);
   app.options('/*', async (_request, reply) => reply.status(204).send());
 
   registerAuthRoutes(app, ctx);

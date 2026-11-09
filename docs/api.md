@@ -21,10 +21,13 @@
 
 ```json
 { "name": "reader", "apiVersion": 1, "registrationOpen": false,
-  "registrationMode": "closed", "invitationRequired": false, "userCount": 3 }
+  "registrationMode": "closed", "invitationRequired": false, "userCount": 3,
+  "features": { "media": true } }
 ```
 
 客户端用它区分「全新实例」（可以注册）和「已被占用」（需要管理员开账号）。
+
+`features.media` 表示全站影音开关，不代表当前账号的有效权限。响应禁止缓存。
 
 `apiVersion` 是**能力版本**，与包的版本号无关：只有在字段语义变化、客户端必须改行为时
 才动它。加字段、加端点都不动——这正是「只做加法」能成立的原因。
@@ -66,6 +69,8 @@
 
 ## 认证
 
+认证请求超出频率或密码派生并发上限时返回 `429 AUTH_RATE_LIMITED` / `429 AUTH_BUSY`，并通过 `Retry-After` 指示最少等待秒数。客户端不应立即重试。
+
 ### `POST /auth/register` — 公开
 
 ```json
@@ -84,6 +89,7 @@
 { "user": { "id": "...", "username": "owner", "displayName": "图书馆长",
             "role": "admin", "createdAt": 1789537801289 },
   "session": { "user": {...}, "accessToken": "...", "accessTokenExpiresAt": 1789624201289,
+               "resourceToken": "...", "resourceTokenExpiresAt": 1789538701289,
                "refreshToken": "...", "refreshTokenExpiresAt": 1821073801289 } }
 ```
 
@@ -100,6 +106,8 @@
 
 **刷新令牌会轮转**：传入的那个立即作废。客户端必须持久化新的那个。
 
+登录、注册和刷新同时签发 `resourceToken`，最长有效期为 15 分钟，不超过访问令牌的有效期。它只允许通过 `resource_token` 查询参数访问本账号可读的书籍资源和 HTTP 朗读，不能用作普通 API 的 Bearer 凭据。客户端应依据 `resourceTokenExpiresAt` 提前刷新；旧服务端缺少这些字段时可回退到旧访问令牌。密码变更、账号停用和认证版本失效同样会撤销资源票据。
+
 ### `POST /auth/logout`
 
 `{ "refreshToken": "..." }` → `{ "ok": true }`。幂等，重复调用不报错。
@@ -107,6 +115,8 @@
 ### `GET /auth/me`
 
 → `{ "user": { ... } }`
+
+用户对象包含个人开关 `mediaEnabled`、有效权限 `features.media`（全站与个人开关同时开启）和影音生命周期 `mediaState`（`disabled|stopping|starting|ready|failed|closed`）。响应禁止缓存；管理员没有绕过影音开关的特权，但仍可管理服务配置和用户权限。
 
 ### `POST /auth/password`
 
@@ -302,16 +312,16 @@ pdf / 单图没有独立目录，回落到 items。来源章节出版物（`chap
 所以服务端会说 `Accept-Ranges: none` 并回 200，让客户端能做计划，而不是付出一次它没
 预期到的下载。
 
-**子资源可以带 `?access_token=`。** 章节里的 `<img src>`、`<link href>` 是浏览器
+**子资源应携带 `?resource_token=`。** 为兼容旧客户端仍接受 `?access_token=`。章节里的 `<img src>`、`<link href>` 是浏览器
 自己发起的，没法带 `Authorization` 头。这类请求允许把令牌放进 query，
-但**仅限** `GET` + 下列端点：
+但**仅限** `GET` / `HEAD` + 下列端点：
 
 - `/api/v1/books/:id/assets`
 - `/api/v1/books/:id/cover`
 - `/api/v1/books/:id/content`
+- `/api/v1/tts`（HTTP 朗读）
 
-其他任何端点（含触发扫描、写元数据）都不接受 URL 里的令牌 —— URL 会进日志、
-进历史、进 `Referer`，能改状态的令牌不该走那条路。
+其他任何端点（含触发扫描、写元数据）都不接受 URL 里的令牌。短期资源票据不能访问一般 API，也不能修改状态。服务端请求日志不记录查询参数，并设置 `Referrer-Policy: no-referrer`；反向代理日志仍应另外配置凭据脱敏。
 
 **epub 章节返回的是重写过的 HTML。** 章节内的相对资源引用（`images/pic.png`）已经被
 服务端改写成指向本端点的绝对地址。客户端直接把 HTML 交给 WebView 即可，不需要自己
@@ -706,7 +716,7 @@ manifest 的每个条目还带 `ref`，即这个文件对应的**资源引用**�
   一个配错的 HTTP 朗读合成接口（指到一个网页）会以 200 返回 HTML，塞进 `<audio>` 里
   既没有声音也没有事件——这是最难排查的一种「成功」。
 - 这是唯一接受**查询串令牌**的接口之一（另一个是 `/books/:id/assets`、`/cover`、`/content`）：
-  `<audio src>` 无法携带 `Authorization` 头。因此它被精确地限制为 `GET /tts`，
+  `<audio src>` 无法携带 `Authorization` 头。优先使用短期只读 `resource_token`，兼容旧客户端的 `access_token`；查询串鉴权精确限制为 `GET/HEAD /tts`，
   能力查询 `/tts/voices` 不支持查询串令牌。
 - 响应带 `cache-control: private, no-store`，避免服务配置更新后继续使用旧音频；服务端按上游配置缓存合成结果，
   并用 `x-tts-cache: hit | miss` 标明本次是否命中缓存。
@@ -786,12 +796,12 @@ manifest 的每个条目还带 `ref`，即这个文件对应的**资源引用**�
 
 ## 同步
 
-### `GET /sync?since=<ms>&bookId=<可选>`
+### `GET /sync?since=<cursor>&bookId=<可选>`
 
-`since` 是上次响应里的 `serverTime`（首次传 0）。
+`since` 是上次响应里的 `serverTime`（首次传 0）。`serverTime` 是服务端分配的单调递增同步游标，不应使用客户端时间或记录的 `updatedAt` 替代；密集写入时它可能领先于实际时钟。
 
 ```json
-{ "serverTime": 1789537864820,
+{ "serverTime": 1789537864820, "hasMore": false,
   "progress": [ { "bookId": "...", "locator": "epubcfi(/6/4!/4/2)", "percentage": 0.42,
                   "chapterTitle": "第七章", "device": "android-a", "updatedAt": 1000 } ],
   "notes": [ { "id": "...", "bookId": "...", "type": "highlight", "locator": "...",
@@ -799,7 +809,7 @@ manifest 的每个条目还带 `ref`，即这个文件对应的**资源引用**�
                "updatedAt": 1789537864623, "deleted": false } ] }
 ```
 
-**客户端必须保存返回的 `serverTime`**，下次带回来才能只拿增量。
+每页进度和笔记合计最多 5000 条。**客户端必须在应用本页后保存返回的 `serverTime`**；如果 `hasMore: true`，立即使用该游标继续拉取，直到 `hasMore: false`。旧客户端不识别 `hasMore` 时，也可以通过后续轮询取完剩余分页。记录的 `updatedAt` 仅用于冲突比较，离线写入仍会取得新的服务端游标。
 
 ### `POST /sync`
 
@@ -813,12 +823,12 @@ manifest 的每个条目还带 `ref`，即这个文件对应的**资源引用**�
 
 两个数组至少给一个（都缺、或不是数组返回 `400 BAD_PAYLOAD`），总数上限 5000（超了返回 `400 BATCH_TOO_LARGE`）。
 
-`updatedAt` 是**客户端时钟**的毫秒时间戳，决定 LWW 谁赢。
+`updatedAt` 是**客户端时钟**的毫秒时间戳，决定 LWW 谁赢。即使上传的旧记录未赢得合并，服务端也会为本次写入发布新的同步游标，让增量响应包含合并后的权威记录，供客户端纠正本地状态。
 
-响应把合并后的当前状态（相当于 `since=0` 的全量拉取）一并返回，客户端不用再多发一次拉取：
+请求可以额外携带 `since`，使用上次响应中的 `serverTime`，让响应只返回该游标后的变更。省略时按 `since=0` 返回合并后的状态。响应同样分页，`hasMore: true` 时继续调用 `GET /sync`，不应重复推送整批数据：
 
 ```json
-{ "accepted": 1, "rejected": 0, "serverTime": 1789537864820,
+{ "accepted": 1, "rejected": 0, "serverTime": 1789537864820, "hasMore": false,
   "progress": [...], "notes": [...] }
 ```
 
@@ -933,6 +943,8 @@ Reader 对外提供的只读 OPDS 服务（`/opds`，Basic 认证；客户端凭
 
 ## 影音
 
+全站或当前用户关闭影音时，普通影音接口返回 `403 MEDIA_DISABLED`。播放票据和后台播放授权每次使用检查最新权限，失效时沿用原有票据错误响应；已建立的服务器影音流每秒复核权限。第三方重定向直链无法由 Reader 断流。详见[影音模块开关](media-features.md)。
+
 接口前缀为 /api/v1/media，沿用账号令牌。用户只能访问已授权媒体库；建库、权限、扫描、刮削、识别规则、作品 / 版本整理和人工资料编辑需要管理员权限。准备中返回 503 MEDIA_STARTING，启动失败返回 503 MEDIA_UNAVAILABLE。阅读健康检查不能替代影音就绪检查。
 
 影音运行在独立 worker 中，阅读进程只做转发：同时在途请求超过 64 个返回 503 MEDIA_BUSY；转发中断返回 503 MEDIA_REQUEST_UNCERTAIN（写操作请重新查询结果确认）；目录查询期间账号或可访问媒体库发生变化返回 503 MEDIA_ACCESS_CHANGED。
@@ -1010,11 +1022,15 @@ kind 为 video、music 或 audiobook；OpenList 建库和凭据更新见[OpenLis
 
 返回 `201 { "user": {...} }`。`role` 缺省为 `member`。不受注册策略限制——管理员本就该能加家庭成员。
 
+可选布尔字段 `mediaEnabled` 覆盖新用户的影音权限；省略时采用 `modules.newUserMediaEnabled`，公开注册也采用该默认值。用户列表及创建响应均返回 `mediaEnabled`。
+
 ### `PATCH /admin/users/:id`
 
 `{ "disabled": true }` 或 `{ "role": "admin" }` → 更新后的完整列表 `{ "users": [...] }`。用户不存在返回 `404`。
 
 不能停用自己或移除自己的管理员角色（`400 SELF_LOCKOUT`），并须保留至少一名启用的管理员（`400 LAST_ADMIN`）。停用立即撤销旧会话，重新启用仍需重新登录。
+
+也接受 `{ "mediaEnabled": false }`，只撤销影音权限，不停用账号或撤销阅读会话。允许管理员修改自己的影音权限，全站关闭时也可预配置。
 
 ### `POST /admin/users/:id/password`
 
@@ -1183,7 +1199,8 @@ All `/api/v1/admin/settings` routes require an administrator bearer token. Respo
 - `GET /api/v1/admin/settings` returns `{groups:[{group,label,fields,values,secrets,revision}]}`. Secret values are omitted; `secrets` contains presence flags only.
 - `PATCH /api/v1/admin/settings/:group` accepts `{values,revision}`. Omitted fields retain their values; an explicit empty secret clears it. Stale revisions return `409 SETTINGS_CONFLICT`. Unknown fields and invalid values return 400.
 - `PATCH` returns the updated group view. For `access`, a request carrying an `Origin` header is rejected with 400 if the new CORS origin list is non-empty and does not include that origin.
-- Groups: `ai`, `playback`, `tmdb`, `musicbrainz`, `tts`, `scanning`, `scraping`, `access`, `webdav`, `library` (`memberUpload`, default `true`: whether members may upload books). Unknown groups return 400. Registration continues using its existing API.
+- Groups: `modules`, `ai`, `playback`, `tmdb`, `musicbrainz`, `tts`, `scanning`, `scraping`, `access`, `webdav`, `library` (`memberUpload`, default `true`: whether members may upload books). Unknown groups return 400. Registration continues using its existing API.
+- `modules` contains `mediaEnabled` and `newUserMediaEnabled` (both default `true`). The first controls media instance-wide; the second applies only to subsequently created users. Disabling media stops its worker and background tasks without deleting media data. Instances sharing `reader.db` share these settings.
 - `POST /api/v1/admin/settings/:group/test` accepts `{values}` for TMDB, MusicBrainz, TTS or WebDAV (other groups return 400). It tests the draft without saving it and returns `{ok,elapsedMs}`; TTS additionally returns `bytes` and `voices`. A test already running for the same group returns `409 SETTINGS_TEST_BUSY`; an upstream failure returns `502 SETTINGS_TEST_FAILED`.
 - `POST /api/v1/admin/settings/tts/preview` accepts `{values,voice?}` and returns sample audio. `POST /api/v1/admin/settings/tts/clear-cache` clears cached audio and returns `{ok:true}`.
 - `POST /api/v1/admin/settings/webdav/upload` accepts `{directory,name}` and uploads a verified offline backup using saved WebDAV settings. It never creates an online snapshot or overwrites a remote backup. A concurrent upload returns `409 BACKUP_BUSY`; any upload failure returns 400.

@@ -180,7 +180,7 @@ export class ReaderApi {
 
   /** Renew before expiry; transient failures leave the persisted login intact. */
   async renewSessionIfNeeded(): Promise<void> {
-    if (!this.session || this.session.accessTokenExpiresAt > Date.now() + 5 * 60_000) return;
+    if (!this.session || Math.min(this.session.accessTokenExpiresAt, this.session.resourceTokenExpiresAt ?? Infinity) > Date.now() + 5 * 60_000) return;
     await this.refreshSession(this.sessionGeneration);
   }
 
@@ -242,7 +242,15 @@ export class ReaderApi {
   }
 
   async me(): Promise<User> {
+    const generation=this.sessionGeneration;
     const result = await this.get<{ user: User }>('/api/v1/auth/me');
+    if(generation===this.sessionGeneration&&this.session?.user.id===result.user.id){
+      const session={...this.session,user:result.user};
+      this.session=session;
+      const write=this.sessionWrites.catch(()=>undefined).then(()=>generation===this.sessionGeneration?this.sessions.save(session):undefined);
+      this.sessionWrites=write;
+      await write;
+    }
     return result.user;
   }
 
@@ -278,8 +286,8 @@ export class ReaderApi {
   }
 
   async adminUsers(): Promise<{users:import('./types.ts').ManagedUser[]}> { return this.get('/api/v1/admin/users'); }
-  async adminCreateUser(input:{username:string;password:string;displayName:string;role:'admin'|'member'}): Promise<unknown> { return this.call('/api/v1/admin/users','POST',input); }
-  async adminUpdateUser(id:string,input:{disabled?:boolean;role?:'admin'|'member'}): Promise<unknown> { return this.call('/api/v1/admin/users/'+encodeURIComponent(id),'PATCH',input); }
+  async adminCreateUser(input:{username:string;password:string;displayName:string;role:'admin'|'member';mediaEnabled?:boolean}): Promise<unknown> { return this.call('/api/v1/admin/users','POST',input); }
+  async adminUpdateUser(id:string,input:{disabled?:boolean;role?:'admin'|'member';mediaEnabled?:boolean}): Promise<unknown> { return this.call('/api/v1/admin/users/'+encodeURIComponent(id),'PATCH',input); }
   async adminResetPassword(id:string,password:string): Promise<unknown> { return this.call('/api/v1/admin/users/'+encodeURIComponent(id)+'/password','POST',{password}); }
   async registrationSettings(): Promise<import('./types.ts').RegistrationSettings> { return this.get('/api/v1/admin/registration'); }
   async setRegistrationMode(mode:import('./types.ts').RegistrationSettings['mode']): Promise<unknown> { return this.call('/api/v1/admin/registration','PATCH',{mode}); }
@@ -701,6 +709,30 @@ export class ReaderApi {
 
   // ---- content ----
 
+  async pdfSource(id: string, options: RequestOptions = {}): Promise<import('../formats/types.ts').PdfSource> {
+    const generation = this.sessionGeneration;
+    const path = `/api/v1/books/${encodeURIComponent(id)}/content`;
+    const metadata = await this.request(path, 'HEAD', undefined, options);
+    const length = Number(metadata.headers['content-length']);
+    if (!Number.isSafeInteger(length) || length <= 0 || metadata.headers['accept-ranges'] !== 'bytes') {
+      throw new Error('PDF 在线阅读需要服务器支持字节范围请求');
+    }
+    return {
+      length,
+      readRange: async (begin, end, signal) => {
+        this.assertSession(generation);
+        const response = await this.request(path, 'GET', undefined, {
+          binary: true, signal, headers: { range: `bytes=${begin}-${end - 1}` },
+        });
+        this.assertSession(generation);
+        if (response.status !== 206 || response.headers['content-range'] !== `bytes ${begin}-${end - 1}/${length}` || response.bytes?.byteLength !== end - begin) {
+          throw new Error('服务器返回了无效的 PDF 字节范围');
+        }
+        return response.bytes;
+      },
+    };
+  }
+
   /** Authenticated book body. Not cacheable by the service worker: it needs a token. */
   async bookBytes(id: string, options: RequestOptions = {}): Promise<Uint8Array> {
     const response = await this.request(
@@ -775,7 +807,7 @@ export class ReaderApi {
   }
 
   async push(
-    payload: { progress?: ProgressInput[]; notes?: NoteInput[] },
+    payload: { progress?: ProgressInput[]; notes?: NoteInput[]; since?: number },
     options: RequestOptions = {},
   ): Promise<SyncPushResult> {
     return this.call<SyncPushResult>('/api/v1/sync', 'POST', payload, options);
@@ -931,13 +963,14 @@ export class ReaderApi {
     path: string,
     method: string,
     body: unknown,
-    options: RequestOptions & { binary?: boolean; stream?: boolean } = {},
+    options: RequestOptions & { binary?: boolean; stream?: boolean; headers?: Record<string, string> } = {},
   ): Promise<import('../core/platform.ts').HttpResponse> {
     const generation = this.sessionGeneration;
     const assertCurrent = (): void => this.assertSession(generation);
     const attempt = async (token: string | null) => {
       assertCurrent();
       const headers: Record<string, string> = { accept: options.stream ? 'text/event-stream' : options.binary ? '*/*' : 'application/json' };
+      Object.assign(headers, options.headers);
       const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
       if (body !== undefined && !multipart) headers['content-type'] = 'application/json';
       if (token) headers.authorization = `Bearer ${token}`;
@@ -1021,6 +1054,8 @@ export class ReaderApi {
         const session = response.json as Session;
         if (!session?.accessToken) throw new ApiError('unauthorized', 'refresh returned no session');
         if (session.user.id !== this.session?.user.id) throw new ApiError('unauthorized', 'refresh returned another account');
+        const previous=this.session?.user;
+        if(previous?.features)session.user={...session.user,features:previous.features,...(previous.mediaState?{mediaState:previous.mediaState}:{})};
         await this.setSession(session, true);
         this.assertSession(generation);
         return session;
