@@ -112,7 +112,7 @@
  * 首页, 书架, 影音 and 我的 share --page-measure / --page-gutter (styles/reader.css), so
  * switching tabs never moves the content edges. The media-family pages are their own
  * scrollers, so the column is made with padding (the scrollbar stays at the window
- * edge); the shelf caps its bands instead, which keeps its sticky toolbar working. */
+ * edge); the shelf caps its bands and scrolls only the book pane. */
 @media (min-width: 701px) {
   :root { --page-gutter: 32px; }
 }

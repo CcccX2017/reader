@@ -27,6 +27,11 @@
   padding-bottom: calc(96px + var(--safe-bottom));
   scrollbar-width: thin;
 }
+/* Touch: hide the shelf scroller chrome; the pane still scrolls. */
+@media (pointer: coarse) {
+  .home-shelf-scroll { scrollbar-width: none; }
+  .home-shelf-scroll::-webkit-scrollbar { display: none; }
+}
 /* While pulling, lock the page and the shelf pane so the cue can move instead. */
 .home-page[data-pulling='true'],
 .home-shelf-scroll[data-pulling='true'] { touch-action: none; }

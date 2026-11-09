@@ -934,10 +934,9 @@ book-content {
  *     center` with `padding: 1.5rem`, which is right for an empty state and wrong
  *     for a shelf of two thousand books. The grid is left-aligned and its own edge
  *     is the alignment.
- *  3. **The header is not sticky, the toolbar is.** A sticky band carrying the
- *     title costs 4rem of a phone's height permanently to say something the reader
- *     already knows. A sticky band carrying the count and the sort control earns
- *     it: those are the two things a reader scrolls back up to change.
+ *  3. **Chrome stays put; only the book pane scrolls.** Title, search, filters and
+ *     the count/sort row sit above `.shelf-scroll`, so a long grid never carries
+ *     the controls away — same split as the home shelf pane.
  */
 
 /* The action bar sits under the scroller, so it stays on screen and above the
@@ -955,10 +954,11 @@ book-content {
 }
 
 .shelf {
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
-  padding: 0 0 var(--safe-bottom);
+  padding: 0;
 
   /*
    * On a wide window the shelf is centred and capped rather than stretched.
@@ -975,9 +975,9 @@ book-content {
    */
   --shelf-measure: 68rem;
   /*
-   * One place sets the gutter. Every band inside the scroller — the header, the
-   * search box, the toolbar, the sections — reuses it, so they cannot drift apart
-   * and a cover can never sit nearer the screen edge than the title above it.
+   * One place sets the gutter. Every band — the header, the search box, the
+   * toolbar, the section — reuses it, so they cannot drift apart and a cover can
+   * never sit nearer the screen edge than the title above it.
    */
   --shelf-gutter: 0.9rem;
   --shelf-gutter-end: calc(0.9rem + var(--safe-right));
@@ -987,8 +987,11 @@ book-content {
 
 .shelf-head {
   display: flex;
+  flex: none;
   align-items: flex-start;
   gap: 0.75rem;
+  box-sizing: border-box;
+  width: 100%;
   padding: calc(0.9rem + var(--safe-top)) var(--shelf-gutter-end) 0.5rem calc(0.9rem + var(--safe-left));
   max-width: var(--shelf-measure);
   margin-inline: auto;
@@ -996,6 +999,9 @@ book-content {
 
 .shelf-select-head {
   display: grid;
+  flex: none;
+  box-sizing: border-box;
+  width: 100%;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 0.5rem;
@@ -1212,6 +1218,9 @@ book-content {
    * gutters at the widest size, which is exactly the size where they are least
    * needed.
    */
+  /* width:100% keeps the pill full-bleed inside the flex column; auto margins alone
+   * would shrink-wrap and centre it once `.shelf` became a column flex. */
+  width: 100%;
   margin: 0.35rem auto 0.9rem;
   max-width: calc(var(--shelf-measure) - 1.8rem - var(--safe-left) - var(--safe-right) - 2 * var(--shelf-search-inset));
   /*
@@ -1363,19 +1372,36 @@ book-content {
 /* ---- sections ---- */
 
 .shelf-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   padding-inline: calc(0.9rem + var(--safe-left)) calc(0.9rem + var(--safe-right));
-  margin-bottom: 1.35rem;
   /*
-   * The measure cap, applied to the *content* bands rather than to the scroller.
-   *
-   * `max-width` + `margin-inline: auto` on the scroller would break `position:
-   * sticky` on the toolbar (a scroll container's own box is what sticky is
-   * measured against) and would make the scrollbar sit inside the centred column
-   * instead of at the window edge. Capping each band keeps both behaviours and
-   * still reads as one centred column, because every band shares the same cap.
+   * The measure cap, applied to the content column rather than the page scroller,
+   * so the scrollbar stays at the window edge while the bands stay centred.
    */
   max-width: var(--shelf-measure);
   margin-inline: auto;
+  width: 100%;
+}
+
+.shelf-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  /* Gap under the toolbar and under the last row (was the old section margin). */
+  padding-top: 0.75rem;
+  padding-bottom: calc(1.35rem + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+/* Touch: hide the book-pane chrome; the grid still scrolls. */
+@media (pointer: coarse) {
+  .shelf-scroll { scrollbar-width: none; }
+  .shelf-scroll::-webkit-scrollbar { display: none; }
 }
 
 /*
@@ -1388,41 +1414,25 @@ book-content {
  * two horizontal rules 40px apart made the count row look like a separate band.
  */
 
-/* ---- toolbar: the count and the sort, pinned to their section ---- */
+/* ---- toolbar: the count and the sort, above the book pane ---- */
 
 /*
- * Sticky, and deliberately *only* this band. It carries the two controls a reader
- * scrolls back up to change — how many books there are, and in what order — and it
- * is the reason the header above it does not need to stick.
+ * Fixed with the filters, not sticky inside the grid. It carries how many books
+ * there are and in what order — the two controls a reader changes while browsing.
  */
 .shelf-toolbar {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: 4;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  /*
-   * A hairline under the sticky band, so the covers scrolling beneath it have an
-   * edge to pass. Without it the band is invisible until something slides under it,
-   * and a translucent band with no boundary reads as a rendering artefact.
-   */
   border-bottom: 1px solid color-mix(in srgb, var(--reader-line) 70%, transparent);
   /*
-   * The band is full-bleed *within its section*, and the section is capped, so
-   * the sticky background matches the column rather than the window. Negative
-   * inline margins undo the section's padding so covers scroll under the blur
-   * instead of appearing beside it.
-   */
-  /*
-   * Full-bleed with a gutter-sized padding rather than a margin: a sticky band
-   * narrower than its scroller lets the covers scroll past *behind* it on either
-   * side, which looks like a rendering bug.
+   * Full-bleed with a gutter-sized padding rather than a margin: a band narrower
+   * than its column lets the covers sit beside it, which looks like a gap.
    */
   margin-inline: calc(-0.9rem - var(--safe-left)) calc(-0.9rem - var(--safe-right));
   padding: 0.4rem calc(0.9rem + var(--safe-right)) 0.4rem calc(0.9rem + var(--safe-left));
-  background: color-mix(in srgb, var(--reader-paper) 88%, transparent);
-  backdrop-filter: blur(10px);
+  background: var(--reader-paper);
 }
 
 .shelf-count {
@@ -3528,9 +3538,28 @@ book-content {
  * and a search field that stopped growing while the covers beside it kept going would
  * be the row that disagrees with the page.
  */
+/* Browse body: search / folders fixed; `.library-browse-scroll` is the book pane.
+ * The overflow override lives next to `.manager-body` so it wins the cascade. */
+.library-browse-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  padding-top: 0.25rem;
+  padding-bottom: calc(1.35rem + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+@media (pointer: coarse) {
+  .library-browse-scroll { scrollbar-width: none; }
+  .library-browse-scroll::-webkit-scrollbar { display: none; }
+}
+
 /* 书库's subfolders: one scrollable row of chips under the search field, on its gutter. */
 .library-folders {
   display: flex;
+  flex: none;
   gap: var(--space-1);
   overflow-x: auto;
   padding: 0 var(--shelf-search-inset) var(--space-2);
@@ -3545,6 +3574,8 @@ book-content {
 }
 
 .library-search {
+  flex: none;
+  width: 100%;
   max-width: none;
   /*
    * The same gutter the shelf's field has, and *only* that: the field is as wide as
@@ -3743,7 +3774,15 @@ book-content {
   -webkit-overflow-scrolling: touch;
   min-height: 0;
 }
+/* Browse scrolls the book pane instead; keep this after `.manager-body`. */
+.manager-body.library-browse-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .shelf[data-pulling='true'],
+.shelf-scroll[data-pulling='true'],
+.library-browse-scroll[data-pulling='true'],
 .manager-body[data-pulling='true'] {
   touch-action: none;
 }
@@ -5108,6 +5147,8 @@ html[data-safari='27.2'] .reader-screen .topbar {
   margin-top: 0.85rem;
 }
 .shelf-links {
+  box-sizing: border-box;
+  width: 100%;
   max-width: calc(var(--shelf-measure) - 1.8rem);
   margin: 0 auto 0.9rem;
   padding-inline: calc(0.9rem + var(--safe-left)) calc(0.9rem + var(--safe-right));
@@ -5215,7 +5256,7 @@ html[data-safari='27.2'] .reader-screen .topbar {
   font-size: var(--text-ui);
 }
 /* Browsing pages with a pager, so the count is a footer line, not a sticky overlay over the grid. */
-.library-browse-body > .manager-status {
+.library-browse-scroll > .manager-status {
   position: static;
   background: transparent;
   backdrop-filter: none;
@@ -5342,6 +5383,7 @@ html[data-safari='27.2'] .reader-screen .topbar {
   }
   .shelf-discovery {
     display: flex;
+    flex: none;
     align-items: center;
     gap: 1.5rem;
     max-width: var(--shelf-measure);
@@ -6327,6 +6369,7 @@ html[data-safari='27.2'] .reader-screen .topbar {
  * text, like every segmented choice. A card's state is a small label on its cover. */
 .shelf-filters {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-1);
   margin: 0 0 var(--space-2);
