@@ -66,6 +66,15 @@ describe('偏好设置', () => {
     expect(root.querySelector('.theme-settings')).toBeNull();
     act(() => { [...root.querySelectorAll<HTMLButtonElement>('.shelf-settings button')].find(b => b.textContent === '宽松')!.click(); });
     expect(updateSettings).toHaveBeenCalledWith({ shelfDensity: 'comfortable' });
+    const press = (group: string, label: string) => act(() => {
+      [...root.querySelectorAll<HTMLButtonElement>(`[aria-label="${group}"] button`)].find(button => button.textContent === label)!.click();
+    });
+    press('首页显示数量', '12 本');
+    expect(updateSettings).toHaveBeenCalledWith({ homeShelfCount: 12 });
+    press('首页显示数量', '全部');
+    expect(updateSettings).toHaveBeenCalledWith({ homeShelfCount: 'all' });
+    press('首页排序', '书名');
+    expect(updateSettings).toHaveBeenCalledWith({ homeShelfSort: 'title' });
     expect(root.querySelector('a.settings-link')?.getAttribute('href')).toBe('/me/opds');
     act(() => { tabs().find(tab => tab.textContent === '影音浏览')!.click(); });
     const density = root.querySelector<HTMLSelectElement>('select[aria-label="封面密度"]')!;

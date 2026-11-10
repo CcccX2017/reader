@@ -42,3 +42,18 @@ test('the shelf derives reading state from progress and marks, and filters by it
     assert.throws(() => shelf.list('u', { status: 'paused' as never }), { statusCode: 400 });
   } finally { db.close(); }
 });
+
+test('最近阅读 orders the shelf by when each book was last read, unread last', () => {
+  const db = new Db(':memory:'), shelf = new ShelfService(db);
+  try {
+    db.run("INSERT INTO users(id,username,password_hash,role,created_at,updated_at) VALUES('u','reader','x','member',0,0)");
+    for (const [id, updated] of [['older', 100], ['newer', 1], ['unread', 50]] as const) {
+      db.run(`INSERT INTO books(id,content_hash,format,title,author,created_at,updated_at) VALUES(?,?,'epub',?,'作者',1,?)`, id, 'h-' + id, id, updated);
+      db.run('INSERT INTO book_files(id,book_id,rel_path,size,mtime_ms,first_seen,last_seen) VALUES(?,?,?,100,1,1,1)', 'f-' + id, id, id + '.epub');
+      db.run('INSERT INTO user_books(user_id,book_id,added_at,hidden) VALUES(?,?,?,0)', 'u', id, 1);
+    }
+    // The book row's updated_at says `newer` is the oldest file. Reading it last is what 最近阅读 asks.
+    db.run("INSERT INTO reading_progress(user_id,book_id,locator,percentage,chapter_title,device,updated_at) VALUES('u','older','',0.1,'','web',10),('u','newer','',0.2,'','web',20)");
+    assert.deepEqual(shelf.list('u', { sort: 'recent', order: 'desc', pageSize: 10 }).items.map(book => book.id), ['newer', 'older', 'unread']);
+  } finally { db.close(); }
+});

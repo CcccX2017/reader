@@ -22,7 +22,7 @@
  * already there.
  */
 
-import type { AppSettings } from '../store/settings.ts';
+import { HOME_SHELF_COUNTS, type AppSettings, type HomeShelfCount } from '../store/settings.ts';
 import { Button, SectionTitle, Segmented, SwitchRow } from './toolkit.tsx';
 import { Sheet } from './sheet.tsx';
 import type { JSX } from 'react';
@@ -88,6 +88,23 @@ export function ShelfSettingsFields({ settings, onPatch }: Pick<ShelfSettingsOpt
         checked={settings.shelfShowProgress}
         onChange={(checked) => onPatch({ shelfShowProgress: checked })}
       />
+
+      <SectionTitle>首页</SectionTitle>
+      <div className="notice">只影响首页「我的书架」显示多少本、按什么顺序。书架页的排序仍由那里的按钮决定</div>
+      <Segmented
+        label="首页显示数量"
+        options={[...HOME_SHELF_COUNTS.map((count) => ({ value: String(count), label: `${count} 本` })), { value: 'all', label: '全部' }]}
+        value={String(settings.homeShelfCount)}
+        onChange={(value) => onPatch({ homeShelfCount: value === 'all' ? 'all' : Number(value) as HomeShelfCount })}
+      />
+      <div className="home-shelf-order">
+        <Segmented
+          label="首页排序"
+          options={SHELF_SORTS}
+          value={settings.homeShelfSort}
+          onChange={(value) => onPatch({ homeShelfSort: value })}
+        />
+      </div>
 
       <SectionTitle>默认排序</SectionTitle>
       <div className="notice">书架上的排序按钮会记住最后一次选择，这里设置的是首次打开时的默认值</div>

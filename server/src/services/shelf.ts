@@ -115,7 +115,7 @@ export interface ListOptions {
   series?: string;
   tag?: string;
   format?: string;
-  sort?: 'title' | 'author' | 'added' | 'updated';
+  sort?: 'title' | 'author' | 'added' | 'updated' | 'recent';
   order?: 'asc' | 'desc';
   /**
    * Restrict the list to books that have a file inside this folder.
@@ -256,12 +256,18 @@ export class ShelfService {
       where.push(`(${READING_STATE}) = ?`);
       params.push(options.status);
     }
-    const sortColumn = {
-      title: 'b.title',
-      author: 'b.author',
-      added: 'ub.added_at',
-      updated: 'b.updated_at',
-    }[options.sort ?? 'added'];
+    const sortColumn = options.sort === 'recent'
+      // 最近阅读 is the progress row's clock. A book with no progress sorts last:
+      // SQLite treats NULL as smaller than every timestamp, so DESC puts it after
+      // every book the reader has actually opened. The library scope has no
+      // progress join, and falls back to the book row.
+      ? (library ? 'b.updated_at' : 'rp.updated_at')
+      : {
+          title: 'b.title',
+          author: 'b.author',
+          added: 'ub.added_at',
+          updated: 'b.updated_at',
+        }[options.sort ?? 'added'];
     const order = options.order === 'asc' ? 'ASC' : 'DESC';
     const whereSql = where.join(' AND ');
     /*

@@ -2584,6 +2584,8 @@ function emptyChromeSettings(): Partial<ChromeState> {
       ttsEngine: 'auto',
       shelfDensity: 'cozy',
       shelfSort: 'recent',
+      homeShelfCount: 8,
+      homeShelfSort: 'recent',
       shelfShowAuthor: true,
       shelfShowProgress: true,
       readoutTopLeft: 'chapter',

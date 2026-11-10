@@ -65,12 +65,11 @@ export interface ListQuery {
   /**
    * Sort key.
    *
-   * `updated` is what the shelf has always used and stays the default: a library
-   * is browsed by "what did I just add", and a reader who wants A–Z can ask for
-   * `title`. The list is the server's own `ListOptions.sort`, so the two cannot
-   * drift.
+   * `updated` is the book row's clock. `recent` is the reading-progress clock:
+   * what the shelf and the home shelf call 最近阅读. The list is the server's
+   * own `ListOptions.sort`, so the two cannot drift.
    */
-  sort?: 'title' | 'author' | 'added' | 'updated';
+  sort?: 'title' | 'author' | 'added' | 'updated' | 'recent';
   order?: 'asc' | 'desc';
   /**
    * Restrict the list to books with a file inside this folder.

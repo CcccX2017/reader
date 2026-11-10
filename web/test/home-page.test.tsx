@@ -8,6 +8,8 @@ import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
 import { HomePage, activityProgress, greeting } from '../src/features/home/pages/HomePage.tsx';
 import { saveMediaPreferences } from '../src/features/media/services/preferences.ts';
+import { useSettingsStore } from '../src/shared/stores/settings.store.ts';
+import { DEFAULT_APP_SETTINGS } from '../src/store/settings.ts';
 
 const root = document.createElement('div');
 document.body.append(root);
@@ -19,13 +21,13 @@ const series = { id: 's1', libraryId: 'l', kind: 'series', title: '示例剧集'
 const episode = { ...series, id: 'i1', kind: 'episode', title: '第 3 集', parentId: 's1' };
 const poster = (id: string, title: string) => ({ id, libraryId: 'l', kind: 'movie', title, parentId: null, metadata: {}, overrides: {}, channel: 'video', libraryName: '片库' });
 
-function mount({ reading = [book], video = [activity({ title: '第 3 集', updatedAt: 5 })], audio = [] as object[], discover = { items: [] as object[], total: 0 } }: { reading?: object[]; video?: object[]; audio?: object[]; discover?: { items: object[]; total: number } } = {}) {
+function mount({ reading = [book], video = [activity({ title: '第 3 集', updatedAt: 5 })], audio = [] as object[], discover = { items: [] as object[], total: 0 }, shelf = [book], listBooks }: { reading?: object[]; video?: object[]; audio?: object[]; discover?: { items: object[]; total: number }; shelf?: object[]; listBooks?: ReturnType<typeof vi.fn> } = {}) {
   const runtime = {
     api: {
       baseUrl: 'https://reader.example.com',
       currentSession: () => ({ user }),
       continueReading: vi.fn().mockResolvedValue(reading),
-      listBooks: vi.fn().mockResolvedValue({ items: [book], total: 1 }),
+      listBooks: listBooks ?? vi.fn().mockResolvedValue({ items: shelf, total: shelf.length }),
       coverBytes: vi.fn().mockRejectedValue(new Error('none')),
     },
     mediaApi: {
@@ -48,7 +50,7 @@ function mount({ reading = [book], video = [activity({ title: '第 3 集', updat
 }
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
 
-afterEach(() => { act(() => render(null, root)); useAuthStore.setState({ session: null, verifiedUser: null }); localStorage.clear(); });
+afterEach(() => { act(() => render(null, root)); useAuthStore.setState({ session: null, verifiedUser: null }); useSettingsStore.setState({ settings: { ...DEFAULT_APP_SETTINGS } }); localStorage.clear(); });
 
 describe('首页', () => {
   it('pure reading never requests media history or discovery',async()=>{
@@ -71,7 +73,7 @@ describe('首页', () => {
 
   it('shows every continue entry as the same card, most recent first, with the series title', async () => {
     useAuthStore.setState({ verifiedUser: user as any });
-    mount();
+    const runtime = mount();
     await settle();
     expect(root.querySelector('h1')?.textContent).toContain('林间');
     const cards = [...root.querySelectorAll<HTMLAnchorElement>('.home-continue a.home-resume')];
@@ -86,10 +88,35 @@ describe('首页', () => {
     expect(read.textContent).toContain('已读 42%');
     expect(root.querySelector('.home-empty')).toBeNull();
     expect(root.querySelectorAll('.home-shelf .book-card').length).toBe(1);
+    expect(runtime.api.listBooks).toHaveBeenCalledWith(expect.objectContaining({ sort: 'recent', order: 'desc' }), expect.anything());
     expect(read.closest('.home-resume-slot')?.querySelector('.book-more')).toBeTruthy();
     expect(video.closest('.home-resume-slot')).toBeNull();
     expect(root.querySelector('.home-shelf .book-more')).toBeTruthy();
     expect(root.querySelector('.home-discover')).toBeNull();
+  });
+
+  it('shows as many home-shelf books as chosen, in the chosen order', async () => {
+    useAuthStore.setState({ verifiedUser: user as any });
+    const shelf = ['甲', '乙', '丙', '丁', '戊', '己'].map((title, index) => ({ ...book, id: `b${index}`, title }));
+    useSettingsStore.setState({ settings: { ...DEFAULT_APP_SETTINGS, homeShelfCount: 4, homeShelfSort: 'title' } });
+    const runtime = mount({ shelf });
+    await settle();
+    expect(runtime.api.listBooks).toHaveBeenCalledWith(expect.objectContaining({ scope: 'shelf', sort: 'title', order: 'asc', page: 1 }), expect.anything());
+    expect([...root.querySelectorAll('.home-shelf .book-card .title')].map(node => node.textContent)).toEqual(['甲', '乙', '丙', '丁']);
+  });
+
+  it('shows every shelf book when the count is 全部, including past the first page', async () => {
+    useAuthStore.setState({ verifiedUser: user as any });
+    const shelf = ['甲', '乙', '丙', '丁'].map((title, index) => ({ ...book, id: `b${index}`, title }));
+    useSettingsStore.setState({ settings: { ...DEFAULT_APP_SETTINGS, homeShelfCount: 'all' } });
+    const listBooks = vi.fn(async (query: { page?: number }) => {
+      const page = query.page ?? 1;
+      return { items: shelf.slice((page - 1) * 2, page * 2), total: shelf.length, page, pageSize: 2 };
+    });
+    const runtime = mount({ listBooks });
+    await settle();
+    expect([...root.querySelectorAll('.home-shelf .book-card .title')].map(node => node.textContent)).toEqual(['甲', '乙', '丙', '丁']);
+    expect(runtime.api.listBooks).toHaveBeenCalledTimes(2);
   });
 
   it('shows recently added media by default, and a reshuffleable random batch on request', async () => {

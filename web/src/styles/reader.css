@@ -5395,6 +5395,9 @@ html[data-safari='27.2'] .reader-screen .topbar {
 .shelf-settings .section-title:first-child {
   margin-top: 0;
 }
+.shelf-settings .home-shelf-order {
+  margin-top: var(--space-2);
+}
 .shelf-discovery {
   display: contents;
 }

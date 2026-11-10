@@ -30,6 +30,14 @@ export type ShelfDensity = 'compact' | 'cozy' | 'comfortable';
  * preference from an older build keeps working (see `shelf-settings.tsx`).
  */
 export type ShelfSort = 'recent' | 'added' | 'title' | 'author';
+/**
+ * How many covers 首页「我的书架」 draws.
+ *
+ * The numbers all fit in one shelf page. `all` is the whole shelf, fetched
+ * across pages rather than cut off at the first one.
+ */
+export const HOME_SHELF_COUNTS = [4, 8, 12, 16] as const;
+export type HomeShelfCount = (typeof HOME_SHELF_COUNTS)[number] | 'all';
 
 export type ReadoutMode = 'none' | 'book' | 'chapter' | 'progress' | 'time';
 export const READOUT_FIELDS = [
@@ -99,6 +107,10 @@ export interface AppSettings extends ViewSettings {
   shelfDensity: ShelfDensity;
   /** What the shelf sorts by when the reader has not picked this session. */
   shelfSort: ShelfSort;
+  /** How many books 首页「我的书架」 shows. The shelf page itself stays paginated. */
+  homeShelfCount: HomeShelfCount;
+  /** Order of that home row. Independent of `shelfSort`, which the shelf page overwrites as its chips change. */
+  homeShelfSort: ShelfSort;
   /** Show the author under each cover. Off makes the grid much quieter. */
   shelfShowAuthor: boolean;
   /** Show the progress bar under a cover that has been started. */
@@ -137,6 +149,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   ttsEngine: 'auto',
   shelfDensity: 'cozy',
   shelfSort: 'recent',
+  homeShelfCount: 8,
+  homeShelfSort: 'recent',
   shelfShowAuthor: true,
   shelfShowProgress: true,
 };
@@ -186,6 +200,12 @@ export class SettingsStore {
         if (typeof this.settings.paperFollowsDark !== 'boolean') this.settings.paperFollowsDark = true;
         if (!['recent', 'added', 'title', 'author'].includes(this.settings.shelfSort)) {
           this.settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
+        }
+        if (this.settings.homeShelfCount !== 'all' && !(HOME_SHELF_COUNTS as readonly number[]).includes(this.settings.homeShelfCount)) {
+          this.settings.homeShelfCount = DEFAULT_APP_SETTINGS.homeShelfCount;
+        }
+        if (!['recent', 'added', 'title', 'author'].includes(this.settings.homeShelfSort)) {
+          this.settings.homeShelfSort = DEFAULT_APP_SETTINGS.homeShelfSort;
         }
       } catch {
         this.settings = { ...DEFAULT_APP_SETTINGS };

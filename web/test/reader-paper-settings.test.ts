@@ -28,4 +28,12 @@ describe('reading paper setting', () => {
     const settings = await load({ paper: 'sepia', paperFollowsDark: 'yes' });
     expect([settings.paper, settings.paperFollowsDark]).toEqual(['theme', true]);
   });
+
+  it('keeps a chosen home-shelf count and order, and drops a value the controls cannot show', async () => {
+    expect((await load({ homeShelfCount: 12, homeShelfSort: 'author' })).homeShelfCount).toBe(12);
+    expect((await load({ homeShelfCount: 12, homeShelfSort: 'author' })).homeShelfSort).toBe('author');
+    expect((await load({ homeShelfCount: 'all', homeShelfSort: 'title' })).homeShelfCount).toBe('all');
+    const settings = await load({ homeShelfCount: 7, homeShelfSort: 'updated' });
+    expect([settings.homeShelfCount, settings.homeShelfSort]).toEqual([8, 'recent']);
+  });
 });

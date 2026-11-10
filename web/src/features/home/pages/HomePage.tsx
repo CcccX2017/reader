@@ -4,13 +4,14 @@ import { Segmented } from '../../../ui/toolkit.tsx';
 import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
+import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { coverTint } from '../../../ui/cover-tint.ts';
 import { type MenuItems } from '../../../ui/action-menu.tsx';
 import { CoverCheck, useCoverActions, useCoarsePointer, usePickingCard, type Picking } from '../../../ui/cover-actions.tsx';
 import { BookCard, useCover } from '../../shelf/pages/ShelfPage.tsx';
 import { BookSelectBar, BookSelectHead, useBookCommands, useBookPicking } from '../../shelf/book-selection.tsx';
-import { useShelf } from '../../shelf/queries/shelf.queries.ts';
+import { homeShelfQuery } from '../../shelf/queries/shelf.queries.ts';
 import { historyQuery, mediaKeys, type Activity } from '../../media/queries/media.queries.ts';
 import { MediaCover } from '../../media/components/cover.tsx';
 import { resolveWork } from '../../media/services/work.ts';
@@ -151,7 +152,9 @@ export function HomePage() {
     queryKey: ['home', 'reading', runtime.api.baseUrl, user?.id],
     queryFn: ({ signal }) => runtime.api.continueReading(2, { signal }),
   });
-  const shelf = useShelf(1, 'recent');
+  const homeShelfCount = useSettingsStore(state => state.settings.homeShelfCount);
+  const homeShelfSort = useSettingsStore(state => state.settings.homeShelfSort);
+  const shelf = useQuery(homeShelfQuery(runtime, homeShelfSort, homeShelfCount));
   // 首页显示最近续播 (偏好设置 › 影音浏览) off: no video/audiobook continue cards; books are not media.
   const { showContinue } = useMediaPreferences();
   const video = useQuery({ ...historyQuery(runtime, 'video', new URLSearchParams()), enabled: media&&showContinue });
@@ -159,13 +162,13 @@ export function HomePage() {
   const unfinished = (items?: Activity[]) => items?.find(item => !item.completed);
   const readingBooks = reading.data ?? [], book = readingBooks[0];
   const videoActivity = media&&showContinue ? unfinished(video.data?.items) : undefined, audioActivity = media&&showContinue ? unfinished(audio.data?.items) : undefined;
-  const books = (shelf.data?.items ?? []).slice(0, 8);
+  const books = shelf.data?.items ?? [];
   const name = user?.displayName || user?.username || '';
   const coarse = useCoarsePointer();
   const visibleBooks = useMemo(() => {
     const byId = new Map<string, Book>();
     for (const item of reading.data ?? []) byId.set(item.id, item);
-    for (const item of (shelf.data?.items ?? []).slice(0, 8)) byId.set(item.id, item);
+    for (const item of shelf.data?.items ?? []) byId.set(item.id, item);
     return [...byId.values()];
   }, [reading.data, shelf.data]);
   const picking = useBookPicking(visibleBooks, user?.id ?? '');
