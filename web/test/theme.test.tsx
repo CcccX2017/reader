@@ -3,7 +3,7 @@ import { render } from '../src/shared/ui/render-root.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import {
-  ThemeController, defaultThemePreference, migrateLegacyTheme, readThemePreference, resolveAppTheme,
+  ThemeController, defaultThemePreference, loginThemeScope, migrateLegacyTheme, readThemePreference, resolveAppTheme,
   resolveReaderSurface, resolveReadingTheme, saveThemePreference, themeSummary,
 } from '../src/shared/theme/theme.ts';
 import { MediaThemeSettings } from '../src/features/media/components/theme-settings.tsx';
@@ -110,6 +110,20 @@ describe('ThemeController', () => {
     expect(changed).not.toHaveBeenCalled();
     expect(document.documentElement.dataset.theme).toBeUndefined();
     expect(document.documentElement.dataset.mode).toBeUndefined();
+  });
+
+  it('points the login page at the account theme for this server', () => {
+    const server = 'https://reader.test';
+    const account = JSON.stringify([server, 'u1']);
+    const other = JSON.stringify([server, 'u2']);
+    saveThemePreference(account, { theme: 'blue', mode: 'dark' });
+    expect(loginThemeScope(server)).toBe(account);
+    saveThemePreference(other, { theme: 'green', mode: 'light' });
+    expect(loginThemeScope(server)).toBe(JSON.stringify([server, 'anonymous']));
+    const controller = new ThemeController(other);
+    controller.dispose();
+    expect(loginThemeScope(server)).toBe(other);
+    expect(loginThemeScope('https://other.test')).toBe(JSON.stringify(['https://other.test', 'anonymous']));
   });
 
   it('applies a choice saved in another tab', () => {

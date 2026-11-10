@@ -3,6 +3,7 @@ import type { InstanceInfo } from '../../../api/types.ts';
 import { ApiError } from '../../../api/errors.ts';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { validServerUrl } from '../../../app/runtime.ts';
+import { ThemeController, loginThemeScope } from '../../../shared/theme/theme.ts';
 import { Icon } from '../../../ui/toolkit.tsx';
 
 export function LoginPage() {
@@ -21,6 +22,11 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const probe = useRef<ReturnType<typeof setTimeout> | null>(null);
   const probeGeneration = useRef(0);
+  const themeScope = loginThemeScope(validServerUrl(serverUrl) || runtime.api.baseUrl);
+  useEffect(() => {
+    const theme = new ThemeController(themeScope);
+    return () => theme.dispose();
+  }, [themeScope]);
   useEffect(() => {
     const value = serverUrl.trim();
     probeGeneration.current += 1;

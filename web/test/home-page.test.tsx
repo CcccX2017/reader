@@ -115,6 +115,7 @@ describe('首页', () => {
     const runtime = mount();
     await settle();
     expect(root.querySelector('h1')?.textContent).toContain('林间');
+    expect(root.querySelector('.home-avatar')?.textContent).toBe('林');
     const cards = [...root.querySelectorAll<HTMLAnchorElement>('.home-continue a.home-resume')];
     expect(cards.map((card) => card.dataset.channel)).toEqual(['video', 'read']);
     const [video, read] = cards as [HTMLAnchorElement, HTMLAnchorElement];

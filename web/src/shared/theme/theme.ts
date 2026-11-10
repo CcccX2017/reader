@@ -94,6 +94,7 @@ const defaults = (): ThemePreference => ({ ...defaultThemePreference, system: { 
 
 const isAppTheme = (value: unknown): value is AppThemeId => appThemeIds.includes(value as AppThemeId);
 const preferenceKey = (scope: string) => 'reader.theme.v2:' + scope;
+const lastThemeScopeKey = 'reader.theme.last-scope';
 /** V3 storage, read once to carry an existing choice over (spec §8). */
 const legacyThemeKey = (scope: string) => 'reader.media.theme.v1:' + scope;
 const legacyPairKey = (scope: string) => 'reader.media.theme.system.v1:' + scope;
@@ -243,6 +244,7 @@ export class ThemeController {
     this.unsubscribe = subscribeTheme(scope, () => { this.current = this.apply(); onChanged(); });
   }
   private apply() {
+    rememberThemeScope(this.scope);
     const resolved = resolveAppTheme(readThemePreference(this.scope), systemPrefersDark());
     const root = document.documentElement;
     root.dataset.theme = resolved.theme;
@@ -255,6 +257,44 @@ export class ThemeController {
     delete document.documentElement.dataset.theme;
     delete document.documentElement.dataset.mode;
   }
+}
+
+function themeScopeParts(scope: string): [string, string] | undefined {
+  try {
+    const parsed = JSON.parse(scope) as unknown;
+    if (Array.isArray(parsed) && typeof parsed[0] === 'string' && typeof parsed[1] === 'string') return [parsed[0], parsed[1]];
+  } catch { /* scopes that are not a server and account pair are ignored */ }
+  return undefined;
+}
+
+/** The signed-in account whose theme was last on screen, so the login page can wear it. */
+function rememberThemeScope(scope: string): void {
+  const parts = themeScopeParts(scope);
+  if (!parts || !parts[1] || parts[1] === 'anonymous') return;
+  try { localStorage.setItem(lastThemeScopeKey, scope); } catch { /* the login page falls back to the saved copy it can still find */ }
+}
+
+/**
+ * The preference scope the login page should wear for this server. The last account
+ * that used the app wins; otherwise the only saved account on this server. A first
+ * visit, or several accounts with no recent one, stays on the default (暖陶, follow the system).
+ */
+export function loginThemeScope(baseUrl: string): string {
+  const fallback = JSON.stringify([baseUrl, 'anonymous']);
+  try {
+    const last = localStorage.getItem(lastThemeScopeKey);
+    if (last && themeScopeParts(last)?.[0] === baseUrl && localStorage.getItem(preferenceKey(last)) !== null) return last;
+    const found: string[] = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith('reader.theme.v2:')) continue;
+      const scope = key.slice('reader.theme.v2:'.length);
+      const parts = themeScopeParts(scope);
+      if (parts?.[0] === baseUrl && parts[1] && parts[1] !== 'anonymous') found.push(scope);
+    }
+    if (found.length === 1) return found[0]!;
+  } catch { /* storage can be blocked; the default theme still applies */ }
+  return fallback;
 }
 
 /** The summary shown on 我的 and the settings home: "跟随系统", or "雾蓝 · 深色". */

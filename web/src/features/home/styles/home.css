@@ -56,6 +56,33 @@
 .home-shelf-scroll[data-pulling='true'] {
   touch-action: none;
 }
+.home-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.home-header-text {
+  min-width: 0;
+  flex: 1;
+}
+.home-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+  font-size: var(--text-display);
+  font-weight: 700;
+}
+.home-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .home-header h1 {
   margin: 6px 0 0;
   font-family: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', serif;

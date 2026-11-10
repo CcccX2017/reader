@@ -21,6 +21,7 @@ import type { Book, ContinueReadingItem } from '../../../api/types.ts';
 import { usePullToRefresh } from '../../../shared/ui/use-pull-to-refresh.ts';
 import { syncLibraryOnce } from '../../../shared/library/sync-library.ts';
 import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
+import { useAvatar } from '../../../shared/ui/use-avatar.ts';
 import '../styles/home.css';
 import { useMediaEnabled } from '../../../shared/stores/features.ts';
 
@@ -265,6 +266,7 @@ export function HomePage() {
     audioActivity = media && showContinue ? unfinished(audio.data?.items) : undefined;
   const books = shelf.data?.items ?? [];
   const name = user?.displayName || user?.username || '';
+  const avatar = useAvatar(runtime.api, user?.avatarUrl);
   const coarse = useCoarsePointer();
   const visibleBooks = useMemo(() => {
     const byId = new Map<string, Book>();
@@ -294,11 +296,14 @@ export function HomePage() {
       <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
       <div className="select-head-slot">
         <header className="home-header" data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
-          <h1>
-            {greeting(new Date().getHours())}
-            {name ? `，${name}` : ''}
-          </h1>
-          <p>从上次停下的地方继续</p>
+          {name && <div className="home-avatar" aria-hidden="true">{avatar ? <img src={avatar} alt="" /> : Array.from(name)[0]}</div>}
+          <div className="home-header-text">
+            <h1>
+              {greeting(new Date().getHours())}
+              {name ? `，${name}` : ''}
+            </h1>
+            <p>从上次停下的地方继续</p>
+          </div>
         </header>
         {picking.active && <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} />}
       </div>

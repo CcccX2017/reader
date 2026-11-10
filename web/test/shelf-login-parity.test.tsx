@@ -8,6 +8,7 @@ import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
 import { ShelfPage } from '../src/features/shelf/pages/ShelfPage.tsx';
 import { LoginPage } from '../src/features/auth/pages/LoginPage.tsx';
+import { saveThemePreference } from '../src/shared/theme/theme.ts';
 
 vi.mock('../src/features/shelf/queries/shelf.queries.ts', () => ({
   useShelf: () => ({ data: { items: [], total: 0, pageSize: 60 }, isPending: false, error: null }),
@@ -55,6 +56,9 @@ function mount(node: ReactNode, value = runtime(), initialEntry = '/') {
 afterEach(() => {
   act(() => render(null, root));
   useAuthStore.setState({ session: null, verifiedUser: null });
+  localStorage.clear();
+  delete document.documentElement.dataset.theme;
+  delete document.documentElement.dataset.mode;
   vi.restoreAllMocks();
 });
 
@@ -76,6 +80,12 @@ it('keeps the shelf entry points available and restores clear, settings and OPDS
   await act(async () => [...root.querySelectorAll('button')].find(button => button.textContent === '连接外部阅读器')?.click());
   // The OPDS page of 我的, which returns to the shelf.
   await vi.waitFor(() => expect(root.querySelector('[data-opds-return]')?.getAttribute('data-opds-return')).toBe('/shelf'));
+});
+
+it('wears the app theme saved in preferences', () => {
+  saveThemePreference(JSON.stringify(['https://reader.test', 'u1']), { theme: 'green', mode: 'dark' });
+  mount(<LoginPage />);
+  expect([document.documentElement.dataset.theme, document.documentElement.dataset.mode]).toEqual(['green', 'dark']);
 });
 
 it('collapses the server address and explains that sessions are remembered on login', () => {
