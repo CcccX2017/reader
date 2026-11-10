@@ -76,4 +76,8 @@ html:is([data-safari='27.2'], [data-safari^='27.2.']) {
   .admin-users-page > .media-heading {
     padding-top: calc(var(--safe-top) + 28px);
   }
+
+  .search-page > .media-heading {
+    padding-top: calc(var(--safe-top) + 28px);
+  }
 }
