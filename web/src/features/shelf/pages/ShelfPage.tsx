@@ -60,7 +60,7 @@ export function BookCard({ book, showAuthor, showProgress, menu, picking }: {
   return <div className="book-card" {...(picking ? cardPick.props : { ...actions.hold, 'data-selected': selected ? 'true' as const : undefined })}>
     <Link className="book-open" aria-label={`${book.title} ${book.author ?? ''}`.trim()} to={`/book/${encodeURIComponent(book.id)}`}>
       <div className="cover">
-        {src ? <img src={src} alt="" loading="lazy" draggable={false} /> : <div className="placeholder" style={coverTint(book.title || '')}>{book.title || '无封面'}</div>}
+        {src ? <img src={src} alt="" draggable={false} /> : <div className="placeholder" style={coverTint(book.title || '')}>{book.title || '无封面'}</div>}
         <span className="format-badge">{book.format || '书籍'}</span>
         {cardPick.mark ?? (selected && <CoverCheck />)}
         {showProgress && progress !== undefined && progress > 0 && <div className="cover-progress"><span style={{ width: `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%` }} /></div>}

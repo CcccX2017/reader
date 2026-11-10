@@ -1398,7 +1398,6 @@ book-content {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
   /* Gap under the toolbar and under the last row (was the old section margin). */
   padding-top: 0.75rem;
   padding-bottom: calc(1.35rem + var(--safe-bottom));
@@ -3570,7 +3569,6 @@ book-content {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
   padding-top: 0.25rem;
   padding-bottom: calc(1.35rem + var(--safe-bottom));
   scrollbar-width: thin;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { render } from '../src/shared/ui/render-root.ts';
 import { AppShell } from '../src/app/App.tsx';
 import { connectionLabel, navMode } from '../src/app/AppNav.tsx';
@@ -70,6 +70,42 @@ describe('shell navigation', () => {
     paint('/media/video/player');
     expect(root.querySelector('nav.app-nav')).toBeNull();
     expect(document.body.dataset.appNav).toBeUndefined();
+  });
+
+  it('keeps the shelf mounted under the book and after coming back', () => {
+    function Open() {
+      const navigate = useNavigate();
+      const location = useLocation();
+      return <button type="button" data-testid="open" data-path={location.pathname} onClick={() => navigate('/book/abc')}>打开</button>;
+    }
+    function Back() {
+      const navigate = useNavigate();
+      return <button type="button" data-testid="back" onClick={() => navigate(-1)}>返回</button>;
+    }
+    act(() => render(
+      <RuntimeContext.Provider value={runtime}>
+        <MemoryRouter initialEntries={['/shelf']}>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/shelf" element={<main data-testid="page">书架<Open /></main>} />
+              <Route path="/book/:id" element={<main data-testid="reader">阅读<Back /></main>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </RuntimeContext.Provider>,
+      root,
+    ));
+    const page = root.querySelector('[data-testid="page"]');
+    act(() => { (root.querySelector('[data-testid="open"]') as HTMLButtonElement).click(); });
+    expect(root.querySelector('[data-testid="page"]')).toBe(page);
+    expect(root.querySelector('[data-testid="open"]')?.getAttribute('data-path')).toBe('/shelf');
+    expect(root.querySelector('.app-shell-reader [data-testid="reader"]')).not.toBeNull();
+    expect(page?.closest('.app-shell-page')).not.toBeNull();
+    expect(document.body.dataset.appNav).toBe('top');
+    act(() => { (root.querySelector('[data-testid="back"]') as HTMLButtonElement).click(); });
+    expect(root.querySelector('[data-testid="reader"]')).toBeNull();
+    expect(root.querySelector('[data-testid="page"]')).toBe(page);
+    expect(document.body.dataset.appNav).toBe('top');
   });
 
   it('gives the book the same theme as every other page', () => {

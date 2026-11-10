@@ -27,7 +27,6 @@
   overflow-y: auto;
   /* none: keep browser chrome from claiming the top-edge pull as its own reload. */
   overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
   padding-bottom: calc(96px + var(--safe-bottom));
   scrollbar-width: thin;
 }

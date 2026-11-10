@@ -34,7 +34,7 @@ function LibraryBookCard({ book, busy, onShelve, menu, picking }: { book: Book; 
 function Cover({ book, mark }: { book: Book; mark?: ReactNode }) {
   const runtime = useRuntime();
   const src = useCover(runtime.api, book.coverUrl);
-  return <div className="cover">{src ? <img src={src} alt="" loading="lazy" draggable={false} /> : <div className="placeholder" style={coverTint(book.title || '')}>{book.title || '无封面'}</div>}<span className="format-badge">{book.format || '书籍'}</span>{mark}</div>;
+  return <div className="cover">{src ? <img src={src} alt="" draggable={false} /> : <div className="placeholder" style={coverTint(book.title || '')}>{book.title || '无封面'}</div>}<span className="format-badge">{book.format || '书籍'}</span>{mark}</div>;
 }
 
 function CollectionHeader({ title, subtitle, backTo, actions, className, footer }: { title: string; subtitle: string; backTo?: string; actions?: React.ReactNode; className?: string; footer?: React.ReactNode }) {

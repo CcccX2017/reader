@@ -1,5 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Link, Outlet, UNSAFE_LocationContext, useLocation, useNavigate, useNavigationType, useOutlet } from 'react-router-dom';
 import { useAuthStore } from '../shared/stores/auth.store.ts';
 import { useRuntime } from './providers/runtime-context.tsx';
 import { LoginPage } from '../features/auth/pages/LoginPage.tsx';
@@ -15,8 +15,18 @@ export function AppShell() {
 function AuthenticatedShell() {
   const runtime = useRuntime();
   const location = useLocation();
+  const navigationType = useNavigationType();
+  const outlet = useOutlet();
   const navigate = useNavigate();
   const media=useMediaEnabled();
+  // Opening a book used to unmount the shelf. iOS then threw away the scrolling
+  // layer under the book grid and, on the way back, painted it empty for a frame.
+  // The page stays mounted, covered, at the same size; the reader is an overlay.
+  const reading = location.pathname.startsWith('/book/');
+  const underlay = useRef<{ node: ReactNode; location: typeof location; navigationType: typeof navigationType } | null>(null);
+  if (!reading && outlet) underlay.current = { node: outlet, location, navigationType };
+  const covered = reading && underlay.current != null;
+  const shellPath = covered ? underlay.current!.location.pathname : location.pathname;
   useEffect(() => {
     if(!media)return;
     const openControls = () => {
@@ -26,7 +36,7 @@ function AuthenticatedShell() {
     return () => runtime.player.removeEventListener('open-controls', openControls);
   }, [runtime, navigate,media]);
   useEffect(() => {if(media)runtime.player.setVisible(location.pathname.startsWith('/media/'));}, [runtime, location.pathname,media]);
-  const mode = !media&&location.pathname.startsWith('/media')?'push':navMode(location.pathname);
+  const mode = !media&&shellPath.startsWith('/media')?'push':navMode(shellPath);
   // One app theme for every page; the reader may wear its own reading theme on top.
   useEffect(() => {
     const theme = new ThemeController(runtime.mediaApi.preferenceScope());
@@ -36,10 +46,22 @@ function AuthenticatedShell() {
     if (mode === 'hidden') delete document.body.dataset.appNav; else document.body.dataset.appNav = mode;
     return () => { delete document.body.dataset.appNav; };
   }, [mode]);
-  return <div className="app-shell">
-    <div className="app-shell-body"><Outlet /></div>
-    {mode !== 'hidden' && <AppNav mode={mode} />}
-  </div>;
+  const here = covered ? underlay.current! : { node: outlet, location, navigationType };
+  return <>
+    <div className="app-shell" inert={covered || undefined}>
+      <div className="app-shell-body">
+        <div className="app-shell-page">
+          {/* The provider keeps the covered page on its own URL. Without it, a
+              refetch while the book is open would read the book's location. */}
+          <UNSAFE_LocationContext.Provider value={{ location: here.location, navigationType: here.navigationType }}>
+            {here.node}
+          </UNSAFE_LocationContext.Provider>
+        </div>
+      </div>
+      {mode !== 'hidden' && <AppNav mode={mode} />}
+    </div>
+    {covered && <div className="app-shell-reader">{outlet}</div>}
+  </>;
 }
 
 export function AuthBoundary({ children }: { children?: ReactNode }) {

@@ -7,6 +7,25 @@
 /* Pages were direct children of #app (a flex column that clips); keep exactly that
  * contract for them one level down. */
 .app-shell-body { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+/* Pass the body's flex constraint down. Pages used to be the body's own children. */
+.app-shell-page { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; }
+/* Covers the shell, including the bar, without unmounting or resizing it.
+   100vh is the fallback for a WebView that predates dvh; 100dvh is the visible
+   viewport, the same height the reader page used when it was the whole screen. */
+.app-shell-reader {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+.app-shell-reader .reader-route-host { flex: 1 1 auto; height: auto; min-height: 0; }
 
 .app-nav {
   --nav-ink: var(--color-ink);
