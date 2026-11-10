@@ -25,6 +25,10 @@ html:is([data-safari='27.2'], [data-safari^='27.2.']) {
     padding-top: calc(1.25rem + var(--safe-top) + 12px);
   }
 
+  .mine-page .home-header h1 {
+    margin-top: 12px;
+  }
+
   .shelf-screen .shelf-head {
     padding-top: calc(1.25rem + var(--safe-top) + 12px);
   }
