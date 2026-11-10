@@ -16,6 +16,7 @@ import { Sheet } from './sheet.tsx';
 import type { SourcePage } from '../api/sources.ts';
 import { CatalogFeedback } from './catalog-feedback.tsx';
 import { FloatingNotice } from './floating-notice.tsx';
+import { PreferencePlaceControl } from './preference-place.tsx';
 /**
  * The reader's chrome: everything around the page.
  *
@@ -796,6 +797,7 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
               />
             ))}
           </FoldSection>
+          <PreferencePlaceControl />
         </>
       ) : (
         <>
@@ -819,7 +821,7 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
           >
             应用电纸书预设
           </Button>
-          <p className="muted">黑白灰浅色、分页、无翻页动画；仅保存到当前设备，可继续单独调整。屏幕刷新由设备控制。</p>
+          <p className="muted">黑白灰浅色、分页、无翻页动画，可继续单独调整。屏幕刷新由设备控制。</p>
           <TapZoneEditor grid={normalizeTapZones(state.tapZones, state.tapZone)} onChange={(tapZones) => handlers.onSetting({ tapZones })} />
           <SegmentedRow
             label="翻页动画"
@@ -856,6 +858,7 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
               onChange={(value) => handlers.onSetting({ comicDirection: value as AppSettings['comicDirection'] })}
             />
           ) : null}
+          <PreferencePlaceControl />
         </>
       )}
     </>

@@ -7,6 +7,8 @@ import { LegacySettingsRedirect, SettingsPage } from '../src/features/account/pa
 import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { readMediaPreferences } from '../src/features/media/services/preferences.ts';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
+import { bindPreferencePlace } from '../src/store/preference-writes.ts';
+import { usePreferencePlaceStore } from '../src/shared/stores/preference-place.store.ts';
 
 const root = document.createElement('div');
 document.body.append(root);
@@ -34,7 +36,14 @@ const paint = (entry: string) => act(() => render(
 const where = () => root.querySelector('[data-where]')?.getAttribute('data-where');
 
 beforeEach(()=>useAuthStore.setState({verifiedUser:{id:'settings-user',username:'reader',displayName:'Reader',role:'member',createdAt:0}}));
-afterEach(() => { act(() => render(null, root));useAuthStore.setState({session:null,verifiedUser:null});localStorage.clear(); updateSettings.mockClear(); });
+afterEach(() => {
+  act(() => render(null, root));
+  useAuthStore.setState({ session: null, verifiedUser: null });
+  usePreferencePlaceStore.getState().replace('local');
+  bindPreferencePlace(async () => undefined);
+  localStorage.clear();
+  updateSettings.mockClear();
+});
 
 describe('偏好设置', () => {
   const tabs = () => [...root.querySelectorAll<HTMLButtonElement>('[role=tab]')];
@@ -57,6 +66,17 @@ describe('偏好设置', () => {
     expect(root.querySelector('select[aria-label="封面密度"]')).toBeNull();
     // No save button anywhere: every control applies as it changes.
     expect([...root.querySelectorAll('button')].some(b => /保存/.test(b.textContent ?? ''))).toBe(false);
+    const place = (label: string) => [...root.querySelectorAll<HTMLButtonElement>('[aria-label="保存位置"] button')].find(button => button.textContent === label);
+    expect(place('本地存储')?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('records a switch from local storage to the account', () => {
+    const chosen: string[] = [];
+    bindPreferencePlace(async (place) => { chosen.push(place); });
+    paint('/me/settings');
+    const account = [...root.querySelectorAll<HTMLButtonElement>('[aria-label="保存位置"] button')].find(button => button.textContent === '持久化存储')!;
+    act(() => { account.click(); });
+    expect(chosen).toEqual(['account']);
   });
 
   it('switches panels by tab, keeps the choice in the address, and applies changes at once', () => {

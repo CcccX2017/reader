@@ -1,3 +1,5 @@
+import { notePreferenceWrite } from '../../../store/preference-writes.ts';
+
 export interface MediaPreferences {density:'compact'|'comfortable';showContinue:boolean;showLibraryName:boolean;sort?:'default'|'title-asc'|'title-desc'}
 export const defaultMediaPreferences:MediaPreferences={density:'compact',showContinue:true,showLibraryName:true};
 const prefix='reader.media.preferences.v1:';
@@ -20,6 +22,7 @@ const listeners=new Set<()=>void>();
 export function saveMediaPreferences(scope:string,value:MediaPreferences):MediaPreferences {
   const settings=validated(value);
   try{localStorage.setItem(key(scope),JSON.stringify(settings));}catch{throw new Error('设备无法保存影音偏好，请检查浏览器存储空间或隐私设置。');}
+  notePreferenceWrite();
   for(const listener of listeners)listener();
   return settings;
 }

@@ -3413,6 +3413,9 @@ book-content {
   background: var(--color-surface-2);
 }
 
+.preference-place { margin: 4px 0 12px; }
+.preference-place .muted { margin: 8px 0 0; }
+
 .muted {
   color: var(--reader-muted);
 }

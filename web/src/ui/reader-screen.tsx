@@ -1,4 +1,5 @@
 import { readThemePreference, resolveAppTheme, resolveReaderSurface, resolveReadingTheme, saveThemePreference, subscribeTheme, systemPrefersDark } from '../shared/theme/theme.ts';
+import { preferencesAppliedEvent } from '../store/preference-writes.ts';
 import { applyCorrections, emptyOverrides, type ReadingOverrides } from './reading-overrides.ts';
 import { loadTxt } from '../formats/txt.ts';
 import { ApiError } from '../api/errors.ts';
@@ -193,6 +194,7 @@ export class ReaderScreen {
   private readonly noticeId = Symbol('reader-status');
   private disposed = false;
   private themeOff?: () => void;
+  private preferenceOff?: () => void;
   private pendingPosition: Position | null = null;
   private readonly settings: AppSettings;
   private readonly listeners: Array<() => void> = [];
@@ -257,6 +259,16 @@ export class ReaderScreen {
       this.applyReadingTheme();
       if (!this.disposed) this.patch({});
     });
+    const onApplied = (event: Event) => {
+      const app = (event as CustomEvent<{ app?: AppSettings }>).detail?.app;
+      if (!app || this.disposed) return;
+      Object.assign(this.settings, app);
+      this.view?.applySettings(this.viewSettings());
+      this.applyReadingTheme();
+      this.patch({});
+    };
+    window.addEventListener(preferencesAppliedEvent, onApplied);
+    this.preferenceOff = () => window.removeEventListener(preferencesAppliedEvent, onApplied);
     this.element.style.cssText = 'flex:1 1 auto;min-height:0;display:flex;flex-direction:column;position:relative;';
     this.ui = createRoot(this.element);
     this.renderChrome();
@@ -677,6 +689,7 @@ export class ReaderScreen {
     this.pdfLoading?.abort();
     this.doc?.pdf?.dispose();
     this.themeOff?.();
+    this.preferenceOff?.();
     this.closeAlternatives();
     this.chapterRefresh?.abort();
     this.stopPreview();

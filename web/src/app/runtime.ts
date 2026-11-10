@@ -6,6 +6,12 @@ import { androidPageHost, androidSpeechBridge, createAndroidPlatform, detectAndr
 import { SyncEngine } from '../core/sync.ts';
 import { OfflineStore } from '../store/offline.ts';
 import { SettingsStore, type AppSettings } from '../store/settings.ts';
+import { PreferenceSync } from '../store/preference-sync.ts';
+import { bindPreferencePlace, bindPreferenceWrites, emitPreferencesApplied } from '../store/preference-writes.ts';
+import { readThemePreference, saveThemePreference, type ThemePreference } from '../shared/theme/theme.ts';
+import { readMediaPreferences, saveMediaPreferences, type MediaPreferences } from '../features/media/services/preferences.ts';
+import { readPlaybackPreferences, savePlaybackPreferences, type PlaybackPreferences } from '../features/media/services/playback-preferences.ts';
+import { notify } from '../ui/notifications.ts';
 import { publicationScope } from '../store/publications.ts';
 import { MediaApi } from '../features/media/api/media-api.ts';
 import { MediaPlayer } from '../features/media/services/player.ts';
@@ -127,6 +133,33 @@ export async function createAppRuntime(defaultServerUrl = '') {
     }
     if (useAuthStore.getState().session) sync.start();
   }
+  const preferenceScope = () => mediaApi.preferenceScope();
+  const preferenceSync = new PreferenceSync({
+    kv: platform.kv,
+    scope: preferenceScope,
+    signedIn: () => Boolean(api.currentSession()?.user.id),
+    read: () => ({
+      app: { ...settings.current },
+      theme: readThemePreference(preferenceScope()),
+      media: { ...readMediaPreferences(preferenceScope()) },
+      playback: { ...readPlaybackPreferences(preferenceScope()) },
+    }),
+    write: async (snapshot) => {
+      const app = await settings.adopt(snapshot.app);
+      useSettingsStore.getState().replace(app);
+      const scope = preferenceScope();
+      saveThemePreference(scope, snapshot.theme as Partial<ThemePreference>);
+      saveMediaPreferences(scope, snapshot.media as MediaPreferences);
+      savePlaybackPreferences(scope, snapshot.playback as PlaybackPreferences);
+      emitPreferencesApplied(app);
+    },
+    pull: () => api.preferences(),
+    push: (snapshot) => api.savePreferences(snapshot),
+    report: (message, kind) => notify(message, { kind }),
+  });
+  bindPreferenceWrites(() => preferenceSync.note());
+  bindPreferencePlace((place) => preferenceSync.setPlace(place));
+  await preferenceSync.ready();
   let currentBook: Book | null = null;
   let readerFlush: (() => Promise<void>) | null = null;
   let capabilityRevision = 0;
@@ -236,13 +269,17 @@ export async function createAppRuntime(defaultServerUrl = '') {
           sync.stop();
           void player?.stop().catch(() => undefined);
         } else void refreshCapabilities().catch(() => undefined);
+        void preferenceSync.onSession().catch(() => undefined);
       });
+      const refreshPreferences = () => preferenceSync.refresh();
       const refresh = () => {
         void refreshCapabilities().catch(() => undefined);
       };
       const timer = setInterval(refresh, 15000);
       window.addEventListener('focus', refresh);
       window.addEventListener('online', refresh);
+      window.addEventListener('focus', refreshPreferences);
+      window.addEventListener('online', refreshPreferences);
       const stopSync = sync.onStatus(useSyncStore.getState().update);
       useSyncStore.getState().update(sync.status());
       return () => {
@@ -250,6 +287,8 @@ export async function createAppRuntime(defaultServerUrl = '') {
         clearInterval(timer);
         window.removeEventListener('focus', refresh);
         window.removeEventListener('online', refresh);
+        window.removeEventListener('focus', refreshPreferences);
+        window.removeEventListener('online', refreshPreferences);
         stopSession();
         stopSync();
       };

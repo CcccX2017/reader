@@ -390,3 +390,18 @@ export interface BookSearchPage {
 }
 
 export interface ReadingOverrides { version: number; corrections: Array<{ id: string; anchor: { sectionId: string; start: number; end: number; quote: string; prefix: string; suffix: string }; replacement: string }>; headingPrefix: string }
+
+/**
+ * The account copy of personal preferences.
+ *
+ * `app` is the reader and shelf settings, `theme` the appearance, `media` the
+ * browse preferences and `playback` the player preferences. `updatedAt` is the
+ * client's clock; a later write replaces an earlier one.
+ */
+export interface PreferenceDocument {
+  app: object;
+  theme: object;
+  media: object;
+  playback: object;
+  updatedAt: number;
+}

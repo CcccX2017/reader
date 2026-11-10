@@ -2,13 +2,14 @@ import type { KeyValueStore } from '../core/platform.ts';
 import type { ViewSettings } from '../ui/reader-view.ts';
 import { validReaderPaper, type ReaderPaper } from '../shared/theme/theme.ts';
 import { normalizeTapZones, tapZonePreset, type TapZoneGrid } from '../ui/tap-zones.ts';
+import { notePreferenceWrite } from './preference-writes.ts';
 
 /**
- * Reader preferences, persisted per device.
+ * Reader preferences.
  *
- * Per *device*, not per account: text size and theme are properties of the
- * screen and the lighting you are reading in, not of who you are. Syncing them
- * would push a phone's text size onto a tablet, which is worse than not syncing.
+ * Kept on this device unless 偏好设置 (or the reader's own 设置 / 外观) switches
+ * 保存位置 to the account. The switch itself stays on the device: a phone can
+ * keep its own text size while a tablet follows the account.
  */
 
 const KEY = 'reader.settings.v1';
@@ -155,6 +156,39 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   shelfShowProgress: true,
 };
 
+/** Fills gaps and folds old stored values forward. A bad value becomes the default. */
+export function normalizeAppSettings(value: unknown): AppSettings {
+  const parsed = (value && typeof value === 'object' ? value : {}) as Partial<AppSettings> & { shelfSort?: string };
+  const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...parsed };
+  for (const { key } of READOUT_FIELDS) {
+    if (!READOUT_OPTIONS.some(option => option.value === settings[key])) settings[key] = DEFAULT_APP_SETTINGS[key];
+  }
+  /*
+   * `updated` used to be the shelf's only date sort and it meant "the file
+   * changed" — which for a library imported once is very nearly "when I added
+   * it". It is now *named* `added`. `title` and `author` still mean what they meant.
+   */
+  if (settings.shelfSort === ('updated' as string)) settings.shelfSort = 'added';
+  /*
+   * The reading paper is the reader's old page theme coming back as its own
+   * setting: a device that had chosen sepia, green or dark before V3 gets the
+   * matching paper the first time, instead of silently losing it.
+   */
+  if (parsed.paper === undefined) {
+    const legacy: Record<string, ReaderPaper> = { sepia: 'warm', green: 'green', dark: 'night' };
+    settings.paper = legacy[String(parsed.theme)] ?? 'theme';
+  }
+  settings.paper = validReaderPaper(settings.paper);
+  settings.tapZones = normalizeTapZones(parsed.tapZones, parsed.tapZone);
+  if (typeof settings.paperFollowsDark !== 'boolean') settings.paperFollowsDark = true;
+  if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort)) settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
+  if (settings.homeShelfCount !== 'all' && !(HOME_SHELF_COUNTS as readonly number[]).includes(settings.homeShelfCount)) {
+    settings.homeShelfCount = DEFAULT_APP_SETTINGS.homeShelfCount;
+  }
+  if (!['recent', 'added', 'title', 'author'].includes(settings.homeShelfSort)) settings.homeShelfSort = DEFAULT_APP_SETTINGS.homeShelfSort;
+  return settings;
+}
+
 export class SettingsStore {
   private settings: AppSettings = { ...DEFAULT_APP_SETTINGS };
   private loaded = false;
@@ -165,51 +199,8 @@ export class SettingsStore {
     if (this.loaded) return this.settings;
     const raw = await this.kv.get(KEY);
     if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as Partial<AppSettings> & { shelfSort?: string };
-        this.settings = { ...DEFAULT_APP_SETTINGS, ...parsed };
-        for (const { key } of READOUT_FIELDS) {
-          if (!READOUT_OPTIONS.some(option => option.value === this.settings[key])) {
-            this.settings[key] = DEFAULT_APP_SETTINGS[key];
-          }
-        }
-        /*
-         * Two stored values are folded forward, and both are the same repair.
-         *
-         * `updated` used to be the shelf's only date sort and it meant "the file
-         * changed" — which for a library imported once is very nearly "when I added
-         * it". It is now *named* `added`, which is what it always was in practice,
-         * and `updated` no longer exists as a choice; left folded, a reader who had
-         * picked it would open the shelf on a key the sort sheet cannot show and the
-         * server would receive an unknown `sort`.
-         *
-         * `title` and `author` are untouched: they still mean what they meant.
-         */
-        if (this.settings.shelfSort === ('updated' as string)) this.settings.shelfSort = 'added';
-        /*
-         * The reading paper is the reader's old page theme coming back as its own
-         * setting: a device that had chosen sepia, green or dark before V3 gets the
-         * matching paper the first time, instead of silently losing it.
-         */
-        if (parsed.paper === undefined) {
-          const legacy: Record<string, ReaderPaper> = { sepia: 'warm', green: 'green', dark: 'night' };
-          this.settings.paper = legacy[String(parsed.theme)] ?? 'theme';
-        }
-        this.settings.paper = validReaderPaper(this.settings.paper);
-        this.settings.tapZones = normalizeTapZones(parsed.tapZones, parsed.tapZone);
-        if (typeof this.settings.paperFollowsDark !== 'boolean') this.settings.paperFollowsDark = true;
-        if (!['recent', 'added', 'title', 'author'].includes(this.settings.shelfSort)) {
-          this.settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
-        }
-        if (this.settings.homeShelfCount !== 'all' && !(HOME_SHELF_COUNTS as readonly number[]).includes(this.settings.homeShelfCount)) {
-          this.settings.homeShelfCount = DEFAULT_APP_SETTINGS.homeShelfCount;
-        }
-        if (!['recent', 'added', 'title', 'author'].includes(this.settings.homeShelfSort)) {
-          this.settings.homeShelfSort = DEFAULT_APP_SETTINGS.homeShelfSort;
-        }
-      } catch {
-        this.settings = { ...DEFAULT_APP_SETTINGS };
-      }
+      try { this.settings = normalizeAppSettings(JSON.parse(raw)); }
+      catch { this.settings = { ...DEFAULT_APP_SETTINGS }; }
     }
     this.loaded = true;
     return this.settings;
@@ -222,6 +213,15 @@ export class SettingsStore {
   async update(patch: Partial<AppSettings>): Promise<AppSettings> {
     this.settings = { ...this.settings, ...patch };
     await this.kv.set(KEY, JSON.stringify(this.settings));
+    notePreferenceWrite();
+    return this.settings;
+  }
+
+  /** Replaces the whole document, for a copy that arrived from the account. */
+  async adopt(value: unknown): Promise<AppSettings> {
+    this.settings = normalizeAppSettings(value);
+    await this.kv.set(KEY, JSON.stringify(this.settings));
+    this.loaded = true;
     return this.settings;
   }
 

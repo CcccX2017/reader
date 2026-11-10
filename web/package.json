@@ -1,6 +1,6 @@
 {
   "name": "reader-client",
-  "version": "0.1.0",
+  "version": "1.0.10",
   "private": true,
   "description": "Reader client: shared rendering layer for the H5 build and the Android WebView shell.",
   "license": "AGPL-3.0-or-later",

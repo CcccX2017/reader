@@ -12,6 +12,8 @@
  * the two in step and holds every palette to the spec's contrast pairs.
  */
 
+import { notePreferenceWrite } from '../../store/preference-writes.ts';
+
 export const channels = ['read', 'video', 'music', 'audio'] as const;
 export type ThemeChannel = typeof channels[number];
 
@@ -154,6 +156,7 @@ export function saveThemePreference(scope: string, patch: Partial<ThemePreferenc
   const current = readThemePreference(scope);
   const next = validThemePreference({ ...current, ...patch, system: { ...current.system, ...patch.system } });
   try { localStorage.setItem(preferenceKey(scope), JSON.stringify(next)); } catch { throw new Error('设备无法保存主题，请检查浏览器存储空间或隐私设置。'); }
+  notePreferenceWrite();
   // Storage events do not fire in the tab that made the change; tell this tab directly.
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(themeChangeEvent, { detail: { scope } }));
   return next;

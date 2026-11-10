@@ -26,6 +26,11 @@ ALTER TABLE chapter_resources ADD COLUMN media_type TEXT NOT NULL DEFAULT 'text/
 ALTER TABLE user_books ADD COLUMN reading_status TEXT;
 ALTER TABLE reading_progress ADD COLUMN sync_revision INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE notes ADD COLUMN sync_revision INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS user_preferences (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  document TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 `;
 
 export const SYNC_TRACKING_SQL = `
@@ -68,6 +73,14 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_path   TEXT NOT NULL DEFAULT '',
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL
+);
+
+-- One account-wide copy of the reader's preferences. The device decides whether
+-- to use it; the row is only written when that device has chosen 持久化存储.
+CREATE TABLE IF NOT EXISTS user_preferences (
+  user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  document   TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS business_settings (

@@ -27,6 +27,7 @@ import type {
   TocEntry,
   UploadResult,
   User,
+  PreferenceDocument,
 } from './types.ts';
 import type { Platform } from '../core/platform.ts';
 import type { SourceType, SourceInstance, SourcePlugin, SourceEntry, SourcePage, SourceAcquisition, ChapterSubscription } from './sources.ts';
@@ -902,6 +903,16 @@ export class ReaderApi {
     return new Blob([new Uint8Array(result.bytes??[]).buffer],{type:result.headers['content-type']||'audio/mpeg'});
   }
   async businessAiModels(values?:{baseUrl?:string;apiKey?:string}):Promise<string[]> { return (await this.call<{models:string[]}>('/api/v1/admin/ai/models','POST',values??{})).models; }
+  /** The account copy of reader settings, appearance and preferences. `null` when none has been stored. */
+  async preferences(options: RequestOptions = {}): Promise<PreferenceDocument | null> {
+    return (await this.get<{ preferences: PreferenceDocument | null }>('/api/v1/preferences', options)).preferences;
+  }
+
+  /** Stores that copy. The response is the row the account kept, which may be a newer one. */
+  async savePreferences(document: PreferenceDocument): Promise<PreferenceDocument> {
+    return (await this.call<{ preferences: PreferenceDocument }>('/api/v1/preferences', 'PUT', document)).preferences;
+  }
+
   /** What the server's AI can do for a reader; older servers answer 404. */
   async aiCapabilities(options: RequestOptions = {}): Promise<{ summary: boolean; scan?: boolean }> { return this.get('/api/v1/ai/capabilities', options); }
   async aiSummary(bookId:string,chapterId:string,content:string):Promise<{summary:string;cached:boolean}>{ return this.call('/api/v1/ai/summary','POST',{bookId,chapterId,content}); }

@@ -7,6 +7,7 @@ import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
 import { ShelfSettingsFields } from '../../../ui/shelf-settings.tsx';
 import { Icon } from '../../../ui/icon.tsx';
+import { PreferencePlaceControl } from '../../../ui/preference-place.tsx';
 import { playerPath } from '../../media/stores/playback.store.ts';
 import '../styles/mine.css';
 import { useMediaEnabled } from '../../../shared/stores/features.ts';
@@ -52,6 +53,7 @@ export function SettingsPage() {
 
   return <MediaPageFrame className="media-secondary-page settings-page" title="偏好设置" backTo="/me" backLabel="返回我的">
     <div className="settings-body">
+      <PreferencePlaceControl />
       <div className="settings-tabs" role="tablist" aria-label="设置分类">
         {sections.map((section, index) => <button type="button" role="tab" key={section.id} id={`settings-tab-${section.id}`}
           aria-selected={active === section.id} aria-controls="settings-panel" tabIndex={active === section.id ? 0 : -1}
@@ -79,7 +81,7 @@ export function SettingsPage() {
           </Link>
         </>}
         {active === 'browse' && <>
-          <p className="settings-note">仅影响影音页面，在当前设备为此服务器和账号保存</p>
+          <p className="settings-note">仅影响影音页面。保存在这台设备还是当前账号，由上面的保存位置决定。</p>
           <MediaBrowseSettings scope={scope} />
         </>}
         {active === 'playback' && <PlaybackSettings scope={scope} player={runtime.player} onPlayback={() => navigate(playerPath(runtime.playback.snapshot()))} />}

@@ -1,10 +1,11 @@
 import {MediaSelect} from './select.tsx';
-import { useState } from 'react';
-import {readPlaybackPreferences,savePlaybackPreferences,playbackRates} from '../services/playback-preferences.ts';
+import { useEffect, useState } from 'react';
+import {readPlaybackPreferences,savePlaybackPreferences,playbackRates,subscribePlaybackPreferences} from '../services/playback-preferences.ts';
 import type {MediaPlayer} from '../services/player.ts';
 import {SleepTimerOptions} from './sleep-timer.tsx';
 export function PlaybackSettings({scope,player,onPlayback}:{scope:string;player:MediaPlayer;onPlayback?:()=>void}) {
   const [value,setValue]=useState(()=>readPlaybackPreferences(scope)),[error,setError]=useState('');
+  useEffect(()=>subscribePlaybackPreferences(()=>setValue(readPlaybackPreferences(scope))),[scope]);
   function change(patch:Partial<typeof value>){const next={...value,...patch};try{savePlaybackPreferences(scope,next);setValue(next);setError('');}catch{setError('无法保存播放偏好，请检查设备存储。');}}
   return <section className="media-settings-panel">
     <label className="media-setting-field">默认倍速<MediaSelect aria-label="默认倍速" value={value.defaultRate} onChange={event=>change({defaultRate:Number(event.currentTarget.value)})}>{playbackRates.map(rate=><option key={rate} value={rate}>{rate}×</option>)}</MediaSelect></label>

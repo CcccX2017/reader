@@ -226,11 +226,12 @@ describe('ReaderChrome', () => {
     const order = [...body.children].map((element) =>
       element.matches('details.panel-fold')
         ? `fold:${element.querySelector('.panel-fold-title')?.textContent}`
-        : (element.querySelector('label')?.textContent ?? '').split(' ')[0],
+        : (element.querySelector('label')?.textContent ?? element.querySelector('.section-title')?.textContent ?? '').split(' ')[0],
     );
     // Size, spacing, theme and brightness fill the first screen; the readouts that
-    // used to come first are behind a fold, closed by default.
-    expect(order).toEqual(['纸色', '字号', '行距', '主题', '明暗', '亮度', 'fold:更多排版', 'fold:页眉页脚']);
+    // used to come first are behind a fold, closed by default. 保存位置 is last: it
+    // is chosen once, and it covers this sheet and 偏好设置 together.
+    expect(order).toEqual(['纸色', '字号', '行距', '主题', '明暗', '亮度', 'fold:更多排版', 'fold:页眉页脚', '保存位置']);
     for (const fold of body.querySelectorAll<HTMLDetailsElement>('details.panel-fold')) expect(fold.open).toBe(false);
     expect(body.querySelector('details.panel-fold input[aria-label="页边距"]')).not.toBeNull();
     expect(body.querySelector('details.panel-fold select[aria-label="顶部左侧"]')).not.toBeNull();
