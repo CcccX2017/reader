@@ -34,7 +34,6 @@ export class PreferenceSync {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pushing = false;
   private again = false;
-  private pending = false;
   /** Set when 持久化 is chosen before a login, so the first session uploads this device. */
   private uploadLocal = false;
   private scopeSeen = '';
@@ -63,7 +62,7 @@ export class PreferenceSync {
       this.uploadLocal = false;
       this.updatedAt = Date.now();
       await this.deps.kv.set(stampKey(scope), String(this.updatedAt));
-      await this.pushNow().catch(() => { this.pending = true; });
+      await this.pushNow().catch(() => undefined);
       return;
     }
     // A different account must not inherit the previous account's stamp, or this
@@ -102,11 +101,10 @@ export class PreferenceSync {
     this.cancel();
     if (next === 'local') {
       this.uploadLocal = false;
-      this.pending = false;
       if (this.deps.signedIn()) {
         this.updatedAt = Date.now();
         await this.deps.kv.set(stampKey(this.deps.scope()), String(this.updatedAt));
-        await this.send().catch(() => { this.pending = true; });
+        await this.send().catch(() => undefined);
       }
       this.deps.report?.('已改为本地存储，之后的修改只留在这台设备', 'success');
       return;
@@ -145,12 +143,10 @@ export class PreferenceSync {
     try {
       remote = await this.deps.pull();
     } catch {
-      this.pending = true;
       return;
     }
-    this.pending = false;
     if (!remote) {
-      if (this.place === 'account') await this.pushNow().catch(() => { this.pending = true; });
+      if (this.place === 'account') await this.pushNow().catch(() => undefined);
       return;
     }
     // Only a newer row decides the mode. An older row must not undo a switch
@@ -165,7 +161,7 @@ export class PreferenceSync {
       return;
     }
     if (this.updatedAt > remote.updatedAt) {
-      await (this.place === 'account' ? this.pushNow() : this.send()).catch(() => { this.pending = true; });
+      await (this.place === 'account' ? this.pushNow() : this.send()).catch(() => undefined);
     }
   }
 
@@ -216,10 +212,6 @@ export class PreferenceSync {
         if (stored.place !== 'local' && stored.updatedAt > this.updatedAt) await this.apply(stored);
         else if (this.updatedAt > sentAt) this.again = true;
       } while (this.again && this.deps.signedIn());
-      this.pending = false;
-    } catch (error) {
-      this.pending = true;
-      throw error;
     } finally {
       this.pushing = false;
     }
