@@ -892,7 +892,7 @@ export class ReaderApi {
   }
 
   async businessSiteIcon<T>(file:File):Promise<T>{
-    if(file.size>2*1024*1024)throw new Error('系统图标不能超过 2MB');
+    if(file.size>5*1024*1024)throw new Error('系统图标不能超过 5MB');
     const form=new FormData();
     form.set('file',file);
     return (await this.request('/api/v1/admin/settings/site/icon','POST',form)).json as T;

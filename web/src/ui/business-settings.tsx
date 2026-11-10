@@ -51,7 +51,7 @@ export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true
   const replaceSite=(result:SettingsView)=>{keepForm.current=true;setGroups(items=>items.map(item=>item.group==='site'?result:item));};
   const uploadIcon=(file:File)=>void work(async()=>{
     if(!api.businessSiteIcon)return;
-    if(file.size>2*1024*1024)throw new Error('系统图标不能超过 2MB');
+    if(file.size>5*1024*1024)throw new Error('系统图标不能超过 5MB');
     replaceSite(await api.businessSiteIcon<SettingsView>(file));setMessage('系统图标已更新');onSaved?.();
   });
   const clearIcon=()=>void work(async()=>{
@@ -92,7 +92,7 @@ export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true
         </label>)}
         {selected==='site'&&<div className="business-site-icon"><span>系统图标</span>
           <div className="business-site-icon-row"><button type="button" className="business-site-icon-pick" aria-label={current.iconUrl?'更换系统图标':'上传系统图标'} disabled={busy} onClick={()=>iconInput.current?.click()}><img src={current.iconUrl?resolveUrl(current.iconUrl):'./icons/reader.svg'} alt=""/></button><input ref={iconInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file)uploadIcon(file);}}/>{current.iconUrl&&<button type="button" className="button" disabled={busy} onClick={clearIcon}>清除图标</button>}</div>
-          <small className="muted">点击图标上传。PNG、JPEG、GIF 或 WebP，不超过 2MB。</small>
+          <small className="muted">点击图标上传。PNG、JPEG、GIF 或 WebP，不超过 5MB。</small>
         </div>}
         {selected==='ai'&&<datalist id="ai-models">{models.map(model=><option key={model} value={model}/>)}</datalist>}
         <div className="user-manager-actions"><button className="button primary" disabled={busy}>保存配置</button>

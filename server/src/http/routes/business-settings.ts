@@ -110,7 +110,7 @@ async function readSiteIcon(stream:Readable):Promise<Buffer>{
   for await(const chunk of stream){
     const buf=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);
     total+=buf.length;
-    if(total>SITE_ICON_MAX_BYTES){stream.destroy();throw badRequest('系统图标不能超过 2MB','SITE_ICON_TOO_LARGE');}
+    if(total>SITE_ICON_MAX_BYTES){stream.destroy();throw badRequest('系统图标不能超过 5MB','SITE_ICON_TOO_LARGE');}
     chunks.push(buf);
   }
   return Buffer.concat(chunks);

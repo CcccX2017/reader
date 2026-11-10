@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 /** Site icons live under DATA_DIR/site/icon.{ext}. */
-export const SITE_ICON_MAX_BYTES = 2 * 1024 * 1024;
+export const SITE_ICON_MAX_BYTES = 5 * 1024 * 1024;
 const SITE_ICON_EXTENSIONS = ['.jpg', '.png', '.gif', '.webp'] as const;
 
 export function siteIconRel(ext: string): string {
