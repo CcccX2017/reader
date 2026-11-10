@@ -80,7 +80,7 @@ export function MinePage() {
           {admin && <Group title="管理" order={3}>
             <Row icon="users" label="用户管理" to="/me/admin/users" />
             <Row icon="invite" label="注册与邀请" to="/me/admin/registration" />
-            <Row icon="server" label="服务配置" value={media?'功能模块、朗读、AI、刮削、备份':'功能模块、朗读、AI、备份'} to="/me/admin/services" />
+            <Row icon="server" label="服务配置" value={media?'系统配置、功能模块、朗读、AI、刮削、备份':'系统配置、功能模块、朗读、AI、备份'} to="/me/admin/services" />
             {media&&<Row icon="refresh" label="扫描与刮削" to="/media/video/settings/tasks" state={{ returnTo: '/me' }} />}
           </Group>}
         </div>

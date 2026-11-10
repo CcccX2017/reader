@@ -891,6 +891,15 @@ export class ReaderApi {
     void this.queryClient.invalidateQueries({ queryKey: ['reader'], refetchType: 'none' });
   }
 
+  async businessSiteIcon<T>(file:File):Promise<T>{
+    if(file.size>2*1024*1024)throw new Error('系统图标不能超过 2MB');
+    const form=new FormData();
+    form.set('file',file);
+    return (await this.request('/api/v1/admin/settings/site/icon','POST',form)).json as T;
+  }
+  businessClearSiteIcon<T>():Promise<T>{
+    return this.call<T>('/api/v1/admin/settings/site/icon','DELETE');
+  }
   businessSettingsRequest<T>(path='',method='GET',body?:unknown,signal?:AbortSignal):Promise<T>{
     const requestPath = '/api/v1/admin/settings'+(path?'/'+path:'');
     const options = signal ? { signal } : {};

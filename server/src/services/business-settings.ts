@@ -1,6 +1,8 @@
 import type { Db } from '../db/index.ts';
 import type { AppConfig } from '../config/index.ts';
 import { badRequest, conflict } from '../lib/errors.ts';
+import { sniffCoverImage } from '../indexer/metadata.ts';
+import { removeSiteIcon, writeSiteIcon } from './site-icon.ts';
 
 export interface BusinessValues {
   modules:{mediaEnabled:boolean;newUserMediaEnabled:boolean};
@@ -14,10 +16,15 @@ export interface BusinessValues {
   access:{publicUrl:string;corsOrigins:string;accessTokenTtl:number;refreshTokenTtl:number};
   webdav:{url:string;username:string;password:string;maxBytes:number};
   library:{memberUpload:boolean};
+  /** `icon` is a data-dir path written by the icon upload, not a form field. */
+  site:{name:string;icon?:string};
 }
 export type SettingsGroup=keyof BusinessValues;
 type Field={key:string;label:string;type:'text'|'textarea'|'password'|'number'|'checkbox'|'url'|'select';default:string|number|boolean;min?:number;max?:number;help?:string;options?:Array<{value:string;label:string}>};
 export const SETTINGS_SCHEMA:Record<SettingsGroup,{label:string;fields:Field[]}>= {
+  site:{label:'系统配置',fields:[
+    {key:'name',label:'系统名称',type:'text',default:'reader',help:'显示在浏览器标题和登录页'},
+  ]},
   modules:{label:'功能模块',fields:[
     {key:'mediaEnabled',label:'启用影音模块',type:'checkbox',default:true,help:'关闭后全站进入纯阅读模式，停止影音播放和后台任务，保留媒体库与播放记录；不影响书籍朗读'},
     {key:'newUserMediaEnabled',label:'新用户默认启用影音',type:'checkbox',default:true,help:'仅影响之后创建的账号，不修改已有用户的影音权限'},
@@ -112,7 +119,30 @@ export class BusinessSettings extends BusinessSettingsReader {
   view(group:SettingsGroup){
     const values={...this.read(group)} as Record<string,unknown>,secrets:Record<string,boolean>={};
     for(const field of SETTINGS_SCHEMA[group].fields)if(field.type==='password'){secrets[field.key]=!!values[field.key];delete values[field.key];}
-    return {group,...SETTINGS_SCHEMA[group],values,secrets,revision:this.database.get<{revision:number}>('SELECT revision FROM business_settings WHERE name=?',group)!.revision};
+    const revision=this.database.get<{revision:number}>('SELECT revision FROM business_settings WHERE name=?',group)!.revision;
+    const icon=group==='site'?String(values.icon||''):'';
+    if(group==='site'){delete values.icon;if(!String(values.name||'').trim())values.name='reader';}
+    return {group,...SETTINGS_SCHEMA[group],values,secrets,revision,...(group==='site'?{iconUrl:icon?`/api/v1/site/icon?v=${revision}`:null}:{})};
+  }
+  /** Replaces the site icon. The stored path stays out of the settings form. */
+  async setSiteIcon(dataDir:string,bytes:Buffer){
+    const sniffed=sniffCoverImage(bytes);
+    if(!sniffed)throw badRequest('系统图标须为 PNG、JPEG、GIF 或 WebP');
+    const rel=await writeSiteIcon(dataDir,bytes,sniffed.ext);
+    return this.storeSiteIcon(rel);
+  }
+  async clearSiteIcon(dataDir:string){
+    const view=this.storeSiteIcon('');
+    await removeSiteIcon(dataDir);
+    return view;
+  }
+  private storeSiteIcon(rel:string){
+    return this.database.transaction(()=>{
+      const current=this.read('site');
+      const next:BusinessValues['site']={name:current.name,...(rel?{icon:rel}:{})};
+      this.database.run('UPDATE business_settings SET value=?,revision=revision+1 WHERE name=?',JSON.stringify(next),'site');
+      return this.view('site');
+    });
   }
   candidate<K extends SettingsGroup>(group:K,input:unknown):BusinessValues[K]{
     if(!input||typeof input!=='object'||Array.isArray(input))throw badRequest('配置必须是对象');
@@ -139,6 +169,7 @@ export class BusinessSettings extends BusinessSettingsReader {
       for(const origin of String(values.corsOrigins).split(',').map(value=>value.trim()).filter(Boolean))if(origin!=='null'&&validateUrl(origin).origin!==origin)throw badRequest('浏览器来源须为协议与域名（可含端口），不能包含路径');
       if(Number(values.refreshTokenTtl)<Number(values.accessTokenTtl))throw badRequest('登录续期有效期不能小于访问令牌有效期');
     }
+    if(group==='site'&&String(values.name).length>40)throw badRequest('系统名称最多 40 个字');
     if(group==='webdav'&&values.url){
       const url=validateUrl(String(values.url));
       if(url.search||url.hash||(url.protocol!=='https:'&&!['127.0.0.1','[::1]','localhost'].includes(url.hostname)))throw badRequest('WebDAV 必须使用 HTTPS 目录地址，且不能包含查询参数');

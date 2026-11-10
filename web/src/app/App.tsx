@@ -1,5 +1,6 @@
-import { pageTitle } from './page-title.ts';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { appName, pageTitle, subscribeAppName } from './page-title.ts';
+import { applySiteBrand } from './site-branding.ts';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, UNSAFE_LocationContext, useLocation, useNavigate, useNavigationType, useOutlet } from 'react-router-dom';
 import { useAuthStore } from '../shared/stores/auth.store.ts';
 import { useRuntime } from './providers/runtime-context.tsx';
@@ -38,7 +39,15 @@ function AuthenticatedShell() {
   }, [runtime, navigate,media]);
   useEffect(() => {if(media)runtime.player.setVisible(location.pathname.startsWith('/media/'));}, [runtime, location.pathname,media]);
   const mode = !media&&shellPath.startsWith('/media')?'push':navMode(shellPath);
-  useEffect(() => { document.title = pageTitle(location.pathname); }, [location.pathname]);
+  const [brand, setBrand] = useState(appName);
+  useEffect(() => subscribeAppName(() => setBrand(appName())), []);
+  useEffect(() => {
+    let live = true;
+    void runtime.api.instance().then(info => { if (live) applySiteBrand(info, runtime.api.baseUrl); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [runtime]);
+  // A book sets its own title. Updating the site name must not replace that.
+  useEffect(() => { if (!location.pathname.startsWith('/book/')) document.title = pageTitle(location.pathname); }, [location.pathname, brand]);
   // "/" goes to search from anywhere a keystroke is not already text or a reading/playback command.
   // The reader covers the page, so the shortcut stays with the page underneath.
   useEffect(() => {

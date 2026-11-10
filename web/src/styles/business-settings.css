@@ -17,3 +17,10 @@
 .business-settings .business-secret-clear { justify-self: start; font-size: var(--text-meta); }
 .business-settings audio { width: 100%; }
 .business-settings .muted { line-height: 1.6; }
+.business-site-icon { display: grid; gap: 0.4rem; }
+.business-site-icon-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.media-screen .business-site-icon button.business-site-icon-pick { padding: 0; min-height: 0; border: 0; background: transparent; line-height: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .media-screen .business-site-icon button.business-site-icon-pick:hover:not(:disabled) { background: transparent; }
+}
+.business-site-icon img { width: 64px; height: 64px; object-fit: contain; }

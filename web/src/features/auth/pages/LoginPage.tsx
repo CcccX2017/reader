@@ -5,6 +5,7 @@ import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { validServerUrl } from '../../../app/runtime.ts';
 import { ThemeController, loginThemeScope } from '../../../shared/theme/theme.ts';
 import { Icon } from '../../../ui/toolkit.tsx';
+import { applySiteBrand, siteAssetUrl } from '../../../app/site-branding.ts';
 
 export function LoginPage() {
   const runtime = useRuntime();
@@ -31,9 +32,9 @@ export function LoginPage() {
     const value = serverUrl.trim();
     probeGeneration.current += 1;
     if (probe.current) clearTimeout(probe.current);
-    if (!value) { setInstance(null); setNotice('请输入服务端地址'); return;
+    if (!value) { setInstance(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; setNotice('请输入服务端地址'); return;
     }
-    if (!validServerUrl(value)) { setInstance(null); setNotice('请输入 http:// 或 https:// 开头的地址'); return; }
+    if (!validServerUrl(value)) { setInstance(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; setNotice('请输入 http:// 或 https:// 开头的地址'); return; }
     probe.current = setTimeout(() => { void probeServer(value); }, 350);
     return () => { if (probe.current) clearTimeout(probe.current); };
   }, [serverUrl]);
@@ -44,12 +45,14 @@ export function LoginPage() {
       const result = await runtime.api.instance();
       if (generation !== probeGeneration.current) return;
       setInstance(result);
+      applySiteBrand(result, value);
+      document.title = result.name?.trim() || 'reader';
       if (result.userCount === 0) { setRegistering(true); setNotice('这是一个全新的实例，第一个注册的账号会成为管理员。'); }
       else if (result.registrationOpen) setNotice(result.invitationRequired ? '此书房需要邀请码注册，请向管理员获取。' : `已有 ${result.userCount} 个账号，此实例开放注册。`);
       else { setRegistering(false); setNotice('此实例已关闭公开注册，请使用已有账号登录。'); }
     } catch (reason) {
       if (generation !== probeGeneration.current) return;
-      setInstance(null); setNotice(reason instanceof ApiError && reason.isConnectivity ? '连不上这个地址，请检查服务端是否已启动。' : '无法读取服务端信息，请核对地址。');
+      setInstance(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; setNotice(reason instanceof ApiError && reason.isConnectivity ? '连不上这个地址，请检查服务端是否已启动。' : '无法读取服务端信息，请核对地址。');
     } finally { if (generation === probeGeneration.current) setProbing(false); }
   };
   const submit = async (event: FormEvent) => {
@@ -71,7 +74,7 @@ export function LoginPage() {
   };
   const canRegister = !!instance?.registrationOpen;
   return <div className="login-screen"><form className="centered-form login-card" onSubmit={submit}>
-    <header className="login-heading"><div className="login-brand">reader</div><p>你的私人书房</p></header>
+    <header className="login-heading"><div className="login-brand"><img src={instance?.iconUrl ? siteAssetUrl(runtime.api.baseUrl, instance.iconUrl) : './icons/reader.svg'} alt="" />{instance?.name?.trim() || 'reader'}</div><p>你的私人书房</p></header>
     <details className="login-connection">
       <summary>连接设置<span>更换服务地址</span></summary>
       <div className="field"><label htmlFor="login-server">服务端地址 <em>*</em></label><div className="login-server-input"><input id="login-server" type="url" value={serverUrl} onChange={event => setServerUrl(event.currentTarget.value)} placeholder="http://127.0.0.1:5888" required />{probing ? <span className="login-server-status is-probing" role="status" aria-label="正在连接服务端">…</span> : instance ? <span className="login-server-status" role="img" aria-label="已连接服务端"><Icon name="check" /></span> : null}</div><div className="login-server-meta"><span>{instance?.name || '尚未连接服务端'}</span>{instance && <span>API v{instance.apiVersion}</span>}</div></div>

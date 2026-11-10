@@ -5,6 +5,7 @@ import type { AppContext } from '../context.ts';
 import { authenticate, currentUser, requireAdmin } from '../auth.ts';
 import { RegistrationService } from '../../services/registration.ts';
 import { AVATAR_MAX_BYTES } from '../../services/avatars.ts';
+import { siteDisplayName } from '../../services/site-icon.ts';
 import { badRequest, notFound } from '../../lib/errors.ts';
 import { imageContentType } from '../../indexer/formats/image-types.ts';
 import { assertSafeRel, resolveInside } from '../../lib/paths.ts';
@@ -141,8 +142,11 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext): void 
     reply.header('cache-control','no-store');
     // Advertised so a client can tell a fresh instance from a claimed one
     // without attempting registration.
+    const site = ctx.settings!.read('site');
+    const revision = ctx.db.get<{ revision: number }>('SELECT revision FROM business_settings WHERE name=?', 'site')?.revision ?? 1;
     return {
-      name: 'reader',
+      name: siteDisplayName(site.name),
+      iconUrl: site.icon ? `/api/v1/site/icon?v=${revision}` : null,
       apiVersion: 1,
       features:{media:ctx.settings!.read('modules').mediaEnabled},
       registrationOpen: ctx.users.canRegisterPublicly(),

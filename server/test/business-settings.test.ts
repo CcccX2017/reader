@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createServer} from 'node:http';
@@ -92,6 +92,57 @@ test('AI capabilities tell a reader whether 章节总结 is available, without t
   assert.deepEqual((await app.inject({url:'/api/v1/ai/capabilities',headers:member})).json(),{summary:true,scan:true});
   assert.equal((await save({enabled:false})).statusCode,200);
   assert.deepEqual((await app.inject({url:'/api/v1/ai/capabilities',headers:member})).json(),{summary:false,scan:false},'the master switch turns both off');assert.ok(!ready.body.includes('secret-key'));
+});
+
+test('site name and icon are public, and the stored path stays out of the form',async t=>{
+  const root=await mkdtemp(join(tmpdir(),'site-brand-')),db=new Db(':memory:'),cfg=config(root);
+  const ctx={config:cfg,db,users:new UserService(db,cfg)} as AppContext;
+  for(const [id,role] of [['admin','admin'],['member','member']])db.run('INSERT INTO users(id,username,display_name,password_hash,role,created_at,updated_at) VALUES(?,?,?,?,?,0,0)',id!,id!,id!,'unused',role!);
+  const app=buildApp(ctx);await app.ready();
+  t.after(async()=>{await app.close();db.close();await rm(root,{recursive:true,force:true});});
+  const admin={authorization:'Bearer '+signAccessToken(cfg,{id:'admin',role:'admin'}).token},member={authorization:'Bearer '+signAccessToken(cfg,{id:'member',role:'member'}).token};
+  assert.equal((await app.inject({url:'/api/v1/instance'})).json().name,'reader');
+  assert.equal((await app.inject({url:'/api/v1/instance'})).json().iconUrl,null);
+  assert.equal((await app.inject({url:'/api/v1/site/icon'})).statusCode,404);
+  const named=await app.inject({method:'PATCH',url:'/api/v1/admin/settings/site',headers:admin,payload:{values:{name:'书房'},revision:ctx.settings!.view('site').revision}});
+  assert.equal(named.statusCode,200,named.body);
+  assert.equal(named.json().values.name,'书房');
+  assert.equal(named.json().iconUrl,null);
+  assert.equal(named.json().values.icon,undefined);
+  assert.equal((await app.inject({url:'/api/v1/instance'})).json().name,'书房');
+  assert.equal((await app.inject({method:'PATCH',url:'/api/v1/admin/settings/site',headers:admin,payload:{values:{name:'a'.repeat(41)},revision:ctx.settings!.view('site').revision}})).statusCode,400);
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
+  const boundary='----reader-site-icon';
+  const part=(filename:string,type:string,bytes:Buffer)=>Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${type}\r\n\r\n`),
+    bytes,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  assert.equal((await app.inject({method:'POST',url:'/api/v1/admin/settings/site/icon',headers:{...member,'content-type':`multipart/form-data; boundary=${boundary}`},payload:part('a.png','image/png',png)})).statusCode,403);
+  const uploaded=await app.inject({method:'POST',url:'/api/v1/admin/settings/site/icon',headers:{...admin,'content-type':`multipart/form-data; boundary=${boundary}`},payload:part('a.png','image/png',png)});
+  assert.equal(uploaded.statusCode,200,uploaded.body);
+  assert.equal(uploaded.json().values.name,'书房');
+  assert.match(uploaded.json().iconUrl,/^\/api\/v1\/site\/icon\?v=/);
+  assert.equal(uploaded.json().values.icon,undefined);
+  assert.equal(JSON.stringify(uploaded.json()).includes('site/icon.png'),false);
+  assert.equal((await readFile(join(root,'site','icon.png'))).equals(png),true);
+  const icon=await app.inject({url:'/api/v1/site/icon'});
+  assert.equal(icon.statusCode,200);
+  assert.equal(icon.headers['content-type'],'image/png');
+  assert.equal(icon.rawPayload.equals(png),true);
+  assert.equal((await app.inject({url:'/api/v1/instance'})).json().iconUrl,uploaded.json().iconUrl);
+  const rejected=await app.inject({method:'POST',url:'/api/v1/admin/settings/site/icon',headers:{...admin,'content-type':`multipart/form-data; boundary=${boundary}`},payload:part('notes.txt','text/plain',Buffer.from('not a picture'))});
+  assert.equal(rejected.statusCode,400);
+  const kept=await app.inject({method:'PATCH',url:'/api/v1/admin/settings/site',headers:admin,payload:{values:{name:'新书房'},revision:ctx.settings!.view('site').revision}});
+  assert.equal(kept.statusCode,200,kept.body);
+  assert.equal(kept.json().values.name,'新书房');
+  assert.ok(kept.json().iconUrl);
+  const cleared=await app.inject({method:'DELETE',url:'/api/v1/admin/settings/site/icon',headers:admin});
+  assert.equal(cleared.statusCode,200,cleared.body);
+  assert.equal(cleared.json().iconUrl,null);
+  assert.equal(cleared.json().values.name,'新书房');
+  assert.equal((await app.inject({url:'/api/v1/site/icon'})).statusCode,404);
+  assert.equal((await app.inject({url:'/api/v1/instance'})).json().name,'新书房');
 });
 
 test('registration stores legacy default once instead of falling back after later env changes',()=>{

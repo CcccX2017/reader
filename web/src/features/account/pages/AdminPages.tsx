@@ -6,6 +6,7 @@ import { RegistrationManagement, UserManagement } from '../../../ui/system-setti
 import { BusinessSettings } from '../../../ui/business-settings.tsx';
 import type { ReactNode } from 'react';
 import { useMediaEnabled } from '../../../shared/stores/features.ts';
+import { applySiteBrand, siteAssetUrl } from '../../../app/site-branding.ts';
 
 /**
  * 我的 › 管理: one page per job (用户管理, 注册与邀请, 服务配置), like 媒体库 and
@@ -33,5 +34,6 @@ export function AdminServicesPage() {
   const media=useMediaEnabled();
   const state=useAuthStore(store=>(store.verifiedUser??store.session?.user)?.mediaState);
   const labels={disabled:'已关闭',stopping:'正在停止',starting:'正在启动',ready:'已就绪',failed:'启动失败，请检查服务日志',closed:'已停止'};
-  return <AdminFrame page="admin-services-page" title="服务配置"><div className="user-management"><BusinessSettings api={runtime.api} showMedia={media} modulesStatus={<p role="status">影音服务：{state?labels[state]:'状态待确认'}</p>} onSaved={()=>void runtime.refreshCapabilities().catch(()=>undefined)} /></div></AdminFrame>;
+  const refreshBrand=()=>{void runtime.api.instance().then(info=>applySiteBrand(info,runtime.api.baseUrl)).catch(()=>undefined);};
+  return <AdminFrame page="admin-services-page" title="服务配置"><div className="user-management"><BusinessSettings api={runtime.api} showMedia={media} resolveUrl={path=>siteAssetUrl(runtime.api.baseUrl,path)} modulesStatus={<p role="status">影音服务：{state?labels[state]:'状态待确认'}</p>} onSaved={()=>{void runtime.refreshCapabilities().catch(()=>undefined);refreshBrand();}} /></div></AdminFrame>;
 }

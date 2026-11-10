@@ -1,4 +1,23 @@
-const APP = 'reader';
+const DEFAULT_APP = 'reader';
+let currentAppName = DEFAULT_APP;
+const appNameListeners = new Set<() => void>();
+
+/** The name in the tab title. Blank or missing stays the built-in name. */
+export function appName(): string {
+  return currentAppName;
+}
+
+export function setAppName(name: string): void {
+  const next = name.trim() || DEFAULT_APP;
+  if (next === currentAppName) return;
+  currentAppName = next;
+  for (const listener of appNameListeners) listener();
+}
+
+export function subscribeAppName(listener: () => void): () => void {
+  appNameListeners.add(listener);
+  return () => { appNameListeners.delete(listener); };
+}
 
 /** First match wins, so the specific paths come before the sections that contain them. */
 const TITLES: Array<[RegExp, string]> = [
@@ -32,7 +51,7 @@ const TITLES: Array<[RegExp, string]> = [
 ];
 
 /**
- * The tab's title for a route: "书架 · reader".
+ * The tab's title for a route: "书架 · reader" (or the name set in 服务配置).
  *
  * The app is one HTML document, so without this every history entry, bookmark and
  * tab is called "reader" and the browser's own back-list cannot tell them apart.
@@ -41,5 +60,5 @@ const TITLES: Array<[RegExp, string]> = [
  */
 export function pageTitle(pathname: string): string {
   const match = TITLES.find(([pattern]) => pattern.test(pathname));
-  return match ? `${match[1]} · ${APP}` : APP;
+  return match ? `${match[1]} · ${currentAppName}` : currentAppName;
 }

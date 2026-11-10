@@ -3112,11 +3112,20 @@ book-content {
   margin-bottom: 2.25rem;
 }
 .login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 2.35rem;
   line-height: 1.15;
   font-weight: 750;
   letter-spacing: -0.035em;
   color: var(--reader-ink);
+}
+.login-brand img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex: none;
 }
 .login-heading p {
   font-size: var(--text-title);

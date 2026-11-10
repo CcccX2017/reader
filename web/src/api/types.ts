@@ -35,6 +35,8 @@ export interface InstanceInfo {
   registrationMode?: 'closed' | 'open' | 'invite';
   invitationRequired?: boolean;
   name: string;
+  /** Relative path of the configured icon, or null when the built-in icon is used. */
+  iconUrl?: string | null;
   apiVersion: number;
   registrationOpen: boolean;
   userCount: number;

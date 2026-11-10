@@ -1,11 +1,16 @@
+import {createReadStream,existsSync} from 'node:fs';
+import type {Readable} from 'node:stream';
 import type {FastifyInstance} from 'fastify';
 import type {AppContext} from '../context.ts';
 import {authenticate,requireAdmin} from '../auth.ts';
-import {badRequest,AppError} from '../../lib/errors.ts';
+import {badRequest,AppError,notFound} from '../../lib/errors.ts';
 import {SETTINGS_SCHEMA,type SettingsGroup} from '../../services/business-settings.ts';
+import {SITE_ICON_MAX_BYTES} from '../../services/site-icon.ts';
 import {TtsService} from '../../services/tts.ts';
 import {MetadataHttp,TmdbProvider,MusicBrainzProvider} from '../../media/metadata-providers.ts';
 import {uploadBackup} from '../../maintenance/webdav.ts';
+import {imageContentType} from '../../indexer/formats/image-types.ts';
+import {assertSafeRel,resolveInside} from '../../lib/paths.ts';
 
 export function registerBusinessSettingsRoutes(app:FastifyInstance,ctx:AppContext){
   const settings=ctx.settings!,auth=authenticate(ctx),active=new Set<string>();
@@ -15,6 +20,27 @@ export function registerBusinessSettingsRoutes(app:FastifyInstance,ctx:AppContex
     if(!name||!Object.hasOwn(SETTINGS_SCHEMA,name))throw badRequest('未知配置分类');return name as SettingsGroup;
   };
   app.get('/api/v1/admin/settings',{preHandler:guard},async()=>({groups:(Object.keys(SETTINGS_SCHEMA) as SettingsGroup[]).map(name=>settings.view(name))}));
+  app.get('/api/v1/site/icon',async(_request,reply)=>{
+    const rel=String((settings.read('site') as {icon?:string}).icon||'').trim();
+    if(!rel)throw notFound('no site icon','NO_SITE_ICON');
+    const abs=resolveInside(ctx.config.dataDir,assertSafeRel(rel));
+    if(!existsSync(abs))throw notFound('site icon missing','NO_SITE_ICON');
+    reply.header('content-type',imageContentType(abs));
+    reply.header('cache-control','public, max-age=86400');
+    return reply.send(createReadStream(abs));
+  });
+  app.post('/api/v1/admin/settings/site/icon',{preHandler:guard},async request=>{
+    if(!request.isMultipart())throw badRequest('expected multipart/form-data','NOT_MULTIPART');
+    let bytes:Buffer|null=null;
+    for await(const part of request.parts()){
+      if(part.type!=='file')continue;
+      if(bytes){part.file.resume();continue;}
+      bytes=await readSiteIcon(part.file);
+    }
+    if(!bytes)throw badRequest('没有上传系统图标','NO_FILE');
+    return settings.setSiteIcon(ctx.config.dataDir,bytes);
+  });
+  app.delete('/api/v1/admin/settings/site/icon',{preHandler:guard},async()=>settings.clearSiteIcon(ctx.config.dataDir));
   app.patch('/api/v1/admin/settings/:group',{preHandler:guard},async request=>{
     const name=group(request.params),body=request.body as {values?:unknown;revision?:unknown};
     if(!body)throw badRequest('缺少配置');
@@ -78,4 +104,14 @@ export function registerBusinessSettingsRoutes(app:FastifyInstance,ctx:AppContex
     catch{throw badRequest('备份上传失败，请检查备份完整性、目标权限、配额及同名文件；不会覆盖已有备份');}
     finally{active.delete('upload');}
   });
+}
+async function readSiteIcon(stream:Readable):Promise<Buffer>{
+  const chunks:Buffer[]=[];let total=0;
+  for await(const chunk of stream){
+    const buf=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);
+    total+=buf.length;
+    if(total>SITE_ICON_MAX_BYTES){stream.destroy();throw badRequest('系统图标不能超过 2MB','SITE_ICON_TOO_LARGE');}
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
 }

@@ -1,3 +1,4 @@
+import { appName } from '../app/page-title.ts';
 import { readThemePreference, resolveAppTheme, resolveReaderSurface, resolveReadingTheme, saveThemePreference, subscribeTheme, systemPrefersDark } from '../shared/theme/theme.ts';
 import { preferencesAppliedEvent } from '../store/preference-writes.ts';
 import { applyCorrections, emptyOverrides, type ReadingOverrides } from './reading-overrides.ts';
@@ -448,7 +449,7 @@ export class ReaderScreen {
     this.content = null;
     this.book = book;
     let opened = false;
-    if (book.title) document.title = `${book.title} · reader`;
+    if (book.title) document.title = `${book.title} · ${appName()}`;
     this.patch({
       openFailure: '',
       title: book.title,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, describeError } from '../src/api/errors.ts';
-import { pageTitle } from '../src/app/page-title.ts';
+import { pageTitle, setAppName } from '../src/app/page-title.ts';
 
 describe('describeError', () => {
   it('keeps a message the server wrote for the interface', () => {
@@ -41,5 +41,14 @@ describe('pageTitle', () => {
 
   it('falls back to the app name for a route it does not know', () => {
     expect(pageTitle('/nowhere')).toBe('reader');
+  });
+
+  it('uses the configured site name and treats a blank name as the built-in one', () => {
+    setAppName('书房');
+    try {
+      expect(pageTitle('/shelf')).toBe('书架 · 书房');
+      setAppName('   ');
+      expect(pageTitle('/shelf')).toBe('书架 · reader');
+    } finally { setAppName('reader'); }
   });
 });

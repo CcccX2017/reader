@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {FloatingNotice} from './floating-notice.tsx';
 import { Callout } from './toolkit.tsx';
 import { ConfirmSheet } from './sheet.tsx';
@@ -9,19 +9,23 @@ export interface SettingsTransport {
   businessSettingsRequest<T>(path?:string,method?:string,body?:unknown,signal?:AbortSignal):Promise<T>;
   businessTtsPreview(values:Record<string,unknown>,voice:string):Promise<Blob>;
   businessAiModels?(values?:{baseUrl?:string;apiKey?:string}):Promise<string[]>;
+  businessSiteIcon?<T>(file:File):Promise<T>;
+  businessClearSiteIcon?<T>():Promise<T>;
 }
 interface SettingsView {
-  group:string;label:string;revision:number;values:Record<string,string|number|boolean>;secrets:Record<string,boolean>;
+  group:string;label:string;revision:number;values:Record<string,string|number|boolean>;secrets:Record<string,boolean>;iconUrl?:string|null;
   fields:Array<{key:string;label:string;type:'text'|'textarea'|'password'|'number'|'checkbox'|'url'|'select';min?:number;max?:number;help?:string;options?:Array<{value:string;label:string}>}>;
 }
-export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true,modulesStatus}:{api:SettingsTransport;group?:string;onSaved?:()=>void;selectControl?:any;showMedia?:boolean;modulesStatus?:ReactNode}){
+export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true,modulesStatus,resolveUrl=(path:string)=>path}:{api:SettingsTransport;group?:string;onSaved?:()=>void;selectControl?:any;showMedia?:boolean;modulesStatus?:ReactNode;resolveUrl?:(path:string)=>string}){
   const Select=selectControl??'select';
-  const [groups,setGroups]=useState<SettingsView[]>([]),[selected,setSelected]=useState(group||'tts');
+  const [groups,setGroups]=useState<SettingsView[]>([]),[selected,setSelected]=useState(group||'site');
   const [values,setValues]=useState<Record<string,string|number|boolean>>({}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[retry,setRetry]=useState(0);
   const [voices,setVoices]=useState<Array<{id:string;name:string}>>([]),[voice,setVoice]=useState(''),[audio,setAudio]=useState('');
   const [models,setModels]=useState<string[]>([]);
-  const [confirmMedia,setConfirmMedia]=useState(false);
+  const [confirmMedia,setConfirmMedia]=useState(false),[confirmSiteDefaults,setConfirmSiteDefaults]=useState(false);
   const [directory,setDirectory]=useState(''),[name,setName]=useState('reader-backup.zip'),[clear,setClear]=useState(false);
+  const iconInput=useRef<HTMLInputElement>(null);
+  const keepForm=useRef(false);
   useEffect(()=>{
     const controller=new AbortController();setBusy(true);setError('');
     void api.businessSettingsRequest<{groups:SettingsView[]}>('','GET',undefined,controller.signal).then(result=>{if(!controller.signal.aborted)setGroups(result.groups);}).catch(error=>{if(!controller.signal.aborted)setError(error instanceof Error?error.message:'读取配置失败');}).finally(()=>{if(!controller.signal.aborted)setBusy(false);});
@@ -31,9 +35,39 @@ export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true
   const current=groups.find(item=>item.group===selected);
   const visibleGroups=groups.filter(item=>showMedia||!['playback','tmdb','musicbrainz','scraping'].includes(item.group));
   useEffect(()=>{if(!group&&!showMedia&&['playback','tmdb','musicbrainz','scraping'].includes(selected))setSelected('modules');},[group,showMedia,selected]);
-  useLayoutEffect(()=>{setValues(current?.values||{});setVoices([]);setVoice('');setAudio('');setModels([]);},[current]);
+  useEffect(()=>{
+    if(group||!groups.length||groups.some(item=>item.group===selected))return;
+    const next=groups.find(item=>showMedia||!['playback','tmdb','musicbrainz','scraping'].includes(item.group));
+    if(next)setSelected(next.group);
+  },[group,groups,selected,showMedia]);
+  useLayoutEffect(()=>{
+    if(keepForm.current){keepForm.current=false;return;}
+    const next={...(current?.values||{})};
+    if(current?.group==='site'&&!String(next.name||'').trim())next.name='reader';
+    setValues(next);setVoices([]);setVoice('');setAudio('');setModels([]);
+  },[current]);
   useEffect(()=>()=>{if(audio)URL.revokeObjectURL(audio);},[audio]);
   async function work(action:()=>Promise<void>){if(busy)return;setBusy(true);setError('');setMessage('');try{await action();}catch(error){setError(error instanceof Error?error.message:'操作失败');}finally{setBusy(false);}}
+  const replaceSite=(result:SettingsView)=>{keepForm.current=true;setGroups(items=>items.map(item=>item.group==='site'?result:item));};
+  const uploadIcon=(file:File)=>void work(async()=>{
+    if(!api.businessSiteIcon)return;
+    if(file.size>2*1024*1024)throw new Error('系统图标不能超过 2MB');
+    replaceSite(await api.businessSiteIcon<SettingsView>(file));setMessage('系统图标已更新');onSaved?.();
+  });
+  const clearIcon=()=>void work(async()=>{
+    if(!api.businessClearSiteIcon)return;
+    replaceSite(await api.businessClearSiteIcon<SettingsView>());setMessage('已恢复默认图标');onSaved?.();
+  });
+  const restoreSite=()=>void work(async()=>{
+    if(!current||current.group!=='site')return;
+    let view=current;
+    if(view.iconUrl){
+      if(!api.businessClearSiteIcon)return;
+      view=await api.businessClearSiteIcon<SettingsView>();
+    }
+    const result=await api.businessSettingsRequest<SettingsView>('site','PATCH',{values:{name:'reader'},revision:view.revision});
+    setGroups(items=>items.map(item=>item.group==='site'?result:item));setMessage('已恢复默认');onSaved?.();
+  });
   const save=()=>void work(async()=>{
     if(!current)return;
     const result=await api.businessSettingsRequest<SettingsView>(selected,'PATCH',{values,revision:current.revision});
@@ -56,16 +90,23 @@ export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true
           {field.help&&<small className="muted">{field.help}</small>}
           {field.type==='password'&&<><small className="muted">{values[field.key]===''?'保存时将清除凭据':current.secrets[field.key]?'已有凭据，仅替换时填写':'尚未配置凭据'}</small><button className="button business-secret-clear" type="button" disabled={busy} onClick={()=>setValues({...values,[field.key]:''})}>清除{field.label}</button></>}
         </label>)}
+        {selected==='site'&&<div className="business-site-icon"><span>系统图标</span>
+          <div className="business-site-icon-row"><button type="button" className="business-site-icon-pick" aria-label={current.iconUrl?'更换系统图标':'上传系统图标'} disabled={busy} onClick={()=>iconInput.current?.click()}><img src={current.iconUrl?resolveUrl(current.iconUrl):'./icons/reader.svg'} alt=""/></button><input ref={iconInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file)uploadIcon(file);}}/>{current.iconUrl&&<button type="button" className="button" disabled={busy} onClick={clearIcon}>清除图标</button>}</div>
+          <small className="muted">点击图标上传。PNG、JPEG、GIF 或 WebP，不超过 2MB。</small>
+        </div>}
         {selected==='ai'&&<datalist id="ai-models">{models.map(model=><option key={model} value={model}/>)}</datalist>}
         <div className="user-manager-actions"><button className="button primary" disabled={busy}>保存配置</button>
           {selected==='ai'&&api.businessAiModels&&<button type="button" className="button" disabled={busy} onClick={()=>void work(async()=>{const result=await api.businessAiModels!({baseUrl:String(values.baseUrl||''),apiKey:String(values.apiKey||'')});setModels(result);setMessage(`已获取 ${result.length} 个模型`);})}>获取模型</button>}
           {['tmdb','musicbrainz','tts','webdav'].includes(selected)&&<button type="button" className="button" disabled={busy} onClick={()=>void work(async()=>{
             const result=await api.businessSettingsRequest<{elapsedMs:number;voices?:Array<{id:string;name:string}>}>(selected+'/test','POST',{values});setVoices(result.voices||[]);setMessage(`连接成功，耗时 ${result.elapsedMs} 毫秒（尚未保存表单）`);
           })}>{selected==='tts'?'检测连接并获取音色':'测试连接'}</button>}
-          <button type="button" className="button" disabled={busy} onClick={()=>setRetry(value=>value+1)}>重新加载</button>
+          {selected==='site'
+            ? <button type="button" className="button" disabled={busy} onClick={()=>setConfirmSiteDefaults(true)}>恢复默认</button>
+            : <button type="button" className="button" disabled={busy} onClick={()=>setRetry(value=>value+1)}>重新加载</button>}
         </div>
       </form>
       {confirmMedia&&<ConfirmSheet danger title="关闭影音模块" text="关闭后所有用户将进入纯阅读模式，正在播放、扫描和刮削的任务将停止。媒体库、收藏与播放记录会保留，书籍阅读和朗读不受影响。" onCancel={()=>setConfirmMedia(false)} onConfirm={()=>{setConfirmMedia(false);save();}}/>}
+      {confirmSiteDefaults&&<ConfirmSheet title="恢复默认" text="系统名称将改回 reader，系统图标将改回内置图标。" confirmText="恢复默认" onCancel={()=>setConfirmSiteDefaults(false)} onConfirm={()=>{setConfirmSiteDefaults(false);restoreSite();}}/>}
       {selected==='ai'&&models.length>0&&<p className="muted">可用模型：{models.join('、')}</p>}
       {selected==='tts'&&<div className="user-manager-form"><label>试听音色<input list="business-tts-voices" value={voice} onInput={event=>setVoice(event.currentTarget.value)}/><datalist id="business-tts-voices">{voices.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</datalist></label>
         <button className="button" disabled={busy} onClick={()=>void work(async()=>{setAudio(URL.createObjectURL(await api.businessTtsPreview(values,voice)));setMessage('试听音频已就绪');})}>生成试听音频</button>
