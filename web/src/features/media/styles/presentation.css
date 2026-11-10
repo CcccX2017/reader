@@ -750,8 +750,10 @@ body:has(>#app>.media-screen) { background: var(--color-bg); }
 .media-account-name-actions [role=alert] {font-size:var(--text-meta);color:var(--color-danger, #b42318)}
 .account-sync {margin-top:0;padding-top:24px;border-top:1px solid var(--border)}
 .account-sync h3 {font-size:var(--text-title);margin:0 0 8px}
+.media-account-panel.account-sync dl {display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:16px;row-gap:8px;align-items:baseline}
 .account-sync dt {color:var(--muted)}
-.account-sync dd {margin:0 0 8px;font-size:var(--text-ui)}
+.media-account-panel.account-sync dt,.media-account-panel.account-sync dd {margin:0}
+.account-sync dd {font-size:var(--text-ui)}
 .account-sync dd[data-state='error'],.account-sync dd[data-state='signed-out'] {color:var(--color-danger)}
 .account-sync>button {margin-top:8px}
 .media-settings-playing {display:flex;align-items:center;gap:12px;background:var(--surface);padding:14px;border-radius:var(--radius-sm);margin-bottom:8px}
