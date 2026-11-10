@@ -4317,7 +4317,7 @@ book-content {
 .source-interval select {
   min-height: 40px !important;
   width: auto !important;
-  padding: 0.45rem 0.55rem !important;
+  padding: 0.45rem 1.9rem 0.45rem 0.55rem !important;
 }
 .source-catalog-actions {
   display: flex;
