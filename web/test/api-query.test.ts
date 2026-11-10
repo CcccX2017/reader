@@ -41,6 +41,21 @@ describe('ReaderApi navigation query cache', () => {
     expect(transport.requests).toHaveLength(2);
   });
 
+  it('re-reads the shelf and continue row after a reading position is synced', async () => {
+    const transport = new FakeTransport();
+    transport.json({ items: [], total: 0 });
+    const api = await apiWith(transport);
+    await api.listBooks({ scope: 'shelf', page: 1 });
+    await api.continueReading(2);
+    transport.json({ serverTime: 1, progress: [], notes: [], accepted: 1, rejected: 0 });
+    await api.push({ progress: [{ bookId: 'b', locator: 'r1:0.0000:c', percentage: 0.1, chapterTitle: '', device: 'a', updatedAt: 1 }] });
+    transport.json({ items: [{ id: 'b' }], total: 1 });
+    await api.listBooks({ scope: 'shelf', page: 1 });
+    await api.continueReading(2);
+    expect(transport.countMatching(request => request.method === 'GET' && request.url.startsWith('/api/v1/books'))).toBe(2);
+    expect(transport.countMatching(request => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
+  });
+
   it('deduplicates concurrent shelf reads and reuses them on return', async () => {
     const transport = new FakeTransport();
     transport.json({ items: [{ id: 'book-1' }], total: 1 });

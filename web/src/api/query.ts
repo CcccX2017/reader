@@ -85,7 +85,11 @@ function affectedByMediaWrite(mutation: string, query: string): boolean {
 
 /** Invalidate only the navigation resources a mutation can change. */
 export function affectedNavigationQuery(mutation: string, query: string): boolean {
-  if (/^\/api\/v1\/sync(?:\/|$)/.test(mutation)) return query.startsWith('/api/v1/library/continue');
+  // A reading position changes 继续阅读 and every shelf list that sorts or
+  // labels by it. The lists live under /books; continue is its own route.
+  if (/^\/api\/v1\/sync(?:\/|$)/.test(mutation)) {
+    return query.startsWith('/api/v1/library/continue') || query.startsWith('/api/v1/books');
+  }
   if (mutation.startsWith('/api/v1/media/')) return affectedByMediaWrite(mutation, query);
   if (/^\/api\/v1\/(notes|tts|ai|auth)(?:\/|$)/.test(mutation)) return false;
   // Pull-to-refresh and admin scans rewrite the catalog; without this the
