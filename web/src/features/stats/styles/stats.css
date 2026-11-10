@@ -1,5 +1,30 @@
 /* 时长统计. Series colours are --color-chart-1..4 (theme-tokens.css), one per kind in
- * the fixed order of STAT_KINDS; text stays in ink/muted, never a series colour. */
+ * the fixed order of STAT_KINDS; text stays in ink/muted, never a series colour.
+ * The title stays put; the chart and the works list scroll in .stats-scroll. */
+.media-screen.stats-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding-bottom: 0;
+}
+/* From 701px the shared secondary title is position:fixed and leaves this column.
+ * Keep it in the column, above the scroller, on every width. */
+.media-screen.stats-page > .media-heading { position: static; flex: none; height: auto; }
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.stats-page { padding-bottom: 0; }
+.stats-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  padding-bottom: calc(96px + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+@media (pointer: coarse) {
+  .stats-scroll { scrollbar-width: none; }
+  .stats-scroll::-webkit-scrollbar { display: none; }
+}
 .stats-page [data-kind='reading'] { --kind: var(--color-chart-1); }
 .stats-page [data-kind='video'] { --kind: var(--color-chart-2); }
 .stats-page [data-kind='audiobook'] { --kind: var(--color-chart-3); }

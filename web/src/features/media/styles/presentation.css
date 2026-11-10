@@ -730,6 +730,8 @@ body:has(>#app>.media-screen) { background: var(--color-bg); }
 /* Match /me `.mine-avatar`. `.media-screen` beats the shared button radius rule. */
 .media-screen .media-account-avatar {display:grid;place-items:center;box-sizing:border-box;flex:none;width:56px;height:56px;min-height:0;overflow:hidden;border:0;padding:0;border-radius:50%;background:var(--color-brand);color:var(--color-on-brand);font:inherit;font-size:var(--text-display);font-weight:700;box-shadow:0 0 0 3px var(--color-surface)}
 .media-screen .media-account-avatar img {width:100%;height:100%;object-fit:cover;border-radius:50%}
+/* Beat the shared `.media-screen button` padding and radius so the circle's left edge lines up with the inputs. */
+.media-screen .media-account-profile button.media-account-avatar {padding:0;min-height:0;border:0;border-radius:50%;background:var(--color-brand)}
 .media-screen .media-account-avatar.is-upload {cursor:pointer}
 @media (hover: hover) and (pointer: fine) {
   .media-screen .media-account-avatar.is-upload:hover:not(:disabled) {outline:2px solid var(--color-brand);outline-offset:2px}
@@ -739,12 +741,14 @@ body:has(>#app>.media-screen) { background: var(--color-bg); }
 .media-account-panel p {font-size:var(--text-label);color:var(--muted);overflow-wrap:anywhere}
 .media-account-panel dl {font-size:var(--text-meta);line-height:1.8}
 .media-account-panel dd {margin:8px 0;overflow-wrap:anywhere}
-.media-account-profile {margin-top:24px;padding-top:8px;border-top:1px solid var(--border)}
-.media-account-profile .media-setting-field {display:flex;align-items:center;gap:24px;padding:14px 0;font-size:var(--text-ui)}
-.media-account-profile .media-setting-field>span {flex:none}
+/* One label column, sized by the longest label, so 头像 / 显示名 / iOS 版本 share a control edge. */
+.media-account-profile {display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:24px;margin-top:24px;padding-top:8px;border-top:1px solid var(--border)}
+.media-account-profile .media-setting-field {display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;padding:14px 0;font-size:var(--text-ui)}
+.media-account-profile .media-setting-field>span {justify-self:start}
+.media-account-profile>.media-manager-note,.media-account-profile>.media-account-name-actions {grid-column:1/-1}
 .media-account-avatar-field {align-items:center}
-.media-account-avatar-control {display:flex;align-items:center;gap:12px}
-.media-account-profile .media-setting-field input {box-sizing:border-box;width:min(16rem,100%);min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:inherit;font-size:var(--text-title)}
+.media-account-avatar-control {display:flex;align-items:center;justify-self:start;gap:12px}
+.media-account-profile .media-setting-field input {box-sizing:border-box;width:min(16rem,100%);min-width:0;justify-self:start;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:inherit;font-size:var(--text-title)}
 .media-account-name-actions {display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:8px}
 .media-account-name-actions [role=status] {font-size:var(--text-meta);color:var(--muted)}
 .media-account-name-actions [role=alert] {font-size:var(--text-meta);color:var(--color-danger, #b42318)}

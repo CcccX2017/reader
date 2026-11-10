@@ -65,6 +65,7 @@ export function StatsPage() {
   const focus = series.find(point => point.key === (hover || selected));
 
   return <MediaPageFrame className="media-secondary-page stats-page" title="时长统计" backTo="/me" backLabel="返回我的">
+    <div className="stats-scroll">
     <div className="stats-controls">
       <Segmented label="统计方式" options={GROUPS} value={group} onChange={value => set({ g: value === 'day' ? '' : value, at: '', sel: '' })} />
       {group !== 'year' && <div className="stats-nav">
@@ -128,6 +129,7 @@ export function StatsPage() {
       })}</ol>
     </section>
     {user?.role === 'admin' && <AdminOverview query={chartQuery} label={range.label} />}
+    </div>
   </MediaPageFrame>;
 }
 

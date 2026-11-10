@@ -131,7 +131,7 @@ export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onCle
           {(account.avatarUrl || preview) && onClearAvatar && <button type="button" className="button" disabled={avatarBusy} onClick={() => void clear()}>{avatarBusy ? '处理中…' : '清除'}</button>}
         </div>
       </div>}
-      {onDisplayName && <label className="media-setting-field">显示名
+      {onDisplayName && <label className="media-setting-field"><span>显示名</span>
         <input
           aria-label="显示名"
           maxLength={100}

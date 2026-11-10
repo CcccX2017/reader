@@ -1,5 +1,16 @@
 /* 我的: reuses the media aliases of the theme tokens, so it follows the chosen theme.
- * The page column is the shared one (app/shell.css). */
+ * The page column is the shared one (app/shell.css).
+ * 标题和账号卡片固定；分组从 .mine-groups 开始滚，和首页的书格一样。 */
+.media-screen.mine-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* Nav / mini-player clearance moves onto the scrolling pane. */
+  padding-bottom: 0;
+}
+.mine-page > .home-header,
+.mine-page > .mine-profile { flex: none; }
 .mine-page .media-back-button { color: inherit; text-decoration: none; }
 
 .mine-profile {
@@ -40,8 +51,23 @@
 /* The padding is hit area only: the line stays one line of meta text (ui.md §3.3). */
 .mine-status-link { margin: -10px 0 -10px 4px; padding: 10px 4px; color: var(--color-brand-text); text-decoration: underline; text-underline-offset: 2px; }
 
-/* Narrow: one list in reading order. Wide: two independent columns. */
-.mine-groups { display: flex; flex-direction: column; }
+/* Narrow: one list in reading order. Wide: two independent columns.
+ * This is the page's scroller: the header and profile stay put above it. */
+.mine-groups {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  padding-bottom: calc(96px + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+@media (pointer: coarse) {
+  .mine-groups { scrollbar-width: none; }
+  .mine-groups::-webkit-scrollbar { display: none; }
+}
 .mine-column { display: contents; }
 @media (min-width: 64rem) {
   .mine-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; align-items: start; }
@@ -107,10 +133,34 @@
 .mine-page .mine-row.is-danger { color: var(--media-error-ink); }
 .mine-page .mine-row.is-danger .mine-row-icon { background: var(--media-error-background); color: var(--media-error-ink); }
 
-/* 偏好设置 (/me/settings): one column of sections, each opened by its own heading.
- * The sections bring their own controls (theme cards, the shelf's toolkit rows, the
- * media fields); this only lays them out as one page. */
-.settings-body { max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
+/* 偏好设置 (/me/settings): the title stays put; the tabs and the open section
+ * scroll in .settings-body. The sections bring their own controls (theme cards,
+ * the shelf's toolkit rows, the media fields); this only lays them out as one page. */
+.media-screen.settings-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding-bottom: 0;
+}
+/* From 701px the shared secondary title is position:fixed and leaves this column. */
+.media-screen.settings-page > .media-heading { position: static; flex: none; height: auto; }
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.settings-page { padding-bottom: 0; }
+.settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: 640px;
+  margin: 0 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  padding-bottom: calc(96px + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+@media (pointer: coarse) {
+  .settings-body { scrollbar-width: none; }
+  .settings-body::-webkit-scrollbar { display: none; }
+}
 .settings-tabs { display: flex; margin: 8px 0 0; border-bottom: 1px solid var(--color-line); }
 /* Equal tabs that share the row, like the 书源 hub's: underlined, not chips. */
 .settings-page .settings-tabs [role='tab'] {
@@ -143,8 +193,9 @@
 .settings-page .media-settings .media-settings-panel { margin: 4px 0 0; }
 
 /* The shelf's toolkit rows were drawn for a sheet: on the page their headings are
- * plain sub-labels, not sticky bars. */
+ * plain sub-labels, not sticky bars. 保存位置 uses the same label as 阅读主题. */
 .settings-page .shelf-settings .section-title { position: static; margin: 22px 0 10px; padding: 0; border: 0; background: none; color: var(--color-muted); }
+.settings-page .preference-place .section-title { position: static; z-index: auto; margin: 22px 0 10px; padding: 0; border: 0; background: none; letter-spacing: normal; font-size: var(--text-label); font-weight: 600; color: var(--color-muted); }
 .settings-page .shelf-settings .segmented { width: 100%; }
 /* The page's generic button rule (min-height, padding, a square radius, no background)
  * outranks the toolkit switch; give the switch back its pill (ui.md: one on/off control). */
@@ -171,3 +222,50 @@
 
 /* 外部阅读器 and the 管理 pages: sheet-sized forms, given the same column. */
 .opds-page .opds-access, .admin-page .user-management { max-width: 640px; margin: 16px auto 40px; }
+/* 服务配置: the title stays put; the form scrolls underneath it. */
+.media-screen.admin-services-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding-bottom: 0;
+}
+.media-screen.admin-services-page > .media-heading { position: static; flex: none; height: auto; }
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.admin-services-page { padding-bottom: 0; }
+.admin-services-page > .user-management {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  padding-bottom: calc(96px + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+@media (pointer: coarse) {
+  .admin-services-page > .user-management { scrollbar-width: none; }
+  .admin-services-page > .user-management::-webkit-scrollbar { display: none; }
+}
+/* 账号与连接: the title stays put; the profile and sync panel scroll underneath it. */
+.media-screen.account-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding-bottom: 0;
+}
+.media-screen.account-page > .media-heading { position: static; flex: none; height: auto; }
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.account-page { padding-bottom: 0; }
+.account-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  padding-bottom: calc(96px + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+@media (pointer: coarse) {
+  .account-scroll { scrollbar-width: none; }
+  .account-scroll::-webkit-scrollbar { display: none; }
+}

@@ -29,6 +29,7 @@ export function AccountPage() {
   const versionDirty = version.trim() !== readSafariOverride();
   return (
     <MediaPageFrame className="media-secondary-page account-page" title="账号与连接" backTo="/me" backLabel="返回我的">
+      <div className="account-scroll">
       <MediaAccountPanel
         account={shown}
         api={runtime.api}
@@ -55,7 +56,7 @@ export function AccountPage() {
         {ios && (
           <>
             <label className="media-setting-field">
-              iOS 版本
+              <span>iOS 版本</span>
               <input
                 aria-label="iOS 版本"
                 inputMode="decimal"
@@ -72,6 +73,7 @@ export function AccountPage() {
         )}
       </MediaAccountPanel>
       <SyncPanel />
+      </div>
     </MediaPageFrame>
   );
 }
