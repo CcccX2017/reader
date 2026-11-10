@@ -40,8 +40,14 @@ function Cover({ book, mark }: { book: Book; mark?: ReactNode }) {
   return <div className="cover">{src ? <img src={src} alt="" draggable={false} /> : <div className="placeholder" style={coverTint(book.title || '')}>{book.title || '无封面'}</div>}<span className="format-badge">{book.format || '书籍'}</span>{mark}</div>;
 }
 
-function CollectionHeader({ title, subtitle, backTo, actions, className, footer }: { title: string; subtitle: string; backTo?: string; actions?: React.ReactNode; className?: string; footer?: React.ReactNode }) {
-  return <header className={'collection-header' + (className ? ` ${className}` : '')}><div className="collection-heading">{backTo && <Link to={backTo} className="icon-button" aria-label="返回" title="返回"><Icon name="chevron-left" /></Link>}<div className="collection-heading-text"><h1>{title}</h1><p className="muted">{subtitle}</p></div></div>{actions && <nav className="collection-links" aria-label="页面操作">{actions}</nav>}{footer}</header>;
+function CollectionHeader({ title, subtitle, backTo, backState, actions, className, footer }: { title: string; subtitle: string; backTo?: string; backState?: unknown; actions?: React.ReactNode; className?: string; footer?: React.ReactNode }) {
+  return <header className={'collection-header' + (className ? ` ${className}` : '')}><div className="collection-heading">{backTo && <Link to={backTo} state={backState} className="icon-button" aria-label="返回" title="返回"><Icon name="chevron-left" /></Link>}<div className="collection-heading-text"><h1>{title}</h1><p className="muted">{subtitle}</p></div></div>{actions && <nav className="collection-links" aria-label="页面操作">{actions}</nav>}{footer}</header>;
+}
+
+/** The page that opened this one, when that link recorded it. Otherwise the shelf. */
+function openedFrom(state: unknown): string {
+  const returnTo = (state as { returnTo?: unknown } | null)?.returnTo;
+  return typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/shelf';
 }
 
 export function LibraryPage() { return <LibraryBrowsePage />; }
@@ -54,9 +60,10 @@ export function LibraryBrowsePage() {
   const books = useQuery({ queryKey: ['library-books', runtime.api.baseUrl, 'browse', path, page, search], queryFn: ({ signal }) => runtime.api.listBooks({ scope: 'library', path, page, pageSize: 60, search, sort: 'title', order: 'asc' }, { signal }) });
   // Back from a book returns to the cover it was opened from; a folder, page or search
   // chosen here is a new list.
-  const location = useLocation(); const body = useRef<HTMLElement>(null);
+  const location = useLocation(); const back = openedFrom(location.state); const body = useRef<HTMLElement>(null);
   const skipRestore = useScrollMemory(body, (runtime.api.currentSession()?.user.id ?? '') + '\0' + location.pathname + location.search, books.data !== undefined, '.library-browse-scroll');
-  const navigate = (nextPath: string, nextPage = 1, nextSearch = '', replace = false) => { skipRestore(); setParams({ ...(nextPath ? { path: nextPath } : {}), ...(nextSearch ? { q: nextSearch } : {}), ...(nextPage > 1 ? { page: String(nextPage) } : {}) }, { replace }); };
+  // Keep the opener (书架, 我的, 搜索) across folder and search changes.
+  const navigate = (nextPath: string, nextPage = 1, nextSearch = '', replace = false) => { skipRestore(); setParams({ ...(nextPath ? { path: nextPath } : {}), ...(nextSearch ? { q: nextSearch } : {}), ...(nextPage > 1 ? { page: String(nextPage) } : {}) }, { replace, state: location.state }); };
   const [uploading, setUploading] = useState(false); const [feedback, setFeedback] = useState<{ text: string; error?: boolean } | null>(null);
   const coarse = useCoarsePointer();
   const picking = useBookPicking(books.data?.items ?? [], `${path}|${page}|${search}`);
@@ -80,7 +87,7 @@ export function LibraryBrowsePage() {
   return <div className="library-screen library-browse-screen">
     <div className="select-head-slot">
       <div data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
-        <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo="/shelf" actions={role === 'admin' ? <Link className="button collection-link" to="/library/files"><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} footer={crumbs} />
+        <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo={back} actions={role === 'admin' ? <Link className="button collection-link" to="/library/files" state={{ returnTo: back }}><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} footer={crumbs} />
       </div>
       {picking.active && <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} />}
     </div>
@@ -94,7 +101,7 @@ export function LibraryBrowsePage() {
       <div ref={element => { body.current = element; pull.scrollRef(element); }} className="library-browse-scroll" data-selecting={picking.active ? 'true' : undefined}>
         <FloatingNotice message={feedback?.text ?? ''} error={!!feedback?.error} kind="success" />
         {books.isPending && <><FloatingNotice message="正在加载书库…" busy /><BookGridSkeleton className="library-browse-grid" density="cozy" /></>}{books.error && <Callout tone="error" title="书库加载失败" action={{ label: '重试', onClick: () => void books.refetch() }}>{describeError(books.error)}</Callout>}
-        {empty && <div className="empty-state collection-empty"><Icon name="book" className="empty-glyph" /><p>{search ? '没有匹配的书' : '书库还没有书'}</p><p className="muted">{search ? '换个关键词，或者检查一下作者名的写法。' : role === 'admin' ? '前往文件管理添加书籍，再回到这里浏览。' : uploadAccess.data?.allowed ? '使用上方的上传书籍添加书籍，再回到这里浏览。' : '书库的书由管理员添加。'}</p><div className="empty-actions">{search ? <button type="button" className="button" onClick={() => { setDraft(''); navigate(path); }}>清除搜索</button> : role === 'admin' ? <Link className="button primary" to="/library/files"><Icon name="folder" size={16} />文件管理</Link> : null}</div></div>}
+        {empty && <div className="empty-state collection-empty"><Icon name="book" className="empty-glyph" /><p>{search ? '没有匹配的书' : '书库还没有书'}</p><p className="muted">{search ? '换个关键词，或者检查一下作者名的写法。' : role === 'admin' ? '前往文件管理添加书籍，再回到这里浏览。' : uploadAccess.data?.allowed ? '使用上方的上传书籍添加书籍，再回到这里浏览。' : '书库的书由管理员添加。'}</p><div className="empty-actions">{search ? <button type="button" className="button" onClick={() => { setDraft(''); navigate(path); }}>清除搜索</button> : role === 'admin' ? <Link className="button primary" to="/library/files" state={{ returnTo: back }}><Icon name="folder" size={16} />文件管理</Link> : null}</div></div>}
         {books.data && books.data.items.length > 0 && <div className="book-grid library-browse-grid" data-density="cozy" data-show-author="true">{books.data.items.map(book => <LibraryBookCard key={book.id} book={book} busy={busy === book.id} onShelve={book => void toggle(book)} {...(coarse ? { picking: picking.bind(book) } : { menu: book => commands.menuFor(book) })} />)}</div>}
         {books.data && <div className="manager-status muted">{search ? `找到 ${count} 本` : `${count} 本 · 第 ${page} / ${pages} 页`}</div>}
         {pages > 1 && <Pager className="shelf-pager" page={Math.min(page, pages)} pageCount={pages} busy={books.isFetching} onGo={next => navigate(path, next, search)} />}
@@ -134,19 +141,19 @@ export function LibraryFilesPage() {
   // offline), so an admin reloading the page is not shown a refusal first. The server
   // checks every write regardless. A member following a shared link lands on the same
   // folder's browsing page (ui.md §3.4.4) instead of an error.
-  const role = useAuthStore(state => (state.verifiedUser ?? state.session?.user)?.role); const [params] = useSearchParams(); const path = params.get('path') ?? '';
+  const role = useAuthStore(state => (state.verifiedUser ?? state.session?.user)?.role); const location = useLocation(); const [params] = useSearchParams(); const path = params.get('path') ?? '';
   if (!role) return <FloatingNotice message="正在确认权限…" busy />;
-  if (role !== 'admin') return <Navigate to={path ? `/library?path=${encodeURIComponent(path)}` : '/library'} replace />;
+  if (role !== 'admin') return <Navigate to={path ? `/library?path=${encodeURIComponent(path)}` : '/library'} state={location.state} replace />;
   return <LibraryFilesAdminPage />;
 }
 
 function LibraryFilesAdminPage() {
-  const runtime = useRuntime(); const queryClient = useQueryClient(); const [params, setParams] = useSearchParams(); const path = params.get('path') ?? ''; const page = Math.max(1, Number(params.get('page')) || 1); const [selected, setSelected] = useState<string[]>([]); const [dialog, setDialog] = useState<Dialog | null>(null); const [feedback, setFeedback] = useState<{ text: string; error?: boolean } | null>(null);
+  const runtime = useRuntime(); const queryClient = useQueryClient(); const location = useLocation(); const [params, setParams] = useSearchParams(); const path = params.get('path') ?? ''; const page = Math.max(1, Number(params.get('page')) || 1); const [selected, setSelected] = useState<string[]>([]); const [dialog, setDialog] = useState<Dialog | null>(null); const [feedback, setFeedback] = useState<{ text: string; error?: boolean } | null>(null);
   const query = useQuery({ queryKey: ['library-files', runtime.api.baseUrl, path, page], queryFn: ({ signal }) => runtime.api.browse(path, page, { signal }) });
   // A selection only means something on the listing it was made on: carried into another
   // folder, 删除 would act on files the admin can no longer see.
   useEffect(() => { setSelected([]); }, [path, page]);
-  const go = (next: string, p = 1) => setParams({ ...(next ? { path: next } : {}), ...(p > 1 ? { page: String(p) } : {}) }); const refresh = () => queryClient.invalidateQueries({ queryKey: ['library-files'] });
+  const go = (next: string, p = 1) => setParams({ ...(next ? { path: next } : {}), ...(p > 1 ? { page: String(p) } : {}) }, { state: location.state }); const refresh = () => queryClient.invalidateQueries({ queryKey: ['library-files'] });
   // Each action says what it did (ui.md §4), not a generic 操作已完成.
   const mutate = async <T,>(action: () => Promise<T>, describe: (result: T) => { text: string; error?: boolean }) => { setFeedback(null); try { const result = await action(); setSelected([]); await refresh(); setFeedback(describe(result)); } catch (reason) { setFeedback({ text: reason instanceof Error ? reason.message : '操作失败，请重试', error: true }); } };
   const prompt = (title: string, value = '') => new Promise<string | null>(resolve => setDialog({ kind: 'prompt', title, value, resolve }));
@@ -160,9 +167,9 @@ function LibraryFilesAdminPage() {
   const loadFolders = useCallback((folder: string, signal: AbortSignal) => loadFolderChoices((p, n, options) => runtime.api.browse(p, n, options), folder, signal), [runtime]);
   const remove = async (paths = selected) => { if (paths.length && await confirm(paths.length === 1 ? '删除' : `删除 ${paths.length} 项`, `${describePaths(paths)}将从磁盘上删除，无法撤销。`)) await mutate(() => runtime.api.browseDelete(paths), result => ({ text: `已删除 ${result.removed} 项` })); };
   const pages = query.data ? Math.max(1, Math.ceil(query.data.total / 200)) : 1;
-  useEffect(() => { if (query.data && page > pages) setParams({ ...(path ? { path } : {}), ...(pages > 1 ? { page: String(pages) } : {}) }, { replace: true }); });
+  useEffect(() => { if (query.data && page > pages) setParams({ ...(path ? { path } : {}), ...(pages > 1 ? { page: String(pages) } : {}) }, { replace: true, state: location.state }); });
   const crumbs = <div className="manager-crumbs">{(query.data?.crumbs ?? [{ name: '书库', path: '' }]).map((crumb, index, all) => <span key={`${crumb.path}-${index}`}>{index > 0 && <span className="manager-crumb-sep">/</span>}<button type="button" className="manager-crumb" aria-current={index === all.length - 1 ? 'location' : undefined} onClick={() => go(crumb.path)}>{crumb.name}</button></span>)}</div>;
-  return <div className="library-screen library-files-screen"><CollectionHeader className="file-manager-header" title="文件管理" subtitle="管理书库中的文件与文件夹" backTo="/library" actions={<><label className={'button collection-link' + (!query.data?.writable ? ' is-disabled' : '')}><Icon name="upload" size={18} /><span>上传书籍</span><input hidden type="file" multiple disabled={!query.data?.writable} onChange={event => { const files = Array.from(event.currentTarget.files ?? []); if (files.length) void mutate(() => runtime.api.upload(files, path, 'rename'), describeUpload); event.currentTarget.value = ''; }} /></label><button type="button" className="button collection-link" disabled={!query.data?.writable} onClick={mkdir}><Icon name="plus" size={18} /><span>新建文件夹</span></button></>} footer={crumbs} />
+  return <div className="library-screen library-files-screen"><CollectionHeader className="file-manager-header" title="文件管理" subtitle="管理书库中的文件与文件夹" backTo="/library" backState={location.state} actions={<><label className={'button collection-link' + (!query.data?.writable ? ' is-disabled' : '')}><Icon name="upload" size={18} /><span>上传书籍</span><input hidden type="file" multiple disabled={!query.data?.writable} onChange={event => { const files = Array.from(event.currentTarget.files ?? []); if (files.length) void mutate(() => runtime.api.upload(files, path, 'rename'), describeUpload); event.currentTarget.value = ''; }} /></label><button type="button" className="button collection-link" disabled={!query.data?.writable} onClick={mkdir}><Icon name="plus" size={18} /><span>新建文件夹</span></button></>} footer={crumbs} />
     <main className="manager-body">
       {selected.length > 0 && <div className="manager-actions"><span className="manager-selected-count">已选 {selected.length} 项</span><button type="button" className="button" onClick={() => void move()}>移动</button><button type="button" className="button danger" onClick={() => void remove()}>删除</button><button type="button" className="button" onClick={() => setSelected([])}>清除</button></div>}
       <FloatingNotice message={feedback?.text ?? ''} error={!!feedback?.error} kind="success" />

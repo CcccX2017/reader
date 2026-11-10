@@ -32,10 +32,13 @@ export function SourcesPage() {
   // The tab is part of the URL (?tab=), so back from a source's editor or a reload
   // returns to it; /sources/plugins stays the plugins tab's own address.
   const [params, setParams] = useSearchParams();
-  const pluginsPath = useLocation().pathname === '/sources/plugins';
+  const location = useLocation();
+  const pluginsPath = location.pathname === '/sources/plugins';
+  const returnTo = location.state?.returnTo;
+  const back = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/shelf';
   const requested = params.get('tab') as SourceTab | null;
   const tab: SourceTab = requested && SOURCE_TABS.includes(requested) ? requested : pluginsPath ? 'plugins' : 'search';
-  const setTab = (next: SourceTab) => setParams(previous => { const merged = new URLSearchParams(previous); if (next === 'search' && !pluginsPath) merged.delete('tab'); else merged.set('tab', next); return merged; }, { replace: true });
+  const setTab = (next: SourceTab) => setParams(previous => { const merged = new URLSearchParams(previous); if (next === 'search' && !pluginsPath) merged.delete('tab'); else merged.set('tab', next); return merged; }, { replace: true, state: location.state });
   const [sourceId, setSourceId] = useState('');
   const [keyword, setKeyword] = useState('');
   const [catalogPage, setCatalogPage] = useState<SourcePage>();
@@ -116,7 +119,7 @@ export function SourcesPage() {
   useEffect(() => { if (detail && detailQuery.data) setDetail({ ...detail, ...detailQuery.data }); }, [detailQuery.data]);
   const tabList = ([['search', '搜书'], ['sources', '书源管理'], ['updates', '自动追更'], ...(admin ? [['plugins', '插件管理']] : [])] as Array<[SourceTab, string]>);
   return <div className="sources-screen sources-hub">
-    <SourcesHeader title="书源与追更" backTo="/shelf" />
+    <SourcesHeader title="书源与追更" backTo={back} />
     <nav className="sources-tabs" role="tablist" aria-label="书源功能">
       {tabList.map(([id, label], index) => <button key={id} id={`sources-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls="sources-panel" tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={event => {
         // Arrow keys move between tabs, one tab stop for the whole row (WAI-ARIA tabs).
@@ -160,11 +163,11 @@ export function SourcesPage() {
         </section>}
       </>}
       {tab === 'sources' && <section className="sources-card sources-list">
-        <div className="sources-list-heading"><h2>我的来源 <span className="source-count">{sources.data?.length ?? 0}</span></h2>{admin && <Link className="button source-add" to="/sources/manage/new"><Icon name="plus" size={16} />添加来源</Link>}</div>
+        <div className="sources-list-heading"><h2>我的来源 <span className="source-count">{sources.data?.length ?? 0}</span></h2>{admin && <Link className="button source-add" to="/sources/manage/new" state={location.state}><Icon name="plus" size={16} />添加来源</Link>}</div>
         {sources.isPending && <FloatingNotice message="正在加载书源…" busy />}{sources.error && <p className="notice error">{describeError(sources.error)}</p>}{!sources.isPending && !sources.data?.length && <p className="muted">还没有配置书源。请添加来源或启用插件。</p>}
-        {(sources.data ?? []).map(source => <article className="sources-row source-entry" key={source.id}><div className="source-entry-top"><div className="source-entry-info"><strong>{source.name}{source.isDefault && <span className="source-default-badge">默认</span>}</strong><small>{source.descriptor?.label ?? sourceTypeLabel(source.sourceType)}</small><span className={'source-state' + (source.enabled ? ' is-enabled' : '')}>{source.enabled ? '已启用' : '已暂停'}</span></div><div className="source-entry-actions">{source.descriptor?.credentialKeys?.length ? <Link className="button" to={'/sources/' + encodeURIComponent(source.id) + '/credentials'}>书源登录</Link> : null}{admin && <ActionMenu label="管理" title={`${source.name}管理`} items={[
-            ...(source.descriptor?.extensions?.pages ?? []).map(page => ({ label: page.title, onSelect: () => navigate('/sources/' + encodeURIComponent(source.id) + '/' + encodeURIComponent(page.id)) })),
-            { label: '基本设置', onSelect: () => navigate('/sources/manage/' + encodeURIComponent(source.id)) },
+        {(sources.data ?? []).map(source => <article className="sources-row source-entry" key={source.id}><div className="source-entry-top"><div className="source-entry-info"><strong>{source.name}{source.isDefault && <span className="source-default-badge">默认</span>}</strong><small>{source.descriptor?.label ?? sourceTypeLabel(source.sourceType)}</small><span className={'source-state' + (source.enabled ? ' is-enabled' : '')}>{source.enabled ? '已启用' : '已暂停'}</span></div><div className="source-entry-actions">{source.descriptor?.credentialKeys?.length ? <Link className="button" to={'/sources/' + encodeURIComponent(source.id) + '/credentials'} state={location.state}>书源登录</Link> : null}{admin && <ActionMenu label="管理" title={`${source.name}管理`} items={[
+            ...(source.descriptor?.extensions?.pages ?? []).map(page => ({ label: page.title, onSelect: () => navigate('/sources/' + encodeURIComponent(source.id) + '/' + encodeURIComponent(page.id), { state: location.state }) })),
+            { label: '基本设置', onSelect: () => navigate('/sources/manage/' + encodeURIComponent(source.id), { state: location.state }) },
             { label: source.isDefault ? '取消默认' : '设为默认', disabled: busy === source.id || (!source.isDefault && (!source.enabled || !source.descriptor?.capabilities.includes('search'))), onSelect: () => void updateSource(source.id, { isDefault: !source.isDefault }) },
             { label: source.enabled ? '暂停' : '启用', disabled: busy === source.id, onSelect: () => void updateSource(source.id, { enabled: !source.enabled }) },
           ]} />}</div></div></article>)}

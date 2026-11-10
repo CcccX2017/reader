@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useSources, useSourceMutations } from '../hooks/sourceQueries.ts';
 import { FloatingNotice } from '../../../ui/floating-notice.tsx';
@@ -19,6 +19,7 @@ const STATES = {
 export function SourceCredentialsPage() {
   const { api } = useRuntime();
   const navigate = useNavigate();
+  const location = useLocation();
   const { sourceId = '' } = useParams();
   const sources = useSources();
   const source = sources.data?.find(item => item.id === sourceId);
@@ -40,7 +41,7 @@ export function SourceCredentialsPage() {
         if (value) await mutations.credential.mutateAsync({ id: source.id, key: field.key, value });
       }
       notify('凭据已保存', { kind: 'success' });
-      navigate('/sources');
+      navigate('/sources', { state: location.state });
     } catch (reason) { setError(reason instanceof Error ? reason.message : '保存凭据失败，请重试'); }
     finally { setBusy(false); }
   };
@@ -71,7 +72,7 @@ export function SourceCredentialsPage() {
         {error && <Callout tone="error">{error}</Callout>}
         <div className="sources-actions">
           <Button type="submit" className="primary" disabled={busy || !Object.values(values).some(Boolean)}>{busy ? '正在保存…' : '保存凭据'}</Button>
-          <Button disabled={busy} onClick={() => navigate('/sources')}>取消</Button>
+          <Button disabled={busy} onClick={() => navigate('/sources', { state: location.state })}>取消</Button>
         </div>
       </form>}
     </main>

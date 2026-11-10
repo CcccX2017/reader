@@ -4,7 +4,7 @@ import { SourcesHeader } from '../components/SourcesHeader.tsx';
 import { SourceBookDetailSheet } from '../components/SourceBookDetailSheet.tsx';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SourceEntry, SourcePage } from '../../../api/sources.ts';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useSources } from '../hooks/sourceQueries.ts';
@@ -21,6 +21,7 @@ export function mergePages(current: SourcePage | undefined, page: SourcePage): S
 export function SourceCatalogPage() {
   const { api } = useRuntime();
   const navigate = useNavigate();
+  const location = useLocation();
   const { sourceId = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const sources = useSources();
@@ -42,7 +43,7 @@ export function SourceCatalogPage() {
 
   const search = async (append = false) => {
     const term = query.trim(); if (!term || !source) return;
-    setBusy(true); setError(''); if (!append) { sessionId.current = crypto.randomUUID(); setPage(undefined); setCursor(undefined); } setParams(previous => { const next = new URLSearchParams(previous); next.set('q', term); if (!append) next.delete('cursor'); return next; });
+    setBusy(true); setError(''); if (!append) { sessionId.current = crypto.randomUUID(); setPage(undefined); setCursor(undefined); } setParams(previous => { const next = new URLSearchParams(previous); next.set('q', term); if (!append) next.delete('cursor'); return next; }, { state: location.state });
     try {
       let merged = append ? page : undefined;
       for await (const chunk of api.searchSource(source.id, { query: term, sessionId: sessionId.current ?? crypto.randomUUID(), ...(append && cursor ? { cursor } : {}), filters, resultLimit: 10000 })) {
@@ -53,12 +54,12 @@ export function SourceCatalogPage() {
   };
   const browse = async (ref?: string) => {
     if (!source) return; setBusy(true); setError('');
-    try { sessionId.current = null; const next = await api.sourceCatalog(source.id, ref ? { ref } : {}); setPage(next); setCursor(next.nextCursor); setParams(previous => { const value = new URLSearchParams(previous); if (ref) value.set('ref', ref); else value.delete('ref'); return value; }); }
+    try { sessionId.current = null; const next = await api.sourceCatalog(source.id, ref ? { ref } : {}); setPage(next); setCursor(next.nextCursor); setParams(previous => { const value = new URLSearchParams(previous); if (ref) value.set('ref', ref); else value.delete('ref'); return value; }, { state: location.state }); }
     catch (reason) { setError(reason instanceof Error ? reason.message : '目录加载失败'); }
     finally { setBusy(false); }
   };
   if (sources.isPending) return <div className="sources-screen"><FloatingNotice message="正在加载书源…" busy /><main className="sources-body" /></div>;
-  if (!source) return <div className="sources-screen source-catalog-screen"><SourcesHeader title="选择书源" /><main className="sources-body"><section className="sources-card source-picker"><h2>选择来源</h2><p className="muted">选择一个已启用的书源开始搜索或浏览</p><label>书源<select defaultValue="" onChange={event => { const value = event.currentTarget.value; if (value) navigate(`/sources/${encodeURIComponent(value)}/browse`); }}><option value="" disabled>选择来源</option>{sources.data?.filter(item => item.enabled && item.descriptor).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></section></main></div>;
+  if (!source) return <div className="sources-screen source-catalog-screen"><SourcesHeader title="选择书源" /><main className="sources-body"><section className="sources-card source-picker"><h2>选择来源</h2><p className="muted">选择一个已启用的书源开始搜索或浏览</p><label>书源<select defaultValue="" onChange={event => { const value = event.currentTarget.value; if (value) navigate(`/sources/${encodeURIComponent(value)}/browse`, { state: location.state }); }}><option value="" disabled>选择来源</option>{sources.data?.filter(item => item.enabled && item.descriptor).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></section></main></div>;
   const supportsSearch = source.descriptor?.capabilities.includes('search');
   const supportsBrowse = source.descriptor?.capabilities.includes('browse');
   return <div className="sources-screen source-catalog-screen">
