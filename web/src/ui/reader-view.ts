@@ -622,7 +622,10 @@ export class ReaderView {
       sectionIndex: this.sectionIndex,
       sectionId: section?.id ?? '',
       within,
-      percentage: bookPercentage(this.doc, this.sectionIndex, within, this.windowOffset),
+      // A section that fits on one page has been read by opening it. The locator
+      // stays at the real offset (`within`), but the book percentage has to count
+      // the page, or a one-page book remains 0% for the whole visit.
+      percentage: bookPercentage(this.doc, this.sectionIndex, pages.total <= 1 ? 1 : within, this.windowOffset),
       locator: formatLocator(section?.id ?? '', within),
       chapterTitle: section?.label ?? '',
       pageInChapter: pages.current,

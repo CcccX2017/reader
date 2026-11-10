@@ -265,6 +265,14 @@ describe('ReaderView navigation', () => {
     expect(position.chapterPosition).toBe(0);
   });
 
+  it('counts a one-page book as read when it is opened', () => {
+    const view = make(container, reflowableDoc(1));
+    const position = view.position();
+    expect(position.chapterPages).toBe(1);
+    expect(position.within).toBe(0);
+    expect(position.percentage).toBe(1);
+  });
+
   it('disposes without leaving the host in the container', () => {
     const view = make(container, reflowableDoc(2));
     expect(container.querySelector('book-content')).not.toBeNull();
@@ -294,6 +302,14 @@ describe('ReaderView fixed layout', () => {
     const view = make(container, fixedDoc(3));
     await view.open(1, 0.7);
     expect(view.position().within).toBe(0);
+  });
+
+  it('counts the only page of a fixed book as the whole book', async () => {
+    const view = make(container, fixedDoc(1));
+    await view.open(0, 0);
+    const position = view.position();
+    expect(position.within).toBe(0);
+    expect(position.percentage).toBe(1);
   });
 
   it('renders the page image into the shadow root', async () => {

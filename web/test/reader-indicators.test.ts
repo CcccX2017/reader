@@ -22,6 +22,11 @@ describe('reading information', () => {
     } }), container));
     expect(texts()).toEqual(['测试书名', '第二章', '第3/12页 47%', '']);
     act(() => render(h(ReaderIndicators, { state: { ...state,
+      layout: 'fixed', chapterIndex: 2, chapterCount: 2, pageInChapter: 1, chapterPages: 1, progress: 1,
+      readoutTopLeft: 'none', readoutTopRight: 'none', readoutBottomLeft: 'progress', readoutBottomRight: 'none',
+    } }), container));
+    expect(texts()[2]).toBe('第2/2页 100%');
+    act(() => render(h(ReaderIndicators, { state: { ...state,
       readoutTopLeft: 'none', readoutTopRight: 'none',
       readoutBottomLeft: 'none', readoutBottomRight: 'none',
     } }), container));

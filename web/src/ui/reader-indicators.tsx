@@ -24,7 +24,14 @@ export function ReaderIndicators({ state }: { state: ChromeState }) {
     switch (mode) {
       case 'book': return state.title;
       case 'chapter': return state.chapterLabel;
-      case 'progress': return `第${Math.max(1, state.pageInChapter)}/${Math.max(1, state.chapterPages)}页 ${Math.round(Math.min(1, Math.max(0, state.progress)) * 100)}%`;
+      case 'progress': {
+        // A fixed page (PDF, comic) is one section, so the chapter page count is
+        // always 1/1. The number the reader means is the page in the book.
+        const fixed = state.layout === 'fixed';
+        const current = fixed ? state.chapterIndex : state.pageInChapter;
+        const total = fixed ? state.chapterCount : state.chapterPages;
+        return `第${Math.max(1, current)}/${Math.max(1, total)}页 ${Math.round(Math.min(1, Math.max(0, state.progress)) * 100)}%`;
+      }
       case 'time': return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       default: return '';
     }

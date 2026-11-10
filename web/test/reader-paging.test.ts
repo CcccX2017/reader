@@ -114,6 +114,33 @@ function pagedView(container: HTMLDivElement, columns: number, sectionCount = 4)
   return view;
 }
 
+describe('progress of a single page', () => {
+  let container: HTMLDivElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+  });
+
+  it('reports a chapter that fits the screen as read, and the start of a longer one as unread', () => {
+    const fitted = scrollingView(container, 1, 1).position();
+    expect(fitted.chapterPages).toBe(1);
+    expect(fitted.within).toBe(0);
+    expect(fitted.percentage).toBe(1);
+
+    const longer = scrollingView(container, 3, 1).position();
+    expect(longer.chapterPages).toBeGreaterThan(1);
+    expect(longer.percentage).toBe(0);
+  });
+
+  it('reports a single column as read', () => {
+    const fitted = pagedView(container, 1, 1).position();
+    expect(fitted.chapterPages).toBe(1);
+    expect(fitted.percentage).toBe(1);
+    expect(pagedView(container, 3, 1).position().percentage).toBe(0);
+  });
+});
+
 describe('page turns in scroll mode', () => {
   let container: HTMLDivElement;
 
