@@ -1,6 +1,6 @@
 import { appName, pageTitle, subscribeAppName } from './page-title.ts';
 import { applySiteBrand } from './site-branding.ts';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, UNSAFE_LocationContext, useLocation, useNavigate, useNavigationType, useOutlet } from 'react-router-dom';
 import { useAuthStore } from '../shared/stores/auth.store.ts';
 import { useRuntime } from './providers/runtime-context.tsx';
@@ -9,6 +9,7 @@ import { AppNav, navMode } from './AppNav.tsx';
 import { playerPath } from '../features/media/stores/playback.store.ts';
 import { ThemeController } from '../shared/theme/theme.ts';
 import { useMediaEnabled } from '../shared/stores/features.ts';
+import { dismissAppStartup } from './startup.ts';
 
 export function AppShell() {
   return <AuthBoundary><AuthenticatedShell /></AuthBoundary>;
@@ -21,6 +22,7 @@ function AuthenticatedShell() {
   const outlet = useOutlet();
   const navigate = useNavigate();
   const media=useMediaEnabled();
+  useLayoutEffect(() => { dismissAppStartup(); }, []);
   // Opening a book used to unmount the shelf. iOS then threw away the scrolling
   // layer under the book grid and, on the way back, painted it empty for a frame.
   // The page stays mounted, covered, at the same size; the reader is an overlay.

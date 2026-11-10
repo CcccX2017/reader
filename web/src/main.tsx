@@ -13,6 +13,7 @@ import { AppProviders } from './app/providers/AppProviders.tsx';
 import { createAppRuntime, inferDefaultUrl } from './app/runtime.ts';
 import { router } from './app/router/router.tsx';
 import { registerPwa } from './core/pwa.ts';
+import { dismissAppStartup } from './app/startup.ts';
 import { applySafariVersion } from './shared/safari-version.ts';
 
 /**
@@ -48,10 +49,9 @@ async function start(): Promise<void> {
   window.__readerFlush = () => runtime.flush();
   createRoot(appRoot).render(<AppProviders runtime={runtime}><RouterProvider router={router} /></AppProviders>);
   registerPwa();
-  document.getElementById('app-startup')?.remove();
 }
 
 void start().catch((err: unknown) => {
   root.textContent = `客户端启动失败：${err instanceof Error ? err.message : String(err)}`;
-  document.getElementById('app-startup')?.remove();
+  dismissAppStartup();
 });

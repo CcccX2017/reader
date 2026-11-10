@@ -8,7 +8,6 @@ import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
 import { ShelfPage } from '../src/features/shelf/pages/ShelfPage.tsx';
 import { LoginPage } from '../src/features/auth/pages/LoginPage.tsx';
-import { applySiteBrand } from '../src/app/site-branding.ts';
 import { saveThemePreference } from '../src/shared/theme/theme.ts';
 
 vi.mock('../src/features/shelf/queries/shelf.queries.ts', () => ({
@@ -89,24 +88,30 @@ it('wears the app theme saved in preferences', () => {
   expect([document.documentElement.dataset.theme, document.documentElement.dataset.mode]).toEqual(['green', 'dark']);
 });
 
-it('paints the saved site name before the server answers', () => {
-  applySiteBrand({ name: '书房', iconUrl: null }, 'https://reader.test');
+it('does not render the login page before the instance answers', () => {
   const value = runtime();
   value.api.instance = vi.fn(() => new Promise(() => undefined));
   mount(<LoginPage />, value);
-  const brand = root.querySelector('.login-brand')!;
-  expect(brand.textContent).toBe('书房');
+  expect(root.querySelector('.login-screen')).toBeNull();
 });
 
-it('shows the built-in name when neither side has saved one', () => {
+it('paints the site name returned by the instance', async () => {
   const value = runtime();
-  value.api.instance = vi.fn(() => new Promise(() => undefined));
+  value.api.instance = vi.fn(async () => ({ name: '书房', apiVersion: 1, userCount: 1, registrationOpen: false, invitationRequired: false }));
   mount(<LoginPage />, value);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+  expect(root.querySelector('.login-brand')?.textContent).toBe('书房');
+});
+
+it('shows the built-in name when neither side has saved one', async () => {
+  mount(<LoginPage />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
   expect(root.querySelector('.login-brand')?.textContent).toBe('reader');
 });
 
-it('collapses the server address and explains that sessions are remembered on login', () => {
+it('collapses the server address and explains that sessions are remembered on login', async () => {
   mount(<LoginPage />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
   const details = root.querySelector<HTMLDetailsElement>('.login-connection')!;
   expect(details.open).toBe(false);
   expect(root.textContent).toContain('登录状态自动保持，无需每天重新登录');

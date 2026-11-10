@@ -6,6 +6,7 @@ import { validServerUrl } from '../../../app/runtime.ts';
 import { ThemeController, loginThemeScope } from '../../../shared/theme/theme.ts';
 import { Icon } from '../../../ui/toolkit.tsx';
 import { applySiteBrand, readCachedSiteBrand, siteAssetUrl } from '../../../app/site-branding.ts';
+import { dismissAppStartup } from '../../../app/startup.ts';
 
 export function LoginPage() {
   const runtime = useRuntime();
@@ -20,6 +21,11 @@ export function LoginPage() {
   // A name confirmed for this server paints immediately. With nothing saved locally
   // or on the server, the heading stays the built-in name.
   const [brand, setBrand] = useState(() => readCachedSiteBrand(runtime.api.baseUrl));
+  // The form stays unmounted until the first /instance answer, so the heading cannot
+  // paint the built-in name and then replace it.
+  const [hold, setHold] = useState(() => !!validServerUrl(runtime.api.baseUrl));
+  const holdRef = useRef(hold);
+  holdRef.current = hold;
   const [probing, setProbing] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -32,22 +38,21 @@ export function LoginPage() {
     return () => theme.dispose();
   }, [themeScope]);
   useLayoutEffect(() => {
-    if (!brand) return;
-    applySiteBrand(brand, serverUrl);
-    document.title = brand.name;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (hold) return;
+    if (brand) { applySiteBrand(brand, serverUrl); document.title = brand.name; }
+    dismissAppStartup();
+  }, [hold]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const value = serverUrl.trim();
     probeGeneration.current += 1;
     if (probe.current) clearTimeout(probe.current);
-    if (!value) { setBrand(null); setInstance(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; setNotice('请输入服务端地址'); return;
+    if (!value) { setHold(false); setBrand(null); setInstance(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; setNotice('请输入服务端地址'); return;
     }
-    if (!validServerUrl(value)) { setBrand(null); setInstance(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; setNotice('请输入 http:// 或 https:// 开头的地址'); return; }
+    if (!validServerUrl(value)) { setHold(false); setBrand(null); setInstance(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; setNotice('请输入 http:// 或 https:// 开头的地址'); return; }
     const cached = readCachedSiteBrand(value);
     setBrand(cached);
     if (cached) { applySiteBrand(cached, value); document.title = cached.name; }
-    else document.title = 'reader';
-    probe.current = setTimeout(() => { void probeServer(value); }, 350);
+    probe.current = setTimeout(() => { void probeServer(value); }, holdRef.current ? 0 : 350);
     return () => { if (probe.current) clearTimeout(probe.current); };
   }, [serverUrl]);
   const probeServer = async (value: string) => {
@@ -59,6 +64,7 @@ export function LoginPage() {
       setInstance(result);
       const next = { name: result.name?.trim() || 'reader', iconUrl: result.iconUrl || null };
       setBrand(next);
+      setHold(false);
       applySiteBrand(next, value);
       document.title = next.name;
       if (result.userCount === 0) { setRegistering(true); setNotice('这是一个全新的实例，第一个注册的账号会成为管理员。'); }
@@ -67,6 +73,7 @@ export function LoginPage() {
     } catch (reason) {
       if (generation !== probeGeneration.current) return;
       setInstance(null);
+      setHold(false);
       if (!readCachedSiteBrand(value)) { setBrand(null); applySiteBrand({ name: 'reader', iconUrl: null }); document.title = 'reader'; }
       setNotice(reason instanceof ApiError && reason.isConnectivity ? '连不上这个地址，请检查服务端是否已启动。' : '无法读取服务端信息，请核对地址。');
     } finally { if (generation === probeGeneration.current) setProbing(false); }
@@ -89,6 +96,7 @@ export function LoginPage() {
     } finally { setBusy(false); }
   };
   const canRegister = !!instance?.registrationOpen;
+  if (hold) return null;
   return <div className="login-screen"><form className="centered-form login-card" onSubmit={submit}>
     <header className="login-heading"><div className="login-brand"><img src={brand?.iconUrl ? siteAssetUrl(serverUrl, brand.iconUrl) : './icons/reader.svg'} alt="" />{brand?.name?.trim() || 'reader'}</div><p>你的私人书房</p></header>
     <details className="login-connection">
