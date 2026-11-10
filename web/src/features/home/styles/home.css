@@ -91,6 +91,12 @@
   line-height: 1.2;
   color: var(--color-ink);
 }
+.home-page .home-header { position: relative; padding-right: 52px; }
+.home-search { position: absolute; top: 2px; right: 0; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-md); color: var(--color-ink); }
+.home-search:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+@media (hover: hover) and (pointer: fine) { .home-search:hover { background: var(--color-surface-2); } }
+/* The sidebar carries the search field from here up. */
+@media (min-width: 701px) { .home-page .home-header { padding-right: 0; } .home-search { display: none; } }
 
 .home-header p {
   margin: 6px 0 0;

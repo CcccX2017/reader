@@ -1,4 +1,4 @@
-import { ApiError } from '../api/errors.ts';
+import { ApiError, describeError } from '../api/errors.ts';
 import type { ReaderApi, NoteInput } from '../api/client.ts';
 import type { SyncPull } from '../api/types.ts';
 import { isOutboxEmpty, type OfflineStore } from '../store/offline.ts';
@@ -425,7 +425,6 @@ export class SyncEngine {
       return;
     }
     this.failureCount += 1;
-    const message = err instanceof Error ? err.message : '同步失败';
     // Keep the first few failures quiet: the outbox is durable and a brief server
     // blip should not interrupt reading. Only after the budget is spent do we ask
     // the reader to decide — and then we stop auto-scheduling so the toast can
@@ -439,7 +438,7 @@ export class SyncEngine {
       this.scheduleNext(this.backoff, true);
       return;
     }
-    this.setState('error', message);
+    this.setState('error', describeError(err, '同步失败，稍后会自动重试'));
   }
 
   /**

@@ -1,3 +1,4 @@
+import { pageTitle } from './page-title.ts';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Link, Outlet, UNSAFE_LocationContext, useLocation, useNavigate, useNavigationType, useOutlet } from 'react-router-dom';
 import { useAuthStore } from '../shared/stores/auth.store.ts';
@@ -37,6 +38,22 @@ function AuthenticatedShell() {
   }, [runtime, navigate,media]);
   useEffect(() => {if(media)runtime.player.setVisible(location.pathname.startsWith('/media/'));}, [runtime, location.pathname,media]);
   const mode = !media&&shellPath.startsWith('/media')?'push':navMode(shellPath);
+  useEffect(() => { document.title = pageTitle(location.pathname); }, [location.pathname]);
+  // "/" goes to search from anywhere a keystroke is not already text or a reading/playback command.
+  // The reader covers the page, so the shortcut stays with the page underneath.
+  useEffect(() => {
+    if (mode === 'hidden' || covered) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable], dialog[open]') || document.querySelector('dialog[open]')) return;
+      const field = document.querySelector<HTMLInputElement>('.search-page-form input, .app-nav-search:not([hidden]) input');
+      event.preventDefault();
+      if (field && field.offsetParent !== null) { field.focus(); field.select(); } else navigate('/search');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode, navigate, covered]);
   // One app theme for every page; the reader may wear its own reading theme on top.
   useEffect(() => {
     const theme = new ThemeController(runtime.mediaApi.preferenceScope());
