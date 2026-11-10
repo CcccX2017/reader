@@ -102,7 +102,20 @@ export function affectedNavigationQuery(mutation: string, query: string): boolea
   }
   if (mutation === '/api/v1/library/upload') return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/browse');
   if (mutation === '/api/v1/library/browse/shelf') return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/continue');
+  // Deleting a book removes it from every list, 继续阅读, the file browser and the
+  // series/tag facets. The 5 min navigation cache would otherwise keep showing it.
+  if (mutation === '/api/v1/library/books/delete') {
+    return query.startsWith('/api/v1/books')
+      || query.startsWith('/api/v1/library/browse')
+      || query.startsWith('/api/v1/library/continue')
+      || query.startsWith('/api/v1/library/facets');
+  }
   if (/^\/api\/v1\/library\/browse\//.test(mutation)) return query.startsWith('/api/v1/library/browse') || query.startsWith('/api/v1/books');
+  // 在读 / 想读 / 已读 (and clearing the mark) changes the badge on every list and
+  // which books 继续阅读 and a status filter show. List URLs do not contain the book id.
+  if (/^\/api\/v1\/books\/[^/]+\/reading-status$/.test(mutation)) {
+    return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/continue');
+  }
   if (/^\/api\/v1\/books\//.test(mutation)) {
     const id = mutation.match(/^\/api\/v1\/books\/([^/]+)/)?.[1];
     return query.startsWith('/api/v1/books') && (!id || query.includes('/books/' + id));

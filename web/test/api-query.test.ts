@@ -65,6 +65,36 @@ describe('ReaderApi navigation query cache', () => {
     expect(transport.countMatching(request => request.url.startsWith('/api/v1/books'))).toBe(1);
   });
 
+  it('re-reads book lists after a reading mark changes', async () => {
+    const transport = new FakeTransport();
+    transport.json({ items: [{ id: 'book-1', readingState: null }], total: 1 });
+    const api = await apiWith(transport);
+    await api.listBooks({ scope: 'shelf', page: 1 });
+    await api.continueReading(2);
+    transport.json({});
+    await api.setReadingStatus('book-1', 'reading');
+    transport.json({ items: [{ id: 'book-1', readingState: 'reading' }], total: 1 });
+    await api.listBooks({ scope: 'shelf', page: 1 });
+    await api.continueReading(2);
+    expect(transport.countMatching(request => request.method === 'GET' && request.url.startsWith('/api/v1/books'))).toBe(2);
+    expect(transport.countMatching(request => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
+  });
+
+  it('re-reads book lists after a book is deleted', async () => {
+    const transport = new FakeTransport();
+    transport.json({ items: [{ id: 'book-1' }], total: 1 });
+    const api = await apiWith(transport);
+    await api.listBooks({ scope: 'shelf', page: 1 });
+    await api.continueReading(2);
+    transport.json({ deleted: 1, failed: [] });
+    await api.deleteLibraryBooks(['book-1']);
+    transport.json({ items: [], total: 0 });
+    await api.listBooks({ scope: 'shelf', page: 1 });
+    await api.continueReading(2);
+    expect(transport.countMatching(request => request.method === 'GET' && request.url.startsWith('/api/v1/books'))).toBe(2);
+    expect(transport.countMatching(request => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
+  });
+
   it('invalidates navigation data after a write', async () => {
     const transport = new FakeTransport();
     transport.respondWith(request => request.method === 'GET'
@@ -99,6 +129,16 @@ describe('ReaderApi navigation query cache', () => {
     expect(affectedNavigationQuery('/api/v1/library/scan', '/api/v1/library/browse?page=1')).toBe(true);
     expect(affectedNavigationQuery('/api/v1/library/scan', '/api/v1/library/continue')).toBe(true);
     expect(affectedNavigationQuery('/api/v1/library/scan', '/api/v1/media/browse?channel=music')).toBe(false);
+    expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/books?scope=shelf&page=1')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/library/browse?page=1')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/library/continue')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/library/facets')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/media/browse?channel=music')).toBe(false);
+    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/books?scope=shelf&status=reading')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/books/book-1')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/library/continue')).toBe(true);
+    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/library/browse?page=1')).toBe(false);
+    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/media/browse?channel=music')).toBe(false);
   });
 });
 
