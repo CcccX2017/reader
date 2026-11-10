@@ -31,17 +31,22 @@ export function SearchPage() {
   const [params, setParams] = useSearchParams();
   const query = (params.get('q') ?? '').trim();
   const [input, setInput] = useState(query);
+  // True while an IME is composing (拼音, for example). Those keystrokes are not a
+  // query yet; searching them would fire on every letter of the unfinished word.
+  const [composing, setComposing] = useState(false);
   // The URL is the query; the field follows it (Back, a sidebar search, a recent one),
   // except while it is only ahead of the URL by whitespace the reader is still typing.
   useEffect(() => { setInput(current => current.trim() === query ? current : query); }, [query]);
   // Typing searches by itself after a pause. `replace`, so a word typed letter by
   // letter is one history entry and Back leaves the page instead of un-typing it.
+  // The pause starts when the field changes and no composition is open.
   useEffect(() => {
+    if (composing) return;
     const q = input.trim();
     if (q === query) return;
     const timer = window.setTimeout(() => setParams(q ? { q } : {}, { replace: true }), SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [input, query, setParams]);
+  }, [composing, input, query, setParams]);
   const scope = runtime.mediaApi.preferenceScope();
   const [recent, setRecent] = useState(() => readRecentSearches(scope));
   // A query is worth remembering once the reader committed to it: pressed Enter, or
@@ -67,7 +72,7 @@ export function SearchPage() {
   return <MediaPageFrame className="media-secondary-page search-page" title="搜索" backTo="/" backLabel="返回首页">
     <form className="search-page-form" role="search" onSubmit={submit}>
       <Icon name="search" size={18} />
-      <input ref={field} type="search" name="q" aria-label="搜索全部内容" placeholder={mediaEnabled?'搜索书名、片名、歌曲、有声书':'搜索书名、作者'} value={input} maxLength={200} onInput={event => setInput(event.currentTarget.value)} />
+      <input ref={field} type="search" name="q" aria-label="搜索全部内容" placeholder={mediaEnabled?'搜索书名、片名、歌曲、有声书':'搜索书名、作者'} value={input} maxLength={200} onCompositionStart={() => setComposing(true)} onCompositionEnd={event => { setComposing(false); setInput(event.currentTarget.value); }} onInput={event => setInput(event.currentTarget.value)} />
       <button type="submit" className="media-primary" disabled={!input.trim()}>搜索</button>
     </form>
     {!query ? <>
