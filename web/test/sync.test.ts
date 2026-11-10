@@ -672,10 +672,36 @@ describe('SyncEngine', () => {
     transport.json(SESSION);
     await api.login('me', 'password12');
     await offline.load();
-    transport.json({ serverTime: 10, hasMore: true, progress: [], notes: [] });
-    await engine.syncNow();
+    transport.respondWith(() => ({ status: 200, headers: {}, json: { serverTime: 10, hasMore: true, progress: [], notes: [] } }));
+    // First failure is quiet; three automatic retries then surface the error.
+    for (let attempt = 0; attempt < 4; attempt += 1) await engine.syncNow();
     expect(engine.status().state).toBe('error');
-    expect(transport.requests.filter(request => request.url.includes('/sync?'))).toHaveLength(2);
+    expect(engine.status().message).toContain('同步分页游标没有前进');
+    // Each attempt: pull once (since=0), then a second pull that repeats the cursor.
+    expect(transport.requests.filter(request => request.url.includes('/sync?'))).toHaveLength(8);
+  });
+
+  it('retries a server failure three times before surfacing an error', async () => {
+    vi.useFakeTimers();
+    try {
+      const { api, transport, offline, engine } = build();
+      transport.json(SESSION);
+      await api.login('me', 'password12');
+      await offline.load();
+      transport.respondWith(() => ({ status: 500, headers: {}, json: { error: { code: 'INTERNAL', message: 'boom' } } }));
+      await engine.syncNow();
+      expect(engine.status().state).toBe('idle');
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await vi.runOnlyPendingTimersAsync();
+      }
+      expect(engine.status().state).toBe('error');
+      expect(engine.status().message).toBe('boom');
+      const before = transport.requests.length;
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(transport.requests.length).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('retries a failed page from the last persisted cursor', async () => {

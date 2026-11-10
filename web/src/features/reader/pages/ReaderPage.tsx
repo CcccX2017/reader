@@ -42,30 +42,49 @@ export function ReaderPage() {
     return () => { live = false; };
   }, [runtime, bookId]);
   useEffect(() => {
-    if (!host.current || !book) return;
-    const screen = new ReaderScreen({
-      api: runtime.api,
-      offline: runtime.offline,
-      sync: runtime.sync,
-      platform: runtime.platform,
-      themeScope: runtime.mediaApi.preferenceScope(),
-      settings: runtime.settings.current,
-      ...(runtime.pageHost ? { pageHost: runtime.pageHost } : {}),
-      ...(runtime.speechBridge ? { speechBridge: runtime.speechBridge } : {}),
-      onBack: () => back.current(),
-      onSettingsChange: patch => { void runtime.updateSettings(patch); },
-      onSignedOut: () => { void runtime.api.signOut(); },
+    const node = host.current;
+    if (!node || !book) return;
+    // The chrome root is drawn with flushSync so the stage is in the document
+    // before the paginator measures it. This effect still runs inside React's
+    // passive commit, and React 19 will not flush there: it warns and skips the
+    // paint. A microtask is outside that commit, so the flush actually lands.
+    // Leaving uses the same turn — dispose() unmounts that root, which React
+    // also refuses while this cleanup is still committing.
+    let screen: ReaderScreen | undefined;
+    let unregister = () => {};
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const mounted = new ReaderScreen({
+        api: runtime.api,
+        offline: runtime.offline,
+        sync: runtime.sync,
+        platform: runtime.platform,
+        themeScope: runtime.mediaApi.preferenceScope(),
+        settings: runtime.settings.current,
+        ...(runtime.pageHost ? { pageHost: runtime.pageHost } : {}),
+        ...(runtime.speechBridge ? { speechBridge: runtime.speechBridge } : {}),
+        onBack: () => back.current(),
+        onSettingsChange: patch => { void runtime.updateSettings(patch); },
+        onSignedOut: () => { void runtime.api.signOut(); },
+      });
+      screen = mounted;
+      node.replaceChildren(mounted.element);
+      // Register the reader's own persistence hook. Calling runtime.flush() here
+      // would recurse through runtime.registerReader while the app is flushing.
+      unregister = runtime.registerReader(book, () => mounted.flushProgress());
+      void mounted.open(book);
     });
-    host.current.replaceChildren(screen.element);
-    // Register the reader's own persistence hook. Calling runtime.flush() here
-    // would recurse through runtime.registerReader while the app is flushing.
-    const unregister = runtime.registerReader(book, () => screen.flushProgress());
-    void screen.open(book);
     return () => {
+      cancelled = true;
       unregister();
-      const saved = screen.flushProgress();
-      screen.dispose();
-      host.current?.replaceChildren();
+      const mounted = screen;
+      if (!mounted) return;
+      const saved = mounted.flushProgress();
+      queueMicrotask(() => {
+        mounted.dispose();
+        if (node.isConnected) node.replaceChildren();
+      });
       // Leaving the reader is when 首页's 继续阅读 and the shelf's 最近阅读 are looked at
       // next. Push the position now rather than after the sync debounce, then re-read
       // both instead of showing the cached answer for up to a minute (#663).

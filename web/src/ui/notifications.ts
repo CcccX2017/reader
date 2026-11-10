@@ -3,8 +3,9 @@ import 'notyf/notyf.min.css';
 import '../styles/notifications.css';
 
 export type NoticeKind = 'info' | 'success' | 'error' | 'loading';
-export interface NoticeOptions { kind?: NoticeKind; duration?: number }
-interface ActiveNotice { notification: NotyfNotification; node: HTMLElement; message: string; kind: NoticeKind }
+export interface NoticeAction { label: string; onClick: () => void }
+export interface NoticeOptions { kind?: NoticeKind; duration?: number; action?: NoticeAction }
+interface ActiveNotice { notification: NotyfNotification; node: HTMLElement; message: string; kind: NoticeKind; actionLabel?: string }
 const active = new Map<symbol, ActiveNotice>();
 let library: Notyf | undefined;
 let container: HTMLElement | undefined;
@@ -48,31 +49,48 @@ export function dismissNotice(id: symbol): void {
 export function notify(message: string, options: NoticeOptions = {}, id = Symbol('notice')): symbol {
   if (!message) { dismissNotice(id); return id; }
   const notyf = service(), kind = options.kind ?? 'info';
+  const actionLabel = options.action?.label;
   for (const [key, notice] of active) {
     if (!notice.node.isConnected || notice.node.classList.contains('notyf__toast--disappear')) dismissNotice(key);
   }
   const current = active.get(id);
-  if (current?.kind === kind && current.message === message) return id;
-  if (current?.kind === 'loading' && kind === 'loading') {
+  if (current?.kind === kind && current.message === message && current.actionLabel === actionLabel) return id;
+  if (current?.kind === 'loading' && kind === 'loading' && !options.action) {
     current.message = message;
     current.node.querySelector('.notyf__message')!.textContent = message;
     return id;
   }
   dismissNotice(id);
   if (active.size >= 3) dismissNotice(active.keys().next().value!);
+  // Loading never expires on its own. Other kinds accept `duration: 0` for cards
+  // that need an explicit next step (e.g. sync failure + 重试).
+  const duration = kind === 'loading' ? 0 : options.duration ?? Math.min(12_000, Math.max(6000, message.length * 100));
   const escaped = document.createElement('span'); escaped.textContent = message;
-  const notification = notyf.open({ type: kind, message: escaped.innerHTML, dismissible: kind !== 'loading',
-    duration: kind === 'loading' ? 0 : options.duration ?? Math.min(12_000, Math.max(6000, message.length * 100)),
-  });
+  const notification = notyf.open({ type: kind, message: escaped.innerHTML, dismissible: kind !== 'loading', duration });
   const node = container!.lastElementChild as HTMLElement;
   node.dataset.kind = kind;
   const content = node.querySelector<HTMLElement>('.notyf__message')!;
   content.setAttribute('role', kind === 'error' ? 'alert' : 'status');
   content.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
   content.setAttribute('aria-atomic', 'true');
-  const close = node.querySelector('button');
+  if (options.action) {
+    const actions = document.createElement('div');
+    actions.className = 'global-notice-actions';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'global-notice-action';
+    button.textContent = options.action.label;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      options.action!.onClick();
+    });
+    actions.append(button);
+    content.insertAdjacentElement('afterend', actions);
+  }
+  const close = node.querySelector<HTMLButtonElement>('.notyf__dismiss-btn');
   if (close) { close.type = 'button'; close.setAttribute('aria-label', '关闭提示'); }
-  active.set(id, { notification, node, message, kind });
+  active.set(id, { notification, node, message, kind, ...(actionLabel !== undefined ? { actionLabel } : {}) });
   notification.on(NotyfEvent.Dismiss, () => dismissNotice(id));
   return id;
 }

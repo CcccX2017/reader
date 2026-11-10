@@ -525,7 +525,10 @@ export class ReaderScreen {
         if (token !== this.loadingToken) return;
         loaded = await this.loadDoc(book, this.manifest, bytes);
       }
-      if (token !== this.loadingToken) { loaded.doc.pdf?.dispose(); return; }
+      if (token !== this.loadingToken) {
+        loaded.doc.pdf?.dispose();
+        return;
+      }
 
       this.doc = loaded.doc;
       opened = true;
@@ -2425,11 +2428,29 @@ export class ReaderScreen {
       const status = this.options.sync.status();
       if (status.state === 'idle') this.paintNotes();
       if (status.state === 'syncing') {
-        this.setStatus('syncing', '同步中…');
+        // Sync runs in the background: a "同步中…" toast over the page is noise
+        // for a routine that already retries on its own. Drop any prior sync
+        // failure card so a manual 重试 can start cleanly.
+        if (this.chrome.statusState === 'error' || this.chrome.statusState === 'syncing') this.hideStatus();
       } else if (status.state === 'offline') {
         this.setStatus('offline', status.pending ? '离线 · 进度待同步' : '离线 · 阅读进度存在本机');
       } else if (status.state === 'error') {
-        this.setStatus('error', status.message || '同步失败');
+        this.chrome.statusState = 'error';
+        this.chrome.statusText = status.message || '同步失败';
+        notify(
+          this.chrome.statusText,
+          {
+            kind: 'error',
+            duration: 0,
+            action: {
+              label: '重试',
+              onClick: () => {
+                void this.options.sync.syncNow();
+              },
+            },
+          },
+          this.noticeId,
+        );
       } else if (status.state === 'signed-out') {
         this.options.onSignedOut();
       } else if (this.chrome.statusState !== 'loading') {

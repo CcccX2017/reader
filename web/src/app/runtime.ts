@@ -21,12 +21,18 @@ export function validServerUrl(value?: string): string {
   try {
     const url = new URL(value.trim());
     return ['http:', 'https:'].includes(url.protocol) && url.hostname !== 'appassets.androidplatform.net' ? value.trim() : '';
-  } catch { return ''; }
+  } catch {
+    return '';
+  }
 }
 export function inferDefaultUrl(): string {
   if (typeof location === 'undefined' || location.protocol === 'file:') return '';
   if (location.hostname === 'appassets.androidplatform.net') {
-    try { return validServerUrl(window.ReaderAndroid?.configuredServerUrl?.()); } catch { return ''; }
+    try {
+      return validServerUrl(window.ReaderAndroid?.configuredServerUrl?.());
+    } catch {
+      return '';
+    }
   }
   return location.origin;
 }
@@ -40,22 +46,69 @@ export async function createAppRuntime(defaultServerUrl = '') {
   const sessions: SessionStore = {
     async load() {
       try {
-        const value = JSON.parse(await platform.kv.get('reader.session.v1') ?? 'null') as Session | null;
+        const value = JSON.parse((await platform.kv.get('reader.session.v1')) ?? 'null') as Session | null;
         return value?.accessToken && value.refreshToken ? value : null;
-      } catch { return null; }
+      } catch {
+        return null;
+      }
     },
-    save: session => platform.kv.set('reader.session.v1', JSON.stringify(session)),
+    save: (session) => platform.kv.set('reader.session.v1', JSON.stringify(session)),
     clear: () => platform.kv.remove('reader.session.v1'),
   };
   api = new ReaderApi(platform, sessions);
   const mediaApi = new MediaApi(api);
-  let player:MediaPlayer|undefined;
-  let playback:PlaybackService|undefined;
-  const getPlayer=()=>player??=new MediaPlayer(mediaApi);
-  const getPlayback=()=>playback??=new PlaybackService(getPlayer(),mediaApi);
+  let player: MediaPlayer | undefined;
+  let playback: PlaybackService | undefined;
+  const getPlayer = () => (player ??= new MediaPlayer(mediaApi));
+  const getPlayback = () => (playback ??= new PlaybackService(getPlayer(), mediaApi));
   const settings = new SettingsStore(platform.kv);
   const offline = new OfflineStore(platform.kv);
-  const sync = new SyncEngine(api, offline, platform);
+  /**
+   * DEV-ONLY fault injection for the sync engine.
+   *
+   * The engine shares the live `api` instance, so the wrapper is chained off it
+   * (`Object.create`) instead of copying it: every other method — `currentSession`,
+   * `baseUrl` — keeps working untouched. Only `push`/`pull` are intercepted, and
+   * only for the sync engine, so no other screen sees the injected failure.
+   *
+   * A connectivity outage cannot exercise the error toast (a fetch failure is
+   * `isConnectivity` and degrades silently to the offline state), so the injected
+   * error is a *server* error — the one kind `handleFailure` spends its
+   * `MAX_AUTO_RETRIES` budget on and finally surfaces as a persistent toast.
+   */
+  const syncFaults = { count: 0 };
+  const syncApi = Object.create(api) as ReaderApi;
+  const syncFaultError = (): ApiError => new ApiError('server', '调试注入的同步失败', 'DEBUG_SYNC_FAULT');
+  syncApi.push = async (...args: Parameters<ReaderApi['push']>) => {
+    if (syncFaults.count > 0) {
+      syncFaults.count -= 1;
+      throw syncFaultError();
+    }
+    return api.push(...args);
+  };
+  syncApi.pull = async (...args: Parameters<ReaderApi['pull']>) => {
+    if (syncFaults.count > 0) {
+      syncFaults.count -= 1;
+      throw syncFaultError();
+    }
+    return api.pull(...args);
+  };
+  const sync = new SyncEngine(syncApi, offline, platform);
+  if (import.meta.env.DEV) {
+    (window as unknown as Record<string, unknown>).__syncDebug = {
+      /** Queues `n` sync failures; pass 4 to reach the error toast past the 3 silent auto-retries. */
+      fail(n = 4) {
+        syncFaults.count = n;
+        return `已注入 ${n} 次同步失败：前 3 次静默重试（约 4s/8s/16s 退避），第 4 次失败后弹出错误提示`;
+      },
+      ok() {
+        syncFaults.count = 0;
+        return '已清除注入的故障，下一次同步恢复正常';
+      },
+      syncNow: () => sync.syncNow(),
+      status: () => sync.status(),
+    };
+  }
   const queryClient = createAppQueryClient();
   const loadedSettings = await settings.load();
   useSettingsStore.getState().replace(loadedSettings);
@@ -76,84 +129,130 @@ export async function createAppRuntime(defaultServerUrl = '') {
   }
   let currentBook: Book | null = null;
   let readerFlush: (() => Promise<void>) | null = null;
-  let capabilityRevision=0;
-  let mediaAllowed=mediaEnabled(useAuthStore.getState().verifiedUser??useAuthStore.getState().session?.user);
-  let refreshing:{scope:string;promise:Promise<void>}|undefined;
-  function refreshCapabilities():Promise<void>{
-    const scope=JSON.stringify([api.baseUrl,api.currentSession()?.user.id]);
-    if(refreshing?.scope===scope)return refreshing.promise;
-    const promise=readCapabilities().finally(()=>{if(refreshing?.promise===promise)refreshing=undefined;});
-    refreshing={scope,promise};
+  let capabilityRevision = 0;
+  let mediaAllowed = mediaEnabled(useAuthStore.getState().verifiedUser ?? useAuthStore.getState().session?.user);
+  let refreshing: { scope: string; promise: Promise<void> } | undefined;
+  function refreshCapabilities(): Promise<void> {
+    const scope = JSON.stringify([api.baseUrl, api.currentSession()?.user.id]);
+    if (refreshing?.scope === scope) return refreshing.promise;
+    const promise = readCapabilities().finally(() => {
+      if (refreshing?.promise === promise) refreshing = undefined;
+    });
+    refreshing = { scope, promise };
     return promise;
   }
-  async function readCapabilities(){
-    const session=api.currentSession(),server=api.baseUrl;
-    if(!session)return;
-    const revision=++capabilityRevision;
-    const user=await api.me();
-    if(revision!==capabilityRevision||api.baseUrl!==server||api.currentSession()?.user.id!==session.user.id)return;
+  async function readCapabilities() {
+    const session = api.currentSession(),
+      server = api.baseUrl;
+    if (!session) return;
+    const revision = ++capabilityRevision;
+    const user = await api.me();
+    if (revision !== capabilityRevision || api.baseUrl !== server || api.currentSession()?.user.id !== session.user.id) return;
     useAuthStore.getState().verify(user);
-    if(!mediaEnabled(user)){
+    if (!mediaEnabled(user)) {
       playback?.stop();
-      if(mediaAllowed)await player?.stop().catch(()=>undefined);
-      const predicate=(query:{queryKey:readonly unknown[]})=>query.queryKey.includes('media');
-      await queryClient.cancelQueries({predicate});
-      queryClient.removeQueries({predicate});
+      if (mediaAllowed) await player?.stop().catch(() => undefined);
+      const predicate = (query: { queryKey: readonly unknown[] }) => query.queryKey.includes('media');
+      await queryClient.cancelQueries({ predicate });
+      queryClient.removeQueries({ predicate });
     }
-    mediaAllowed=mediaEnabled(user);
+    mediaAllowed = mediaEnabled(user);
   }
   return {
-    api, mediaApi, get player(){return getPlayer();}, get playback(){return getPlayback();}, settings, offline, sync, queryClient, platform,
+    api,
+    mediaApi,
+    get player() {
+      return getPlayer();
+    },
+    get playback() {
+      return getPlayback();
+    },
+    settings,
+    offline,
+    sync,
+    queryClient,
+    platform,
     refreshCapabilities,
     pageHost: bridge ? androidPageHost(bridge) : null,
     speechBridge: bridge ? androidSpeechBridge(bridge) : null,
     async authenticated() {
       const session = api.currentSession();
-      useAuthStore.getState().setSession(session?{...session,user:{...session.user,features:{media:false}}}:null);
+      useAuthStore.getState().setSession(session ? { ...session, user: { ...session.user, features: { media: false } } } : null);
       if (!session) return;
       await offline.setScope(publicationScope(api.baseUrl, session.user.id));
       await refreshCapabilities();
       queryClient.clear();
       sync.start();
-      if(mediaEnabled(useAuthStore.getState().verifiedUser))getPlayer().reconnectNative();
+      if (mediaEnabled(useAuthStore.getState().verifiedUser)) getPlayer().reconnectNative();
     },
     async updateSettings(patch: Partial<AppSettings>) {
       await settings.update(patch);
       useSettingsStore.getState().update(patch);
     },
     registerReader(book: Book, flush: () => Promise<void>) {
-      currentBook = book; readerFlush = flush;
-      return () => { if (readerFlush === flush) { currentBook = null; readerFlush = null; } };
+      currentBook = book;
+      readerFlush = flush;
+      return () => {
+        if (readerFlush === flush) {
+          currentBook = null;
+          readerFlush = null;
+        }
+      };
     },
     currentBook: () => currentBook,
     syncStatus: () => sync.status(),
     settingsSnapshot: () => settings.load(),
     async saveBeforeUpdate() {
-      await readerFlush?.(); await offline.flush(); await player?.flush();
+      await readerFlush?.();
+      await offline.flush();
+      await player?.flush();
     },
     async flush() {
-      await Promise.allSettled([player?.flush(), (async () => { await readerFlush?.(); await offline.flush(); await sync.flush(); })()]);
+      await Promise.allSettled([
+        player?.flush(),
+        (async () => {
+          await readerFlush?.();
+          await offline.flush();
+          await sync.flush();
+        })(),
+      ]);
     },
     connect() {
-      let scope=JSON.stringify([api.baseUrl,api.currentSession()?.user.id]);
-      const stopSession = api.onSessionChange(session => {
-        const nextScope=JSON.stringify([api.baseUrl,session?.user.id]);
-        const verified=scope===nextScope?useAuthStore.getState().verifiedUser:null;
-        if(scope!==nextScope){capabilityRevision++;mediaAllowed=false;playback?.stop();void player?.stop().catch(()=>undefined);}
-        scope=nextScope;
-        useAuthStore.getState().setSession(session?{...session,user:{...session.user,features:{media:false}}}:null);
-        if(verified)useAuthStore.getState().verify(verified);
+      let scope = JSON.stringify([api.baseUrl, api.currentSession()?.user.id]);
+      const stopSession = api.onSessionChange((session) => {
+        const nextScope = JSON.stringify([api.baseUrl, session?.user.id]);
+        const verified = scope === nextScope ? useAuthStore.getState().verifiedUser : null;
+        if (scope !== nextScope) {
+          capabilityRevision++;
+          mediaAllowed = false;
+          playback?.stop();
+          void player?.stop().catch(() => undefined);
+        }
+        scope = nextScope;
+        useAuthStore.getState().setSession(session ? { ...session, user: { ...session.user, features: { media: false } } } : null);
+        if (verified) useAuthStore.getState().verify(verified);
         queryClient.clear();
-        if (!session) { sync.stop(); void player?.stop().catch(()=>undefined); }
-        else void refreshCapabilities().catch(()=>undefined);
+        if (!session) {
+          sync.stop();
+          void player?.stop().catch(() => undefined);
+        } else void refreshCapabilities().catch(() => undefined);
       });
-      const refresh=()=>{void refreshCapabilities().catch(()=>undefined);};
-      const timer=setInterval(refresh,15000);
-      window.addEventListener('focus',refresh);
-      window.addEventListener('online',refresh);
+      const refresh = () => {
+        void refreshCapabilities().catch(() => undefined);
+      };
+      const timer = setInterval(refresh, 15000);
+      window.addEventListener('focus', refresh);
+      window.addEventListener('online', refresh);
       const stopSync = sync.onStatus(useSyncStore.getState().update);
       useSyncStore.getState().update(sync.status());
-      return () => { capabilityRevision++;clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh);stopSession(); stopSync(); };
+      return () => {
+        capabilityRevision++;
+        clearInterval(timer);
+        window.removeEventListener('focus', refresh);
+        window.removeEventListener('online', refresh);
+        stopSession();
+        stopSync();
+      };
     },
   };
 }

@@ -66,3 +66,15 @@ it('keeps app notifications across screen disposal and moves the host into nativ
   dismissNotice(appNotice);
   expect(visibleNotices()).toHaveLength(0);
 });
+
+it('keeps an actionable failure visible until the reader acts', async () => {
+  vi.useFakeTimers();
+  const retry = vi.fn();
+  notify('同步失败', { kind: 'error', duration: 0, action: { label: '重试', onClick: retry } });
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(noticeText()).toContain('同步失败');
+  const action = document.querySelector<HTMLButtonElement>('.global-notice-action');
+  expect(action?.textContent).toBe('重试');
+  action!.click();
+  expect(retry).toHaveBeenCalledOnce();
+});

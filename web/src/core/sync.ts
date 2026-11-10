@@ -16,6 +16,8 @@ export interface SyncStatus {
 const IDLE_INTERVAL_MS = 30_000;
 const RETRY_BASE_MS = 2_000;
 const RETRY_MAX_MS = 120_000;
+/** Automatic retries after a sync failure before the UI is asked to intervene. */
+const MAX_AUTO_RETRIES = 3;
 
 /**
  * How long a `schedule()` request waits for company.
@@ -45,15 +47,16 @@ interface SyncRun {
  *     updatedAt, so replaying a stale offline outbox is harmless.
  *  2. The outbox survives a crash. It lives in the offline snapshot, not in
  *     memory, so closing the app mid-flight does not lose a reading position.
- *  3. Retries back off exponentially and stop when the OS says there is no
- *     network. Polling a server we know is unreachable wastes battery on a
- *     phone, which is the one resource a reader app must respect.
+ *  3. Retries back off exponentially for a few attempts, then stop and let the
+ *     UI offer a manual retry. Connectivity loss is still silent (offline), and
+ *     polling a server we know is unreachable wastes battery on a phone.
  */
 export class SyncEngine {
   private state: SyncState = 'idle';
   private message = '';
   private timer: ReturnType<typeof setTimeout> | null = null;
   private backoff = RETRY_BASE_MS;
+  private failureCount = 0;
   private running = false;
   private generation = 0;
   private stopped = false;
@@ -134,6 +137,7 @@ export class SyncEngine {
     this.rememberNoteBooks();
     this.rejectedCount = 0;
     this.backoff = RETRY_BASE_MS;
+    this.failureCount = 0;
     this.message = '';
     const generation = this.generation;
     this.unwatch = this.platform.onConnectivityChange((connectivity) => {
@@ -142,6 +146,7 @@ export class SyncEngine {
         // Coming back online is the moment the user expects their last pages
         // to be pushed, so do not wait for the next poll.
         this.backoff = RETRY_BASE_MS;
+        this.failureCount = 0;
         void this.syncNow();
       } else {
         this.setState('offline', '离线，进度会缓存在本机');
@@ -254,6 +259,8 @@ export class SyncEngine {
       this.scheduleNext(IDLE_INTERVAL_MS);
       return;
     }
+    // Manual retry from the error toast starts a fresh budget of auto-retries.
+    if (this.state === 'error') this.failureCount = 0;
     const run = this.captureRun();
     this.running = true;
     this.setState('syncing');
@@ -292,6 +299,7 @@ export class SyncEngine {
       this.rememberNoteBooks();
 
       this.backoff = RETRY_BASE_MS;
+      this.failureCount = 0;
       // A rejection message has to survive the state transition to idle,
       // otherwise the reader never learns that a record was dropped.
       this.setState('idle', this.rejectedCount > 0 ? `${this.rejectedCount} 条记录被服务端拒绝` : this.message);
@@ -299,8 +307,7 @@ export class SyncEngine {
     } catch (err) {
       // A terminal auth response clears ReaderApi's session before arriving
       // here. Surface that failure only while this lifecycle is still current.
-      if (!this.stopped && run.generation === this.generation &&
-          (run.account === this.accountKey() || !this.api.currentSession())) this.handleFailure(err);
+      if (!this.stopped && run.generation === this.generation && (run.account === this.accountKey() || !this.api.currentSession())) this.handleFailure(err);
     } finally {
       if (run.generation === this.generation) this.running = false;
     }
@@ -364,11 +371,14 @@ export class SyncEngine {
       const offset = index * CHUNK;
       const progressChunk = batch.progress.slice(offset, offset + CHUNK);
       const noteChunk = notes.slice(offset, offset + CHUNK);
-      const result = await this.api.push({
-        since: this.offline.current.serverTime,
-        ...(progressChunk.length > 0 ? { progress: progressChunk } : {}),
-        ...(noteChunk.length > 0 ? { notes: noteChunk } : {}),
-      }, { signal: run.signal });
+      const result = await this.api.push(
+        {
+          since: this.offline.current.serverTime,
+          ...(progressChunk.length > 0 ? { progress: progressChunk } : {}),
+          ...(noteChunk.length > 0 ? { notes: noteChunk } : {}),
+        },
+        { signal: run.signal },
+      );
       this.assertCurrent(run);
       serverTime = Math.max(serverTime, result.serverTime);
       rejected += result.rejected;
@@ -406,6 +416,7 @@ export class SyncEngine {
       // Silent degradation: the reader keeps reading from cache.
       this.setState('offline', '离线，进度会缓存在本机');
       this.backoff = RETRY_BASE_MS;
+      this.failureCount = 0;
       this.scheduleNext(IDLE_INTERVAL_MS);
       return;
     }
@@ -413,12 +424,22 @@ export class SyncEngine {
       this.setState('signed-out', '登录已失效，请重新登录');
       return;
     }
-    this.setState('error', err instanceof Error ? err.message : '同步失败');
-    this.backoff = Math.min(this.backoff * 2, RETRY_MAX_MS);
-    // `force`: an error's exponential backoff must be able to shorten a wait the
-    // poll has already armed, or the first retry after a blip would be 30 seconds
-    // late and the backoff would appear not to work.
-    this.scheduleNext(this.backoff, true);
+    this.failureCount += 1;
+    const message = err instanceof Error ? err.message : '同步失败';
+    // Keep the first few failures quiet: the outbox is durable and a brief server
+    // blip should not interrupt reading. Only after the budget is spent do we ask
+    // the reader to decide — and then we stop auto-scheduling so the toast can
+    // stay up until they retry or dismiss it.
+    if (this.failureCount <= MAX_AUTO_RETRIES) {
+      this.setState('idle');
+      this.backoff = Math.min(this.backoff * 2, RETRY_MAX_MS);
+      // `force`: an error's exponential backoff must be able to shorten a wait the
+      // poll has already armed, or the first retry after a blip would be 30 seconds
+      // late and the backoff would appear not to work.
+      this.scheduleNext(this.backoff, true);
+      return;
+    }
+    this.setState('error', message);
   }
 
   /**
