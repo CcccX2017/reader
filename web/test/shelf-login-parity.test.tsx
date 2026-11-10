@@ -8,6 +8,7 @@ import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
 import { ShelfPage } from '../src/features/shelf/pages/ShelfPage.tsx';
 import { LoginPage } from '../src/features/auth/pages/LoginPage.tsx';
+import { applySiteBrand } from '../src/app/site-branding.ts';
 import { saveThemePreference } from '../src/shared/theme/theme.ts';
 
 vi.mock('../src/features/shelf/queries/shelf.queries.ts', () => ({
@@ -86,6 +87,22 @@ it('wears the app theme saved in preferences', () => {
   saveThemePreference(JSON.stringify(['https://reader.test', 'u1']), { theme: 'green', mode: 'dark' });
   mount(<LoginPage />);
   expect([document.documentElement.dataset.theme, document.documentElement.dataset.mode]).toEqual(['green', 'dark']);
+});
+
+it('paints the saved site name before the server answers', () => {
+  applySiteBrand({ name: '书房', iconUrl: null }, 'https://reader.test');
+  const value = runtime();
+  value.api.instance = vi.fn(() => new Promise(() => undefined));
+  mount(<LoginPage />, value);
+  const brand = root.querySelector('.login-brand')!;
+  expect(brand.textContent).toBe('书房');
+});
+
+it('shows the built-in name when neither side has saved one', () => {
+  const value = runtime();
+  value.api.instance = vi.fn(() => new Promise(() => undefined));
+  mount(<LoginPage />, value);
+  expect(root.querySelector('.login-brand')?.textContent).toBe('reader');
 });
 
 it('collapses the server address and explains that sessions are remembered on login', () => {

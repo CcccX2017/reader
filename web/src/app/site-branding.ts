@@ -11,8 +11,35 @@ export function siteAssetUrl(baseUrl: string, path: string): string {
   catch { return path; }
 }
 
+const SITE_BRAND_CACHE = 'reader.site-brand';
+
+function serverKey(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/, '');
+}
+
+/** The name and icon last confirmed for this server, so the login page can paint them immediately. */
+export function readCachedSiteBrand(baseUrl: string): { name: string; iconUrl: string | null } | null {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(SITE_BRAND_CACHE) ?? 'null');
+    if (!parsed || typeof parsed !== 'object') return null;
+    const record = parsed as { baseUrl?: unknown; name?: unknown; iconUrl?: unknown };
+    if (typeof record.baseUrl !== 'string' || serverKey(record.baseUrl) !== serverKey(baseUrl)) return null;
+    if (typeof record.name !== 'string' || !record.name.trim()) return null;
+    return { name: record.name.trim(), iconUrl: typeof record.iconUrl === 'string' && record.iconUrl ? record.iconUrl : null };
+  } catch { return null; }
+}
+
+function rememberSiteBrand(baseUrl: string, brand: SiteBrand): void {
+  const url = serverKey(baseUrl);
+  const name = brand.name?.trim() || 'reader';
+  if (!url) return;
+  try { localStorage.setItem(SITE_BRAND_CACHE, JSON.stringify({ baseUrl: url, name, iconUrl: brand.iconUrl || null })); }
+  catch { /* the login page still learns the name from the server */ }
+}
+
 /** Puts the configured name into the tab, and the icon into the favicon links. */
 export function applySiteBrand(brand: SiteBrand, baseUrl = ''): void {
+  if (baseUrl.trim()) rememberSiteBrand(baseUrl, brand);
   setAppName(brand.name ?? '');
   const hash = window.location.hash.replace(/^#/, '');
   const pathname = hash.split('?')[0] || '/';
