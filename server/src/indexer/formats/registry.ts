@@ -129,6 +129,13 @@ export interface Manifest {
   total: number;
   groups: ContentGroup[];
   items: ContentItem[];
+  /**
+   * One weight per spine item of the whole book.
+   *
+   * Attached when the manifest is served, including on a windowed response whose
+   * `items` are only the current window. See `progressWeights` in the library routes.
+   */
+  weights?: number[];
 }
 
 /**

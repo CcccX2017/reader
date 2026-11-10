@@ -105,16 +105,41 @@ export function formatLocator(sectionId: string, offset: number): string {
  * Weighing matters: TXT chunks are wildly uneven, and a book whose chapters
  * average 30 pages except for one 400-page final chapter would show "50%" at
  * the halfway chapter while the reader still has most of the book left.
+ *
+ * A staged book passes `progressWeights` (one number per chapter of the whole
+ * book) and `origin` (the loaded window's first spine index). Weighing the
+ * loaded window's HTML instead makes the open chapter look like most of the
+ * book, then the percentage falls when the next window replaces those bodies.
  */
-export function bookPercentage(doc: BookDoc, sectionIndex: number, within: number): number {
+export function bookPercentage(doc: BookDoc, sectionIndex: number, within: number, origin = 0): number {
+  const fraction = Math.min(1, Math.max(0, Number.isFinite(within) ? within : 0));
+  const whole = doc.progressWeights;
+  if (whole && whole.length > 0) {
+    const index = Math.min(whole.length - 1, Math.max(0, origin + sectionIndex));
+    return weightedShare(whole, index, fraction);
+  }
   const count = doc.sections.length;
   if (count === 0) return 0;
   const weights = sectionWeights(doc);
   const total = weights.reduce((sum, weight) => sum + weight, 0);
-  if (total <= 0) return Math.min(1, (sectionIndex + within) / count);
+  if (total <= 0) return Math.min(1, (sectionIndex + fraction) / count);
   let consumed = 0;
   for (let index = 0; index < sectionIndex; index += 1) consumed += weights[index] ?? 1;
-  consumed += (weights[sectionIndex] ?? 1) * Math.min(1, Math.max(0, within));
+  consumed += (weights[sectionIndex] ?? 1) * fraction;
+  return Math.min(1, Math.max(0, consumed / total));
+}
+
+/** `index` is a whole-book spine index. A non-positive weight counts as one unit. */
+function weightedShare(weights: number[], index: number, fraction: number): number {
+  let total = 0;
+  let consumed = 0;
+  for (let i = 0; i < weights.length; i += 1) {
+    const weight = weights[i]! > 0 ? weights[i]! : 1;
+    total += weight;
+    if (i < index) consumed += weight;
+    else if (i === index) consumed += weight * fraction;
+  }
+  if (total <= 0) return 0;
   return Math.min(1, Math.max(0, consumed / total));
 }
 

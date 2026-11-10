@@ -483,10 +483,11 @@ describe('library scanning across formats', () => {
   test('comic directory page count covers every volume', async () => {
     const book = await findBook('进击的巨人');
     const res = await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/items`, headers: auth() });
-    const body = res.json() as { total: number; groups: Array<{ title: string; count: number }> };
+    const body = res.json() as { total: number; groups: Array<{ title: string; count: number }>; weights: number[] };
     assert.equal(body.total, 6);
     assert.equal(body.groups.length, 2);
     assert.equal(body.groups[0]!.title, '第01卷');
+    assert.deepEqual(body.weights, [1, 1, 1, 1, 1, 1]);
   });
 
   test('chapter folders nested inside a volume contribute their pages', async () => {
@@ -590,7 +591,10 @@ describe('library scanning across formats', () => {
     assert.equal(result.updated, 1);
     const book = await findBook('小说');
     const res = await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/items`, headers: auth() });
-    assert.equal((res.json() as { total: number }).total, 3, 'the new chapter should appear');
+    const listed = res.json() as { total: number; weights: number[]; items: Array<{ size?: number }> };
+    assert.equal(listed.total, 3, 'the new chapter should appear');
+    assert.deepEqual(listed.weights, listed.items.map((item) => item.size));
+    assert.ok(listed.weights.every((weight) => weight > 1), 'a chapter weighs its characters, not one unit');
 
     await writeFile(target, original);
     await ctx.scanner.scan();
@@ -1003,13 +1007,16 @@ test('a long book is loaded one window at a time', async () => {
     assert.deepEqual(full.groups.map((g) => g.offset), full.groups.map((g) => g.seq * full.groups[0]!.count));
 
     const window = await app.inject({ method: 'GET', url: `/api/v1/books/${book.id}/items?group=2`, headers: auth() });
-    const page = window.json() as { items: Array<{ seq: number }>; group: number; groups: unknown[] };
+    const page = window.json() as { items: Array<{ seq: number }>; group: number; groups: unknown[]; weights: number[] };
     assert.equal(page.group, 2);
     assert.equal(page.items.length, full.groups[0]!.count);
     // The window must carry the group's items, not the first group's.
     assert.equal(page.items[0]!.seq, 2 * full.groups[0]!.count);
     // `groups` stays complete so the client can still show a full table of contents.
     assert.equal(page.groups.length, full.groups.length);
+    // Progress needs every chapter's length, including the ones this window did not send.
+    assert.equal(page.weights.length, 250);
+    assert.equal((full as { weights: number[] }).weights.length, 250);
 
     await rm(target);
     await ctx.scanner.scan();

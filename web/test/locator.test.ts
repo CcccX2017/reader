@@ -119,6 +119,16 @@ describe('book percentage', () => {
     expect(bookPercentage(book, 3, 1)).toBeCloseTo(1, 5);
   });
 
+  it('places a loaded window inside the whole book by the manifest weights', () => {
+    // The open window is one long chapter. Weighing its HTML would report the
+    // start of that chapter as the start of the book. The weights say it is the
+    // last fifth.
+    const book = doc([{ html: '<p>' + 'x'.repeat(40_000) + '</p>' }]);
+    book.progressWeights = [100, 100, 100, 100, 100];
+    expect(bookPercentage(book, 0, 0, 4)).toBeCloseTo(0.8, 5);
+    expect(bookPercentage(book, 0, 1, 4)).toBeCloseTo(1, 5);
+  });
+
   it('gives every page equal weight in a fixed-layout book', () => {
     const book: BookDoc = { ...doc([{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }, { id: 'p4' }]), layout: 'fixed' };
     expect(bookPercentage(book, 2, 0)).toBeCloseTo(0.5, 5);

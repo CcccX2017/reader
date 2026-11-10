@@ -153,6 +153,9 @@ export function createStagedDoc(options: StagedDocOptions): StagedDoc {
     styles: [],
     resources: new Map(),
     orderedByBook: options.orderedByBook ?? true,
+    ...(options.content.weights && options.content.weights.length > 0
+      ? { progressWeights: options.content.weights }
+      : {}),
   };
 
   let offset =
@@ -203,6 +206,7 @@ export function createStagedDoc(options: StagedDocOptions): StagedDoc {
       const group = content.groups[index];
       offset = group?.offset ?? content.items[0]?.seq ?? 0;
       current = content;
+      if (content.weights && content.weights.length > 0) doc.progressWeights = content.weights;
       const items = currentItems();
       doc.sections.length = 0;
       for (const item of items) {

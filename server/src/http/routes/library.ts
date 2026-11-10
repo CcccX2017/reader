@@ -71,6 +71,29 @@ function groupOffset(groups: Array<{ count: number }>, index: number): number {
 }
 
 /**
+ * One weight per spine item, for the whole book, in reading order.
+ *
+ * A windowed response only carries the current window's items. Weighing progress
+ * from those bodies makes the open chapter look like most of the book, then the
+ * percentage drops when the next window loads. The weights travel with every
+ * window so the client can place the open chapter in the whole book without
+ * fetching the others.
+ *
+ * Fixed-layout books are one page per item, so every page weighs the same.
+ * Reflowable books use the length the format already knows (EPUB entry size,
+ * TXT chapter length). A chapter whose length is unknown weighs 1, which is
+ * "one chapter", and stays honest when the body has not been read.
+ */
+function progressWeights(content: { kind: string; items: Array<{ size?: number }> }): number[] {
+  const byPage = content.kind === 'paged' || content.kind === 'document' || content.kind === 'single-image';
+  return content.items.map((item) => {
+    if (byPage) return 1;
+    const size = item.size;
+    return typeof size === 'number' && Number.isFinite(size) && size > 0 ? Math.trunc(size) : 1;
+  });
+}
+
+/**
  * Validates a `string[]` body field.
  *
  * Refused rather than coerced: `paths: "a"` and `paths: ["a"]` are one keystroke
@@ -169,6 +192,7 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     const requested = query.group !== undefined ? Number.parseInt(query.group, 10) : null;
 
     const content = await contentManifest(ctx, user.id, id, book.format);
+    const weighted = content ? { ...content, weights: progressWeights(content) } : content;
 
     /**
      * One window, chosen by the client or by the server.
@@ -195,16 +219,16 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
         : 0;
 
     const windowed =
-      content && !wantsAll && groupIndex !== null && content.groups[groupIndex]
+      weighted && !wantsAll && groupIndex !== null && weighted.groups[groupIndex]
         ? {
-            ...content,
-            items: content.items.slice(
-              groupOffset(content.groups, groupIndex),
-              groupOffset(content.groups, groupIndex) + content.groups[groupIndex]!.count,
+            ...weighted,
+            items: weighted.items.slice(
+              groupOffset(weighted.groups, groupIndex),
+              groupOffset(weighted.groups, groupIndex) + weighted.groups[groupIndex]!.count,
             ),
             group: groupIndex,
           }
-        : content;
+        : weighted;
 
     return {
       book,
@@ -270,22 +294,25 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     if (!manifest) throw badRequest(`format ${book.format} does not expose items`, 'UNSUPPORTED_FORMAT');
     const query = request.query as Record<string, string | undefined>;
     const groupIndex = query.group !== undefined ? Number.parseInt(query.group, 10) : null;
+    const weighted = { ...manifest, weights: progressWeights(manifest) };
 
     // Windowing is what makes a long book openable: a 1200-chapter omnibus or a
     // 40-volume comic must not cost one manifest with thousands of entries, and
     // must not cost the client the whole archive either. The response keeps the
     // full `groups` list so the client can still render a complete table of
     // contents, but only the requested group's items are materialised.
-    if (groupIndex !== null && Number.isFinite(groupIndex) && manifest.groups[groupIndex]) {
-      const offset = groupOffset(manifest.groups, groupIndex);
+    // `weights` stays the whole book: progress is a position in the book, and a
+    // window that only knew its own chapters would report that window as the book.
+    if (groupIndex !== null && Number.isFinite(groupIndex) && weighted.groups[groupIndex]) {
+      const offset = groupOffset(weighted.groups, groupIndex);
       return {
-        ...manifest,
-        items: manifest.items.slice(offset, offset + manifest.groups[groupIndex]!.count),
+        ...weighted,
+        items: weighted.items.slice(offset, offset + weighted.groups[groupIndex]!.count),
         group: groupIndex,
       };
     }
 
-    return manifest;
+    return weighted;
   });
 
   /**

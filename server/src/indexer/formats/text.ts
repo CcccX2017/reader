@@ -139,6 +139,14 @@ export function splitChapters(text: string): SplitResult {
   return { chapters, lines };
 }
 
+/** Characters in a chapter, ignoring the newlines the split removed. At least 1. */
+function chapterChars(lines: string[], chapter: Chapter): number {
+  let count = 0;
+  const end = Math.min(chapter.endLine, lines.length - 1);
+  for (let i = chapter.startLine; i <= end; i += 1) count += lines[i]?.length ?? 0;
+  return Math.max(1, count);
+}
+
 export async function readTextFile(absPath: string): Promise<DecodedText> {
   return decodeTextBuffer(await readFile(absPath));
 }
@@ -210,7 +218,7 @@ export const textHandler = registerFileHandler({
 
   async manifest(ctx: HandlerContext): Promise<Manifest> {
     const { text } = await readTextFile(ctx.absPath);
-    const { chapters } = splitChapters(text);
+    const { chapters, lines } = splitChapters(text);
 
     return {
       kind: 'text',
@@ -233,6 +241,9 @@ export const textHandler = registerFileHandler({
         mediaType: 'text/plain; charset=utf-8',
         href: `chapter:${index}`,
         format: 'html' as const,
+        // Character length of the chapter already split above. Progress weighs
+        // chapters by this, so a short chapter does not count the same as a long one.
+        size: chapterChars(lines, chapter),
       })),
     };
   },

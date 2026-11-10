@@ -146,6 +146,14 @@ export interface BookDoc {
   resources: Map<string, Resource>;
   /** True when the reading order came from the book rather than the file order. */
   orderedByBook: boolean;
+  /**
+   * One weight per spine item of the whole book.
+   *
+   * Set on a staged book from the manifest's `weights`. The loaded window is only
+   * a slice of `sections`, so progress cannot be weighed from those bodies.
+   * Absent when the sections already are the whole book.
+   */
+  progressWeights?: number[];
 }
 
 /**

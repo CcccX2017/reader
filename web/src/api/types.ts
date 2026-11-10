@@ -153,6 +153,14 @@ export interface BookContent {
   groups: ContentGroup[];
   items: ContentItem[];
   group?: number;
+  /**
+   * One weight per spine item of the whole book, in reading order.
+   *
+   * Present even when `items` is only the current window. Reflowable books weigh
+   * a chapter by its length; fixed-layout books weigh every page as 1. Progress
+   * uses this instead of the loaded chapter's markup.
+   */
+  weights?: number[];
 }
 
 /**

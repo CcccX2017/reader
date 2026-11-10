@@ -622,7 +622,7 @@ export class ReaderView {
       sectionIndex: this.sectionIndex,
       sectionId: section?.id ?? '',
       within,
-      percentage: bookPercentage(this.doc, this.sectionIndex, within),
+      percentage: bookPercentage(this.doc, this.sectionIndex, within, this.windowOffset),
       locator: formatLocator(section?.id ?? '', within),
       chapterTitle: section?.label ?? '',
       pageInChapter: pages.current,

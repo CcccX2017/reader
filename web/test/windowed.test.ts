@@ -51,6 +51,21 @@ function windowOf(from: number, count: number, total: number): BookContent {
 }
 
 describe('staged documents', () => {
+  it('keeps whole-book progress weights across a window that does not repeat them', () => {
+    const weights = [10, 10, 80, 10];
+    const doc = createStagedDoc({
+      kind: 'reflowable',
+      toc: [],
+      content: { ...windowOf(0, 2, 4), weights },
+      loader: { async read() { return { html: '<p>正文</p>' }; } },
+    });
+    expect(doc.progressWeights).toEqual(weights);
+    const local = doc.setWindow(windowOf(2, 2, 4), 2);
+    expect(local).toBe(0);
+    expect(doc.progressWeights).toEqual(weights);
+    expect(doc.windowOffset()).toBe(2);
+  });
+
   it('carries the manifest\'s plain-text declaration onto the section', async () => {
     // The declaration has to reach the *section*, because that is what the reader
     // asks when it decides whether to typeset. It cannot be re-derived from the body:
