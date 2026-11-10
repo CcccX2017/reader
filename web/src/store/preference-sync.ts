@@ -23,10 +23,10 @@ export interface PreferenceSyncDeps {
 /**
  * Keeps the account copy in step with this device when 保存位置 is 持久化存储.
  *
- * Local storage stays the copy the screens read. Choosing the account uploads
- * what this device has now. After that, a later stamp wins: an edit made here
- * while offline is sent when the network returns, and an edit made on another
- * device replaces this one when it is the later of the two.
+ * Local storage stays the copy the screens read. The account's choice is what
+ * another signed-in device follows: opening it loads the saved settings instead
+ * of keeping its own defaults. A later stamp still wins, so an offline edit is
+ * sent when the network returns.
  */
 export class PreferenceSync {
   private place: PreferencePlace = 'local';
@@ -69,18 +69,13 @@ export class PreferenceSync {
     // A different account must not inherit the previous account's stamp, or this
     // device would overwrite that account with the previous one's settings.
     if (!sameAccount) this.updatedAt = 0;
-    await this.loadStamp();
-    if (this.place === 'account') await this.reconcile().catch(() => { this.pending = true; });
+    await this.catchUp();
   }
 
   /** Focus or a network return: send a failed write, or pick up another device. */
   refresh(): void {
-    if (this.place !== 'account' || !this.deps.signedIn()) return;
-    if (this.pending) {
-      void this.pushNow().catch(() => undefined);
-      return;
-    }
-    void this.reconcile().catch(() => undefined);
+    if (!this.deps.signedIn()) return;
+    void this.catchUp();
   }
 
   /** A local edit of reader settings, appearance, or a preference. */
@@ -108,26 +103,77 @@ export class PreferenceSync {
     if (next === 'local') {
       this.uploadLocal = false;
       this.pending = false;
+      if (this.deps.signedIn()) {
+        this.updatedAt = Date.now();
+        await this.deps.kv.set(stampKey(this.deps.scope()), String(this.updatedAt));
+        await this.send().catch(() => { this.pending = true; });
+      }
       this.deps.report?.('已改为本地存储，之后的修改只留在这台设备', 'success');
       return;
     }
-    // This device's current settings become the account copy. The stamp is
-    // recorded even when the write cannot leave yet, so the next catch-up
-    // sends them instead of replacing them with an older account copy.
-    this.updatedAt = Date.now();
     if (!this.deps.signedIn()) {
       this.uploadLocal = true;
+      this.updatedAt = Date.now();
       this.deps.report?.('已改为持久化存储，登录后会写入账号', 'success');
       return;
     }
     this.uploadLocal = false;
-    await this.deps.kv.set(stampKey(this.deps.scope()), String(this.updatedAt));
+    await this.loadStamp();
     try {
+      const remote = await this.deps.pull();
+      // Another device already saved the account copy. Loading it is the point
+      // of opening 持久化 here; uploading this device's defaults would wipe it.
+      if (remote && remote.place !== 'local' && remote.updatedAt > this.updatedAt) {
+        await this.apply(remote);
+        this.deps.report?.('已改为持久化存储，已用账号里保存的设置', 'success');
+        return;
+      }
+      this.updatedAt = Date.now();
+      await this.deps.kv.set(stampKey(this.deps.scope()), String(this.updatedAt));
       await this.pushNow();
       this.deps.report?.('已改为持久化存储，当前设置已写入账号', 'success');
     } catch {
       this.deps.report?.('已改为持久化存储。账号暂时没写上，连上后会再试', 'error');
     }
+  }
+
+  /** Follows the account: a saved 持久化 copy is applied even on a device that was still local. */
+  private async catchUp(): Promise<void> {
+    if (!this.deps.signedIn()) return;
+    await this.loadStamp();
+    let remote: PreferenceDocument | null;
+    try {
+      remote = await this.deps.pull();
+    } catch {
+      this.pending = true;
+      return;
+    }
+    this.pending = false;
+    if (!remote) {
+      if (this.place === 'account') await this.pushNow().catch(() => { this.pending = true; });
+      return;
+    }
+    // Only a newer row decides the mode. An older row must not undo a switch
+    // this device just made, such as turning persistence off.
+    if (remote.updatedAt > this.updatedAt) {
+      if (remote.place === 'local') {
+        await this.remember('local');
+        return;
+      }
+      await this.remember('account');
+      await this.apply(remote);
+      return;
+    }
+    if (this.updatedAt > remote.updatedAt) {
+      await (this.place === 'account' ? this.pushNow() : this.send()).catch(() => { this.pending = true; });
+    }
+  }
+
+  private async remember(place: PreferencePlace): Promise<void> {
+    if (this.place === place) return;
+    this.place = place;
+    usePreferencePlaceStore.getState().replace(place);
+    await this.deps.kv.set(PLACE_KEY, place);
   }
 
   private async loadStamp(): Promise<void> {
@@ -149,15 +195,13 @@ export class PreferenceSync {
     this.timer = null;
   }
 
-  private async reconcile(): Promise<void> {
-    if (this.place !== 'account' || !this.deps.signedIn()) return;
-    const remote = await this.deps.pull();
-    if (!remote || this.updatedAt > remote.updatedAt) await this.pushNow();
-    else if (remote.updatedAt > this.updatedAt) await this.apply(remote);
-  }
-
   private async pushNow(): Promise<void> {
     if (this.place !== 'account' || !this.deps.signedIn()) return;
+    await this.send();
+  }
+
+  private async send(): Promise<void> {
+    if (!this.deps.signedIn()) return;
     if (this.pushing) { this.again = true; return; }
     this.pushing = true;
     try {
@@ -168,10 +212,10 @@ export class PreferenceSync {
           await this.deps.kv.set(stampKey(this.deps.scope()), String(this.updatedAt));
         }
         const sentAt = this.updatedAt;
-        const stored = await this.deps.push({ ...this.deps.read(), updatedAt: sentAt });
-        if (stored.updatedAt > this.updatedAt) await this.apply(stored);
+        const stored = await this.deps.push({ ...this.deps.read(), place: this.place, updatedAt: sentAt });
+        if (stored.place !== 'local' && stored.updatedAt > this.updatedAt) await this.apply(stored);
         else if (this.updatedAt > sentAt) this.again = true;
-      } while (this.again && this.place === 'account' && this.deps.signedIn());
+      } while (this.again && this.deps.signedIn());
       this.pending = false;
     } catch (error) {
       this.pending = true;

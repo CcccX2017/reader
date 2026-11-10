@@ -12,20 +12,20 @@ import { useMediaEnabled } from '../../../shared/stores/features.ts';
  * 扫描与刮削 beside them. Lazily loaded (app/router/lazy-pages.tsx). A member who
  * follows an old link lands back on 我的; the server checks the role regardless.
  */
-function AdminFrame({ title, children }: { title: string; children: ReactNode }) {
+function AdminFrame({ title, children, page }: { title: string; children: ReactNode; page?: string }) {
   const role = useAuthStore(state => (state.verifiedUser ?? state.session?.user)?.role);
   if (role !== 'admin') return <Navigate to="/me" replace />;
-  return <MediaPageFrame className="media-secondary-page admin-page" title={title} backTo="/me" backLabel="返回我的">{children}</MediaPageFrame>;
+  return <MediaPageFrame className={'media-secondary-page admin-page' + (page ? ` ${page}` : '')} title={title} backTo="/me" backLabel="返回我的">{children}</MediaPageFrame>;
 }
 
 export function AdminUsersPage() {
   const runtime = useRuntime();
-  return <AdminFrame title="用户管理"><UserManagement api={runtime.api} onSaved={()=>void runtime.refreshCapabilities().catch(()=>undefined)} /></AdminFrame>;
+  return <AdminFrame page="admin-users-page" title="用户管理"><UserManagement api={runtime.api} onSaved={()=>void runtime.refreshCapabilities().catch(()=>undefined)} /></AdminFrame>;
 }
 
 export function AdminRegistrationPage() {
   const { api } = useRuntime();
-  return <AdminFrame title="注册与邀请"><RegistrationManagement api={api} /></AdminFrame>;
+  return <AdminFrame page="admin-registration-page" title="注册与邀请"><RegistrationManagement api={api} /></AdminFrame>;
 }
 
 export function AdminServicesPage() {
@@ -33,5 +33,5 @@ export function AdminServicesPage() {
   const media=useMediaEnabled();
   const state=useAuthStore(store=>(store.verifiedUser??store.session?.user)?.mediaState);
   const labels={disabled:'已关闭',stopping:'正在停止',starting:'正在启动',ready:'已就绪',failed:'启动失败，请检查服务日志',closed:'已停止'};
-  return <AdminFrame title="服务配置"><div className="user-management"><BusinessSettings api={runtime.api} showMedia={media} modulesStatus={<p role="status">影音服务：{state?labels[state]:'状态待确认'}</p>} onSaved={()=>void runtime.refreshCapabilities().catch(()=>undefined)} /></div></AdminFrame>;
+  return <AdminFrame page="admin-services-page" title="服务配置"><div className="user-management"><BusinessSettings api={runtime.api} showMedia={media} modulesStatus={<p role="status">影音服务：{state?labels[state]:'状态待确认'}</p>} onSaved={()=>void runtime.refreshCapabilities().catch(()=>undefined)} /></div></AdminFrame>;
 }

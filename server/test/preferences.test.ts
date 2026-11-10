@@ -41,6 +41,7 @@ test('preferences follow the account and keep the newer write', async (t) => {
   assert.equal(saved.statusCode, 200, saved.body);
   assert.equal(saved.json().preferences.app.fontScale, 1.4);
   assert.equal(saved.json().preferences.updatedAt, 10);
+  assert.equal(saved.json().preferences.place, 'account');
 
   const older = await app.inject({ method: 'PUT', url: '/api/v1/preferences', headers: ada, payload: body(9, 2) });
   assert.equal(older.json().preferences.app.fontScale, 1.4);
@@ -58,4 +59,7 @@ test('preferences follow the account and keep the newer write', async (t) => {
   huge.app = { blob: 'x'.repeat(70_000) };
   assert.equal((await app.inject({ method: 'PUT', url: '/api/v1/preferences', headers: ada, payload: huge })).statusCode, 400);
   assert.equal((await app.inject({ url: '/api/v1/preferences', headers: ada })).json().preferences.updatedAt, 12);
+  const local = await app.inject({ method: 'PUT', url: '/api/v1/preferences', headers: ada, payload: { ...body(14), place: 'local' } });
+  assert.equal(local.json().preferences.place, 'local');
+  assert.equal((await app.inject({ url: '/api/v1/preferences', headers: ada })).json().preferences.place, 'local');
 });

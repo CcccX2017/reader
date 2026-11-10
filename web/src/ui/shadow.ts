@@ -292,7 +292,7 @@ const FLOW_STYLESHEET = `
 :host([data-paginated='true']) .book-flow {
   height: 100%;
   max-inline-size: none;
-  /* Default 0; html[data-safari='27.2'] sets --reader-paginated-padding-block (inherits in). */
+  /* Default 0; styles/safari-27.2.scss sets --reader-paginated-padding-block (inherits in). */
   padding-block: var(--reader-paginated-padding-block, 0);
   column-gap: calc(var(--reader-page-margin, 1.5rem) * 2);
   columns: 1;

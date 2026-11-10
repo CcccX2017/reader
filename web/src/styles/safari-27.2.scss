@@ -1,0 +1,75 @@
+/* Safari Version/27.2 patch, including 27.2.x. main.tsx writes html[data-safari] from the Version/ token.
+   Imported last, after the screen styles. Each rule names its own screen, so editing
+   one page cannot change another. The pagination variable is the exception: it has to
+   live on html to inherit into the book shadow tree, and only the paginated flow reads it. */
+
+/* Reading chrome only for the exact 27.2 token, not 27.2.x. */
+html[data-safari='27.2'] {
+  .reader-screen .reading-indicator-top {
+    top: 1.5rem;
+  }
+
+  .reader-screen .topbar {
+    padding-top: calc(0.6rem + var(--safe-top) + 20px);
+  }
+}
+
+html:is([data-safari='27.2'], [data-safari^='27.2.']) {
+  --reader-paginated-padding-block: 24px;
+
+  .home-page .home-header h1 {
+    margin-top: 10px;
+  }
+
+  .home-page .shelf-head {
+    padding-top: calc(1.25rem + var(--safe-top) + 12px);
+  }
+
+  .shelf-screen .shelf-head {
+    padding-top: calc(1.25rem + var(--safe-top) + 12px);
+  }
+
+  .library-browse-screen .collection-header {
+    padding-top: calc(1.25rem + var(--safe-top) + 12px);
+  }
+
+  .library-browse-screen .shelf-head {
+    padding-top: calc(1.25rem + var(--safe-top) + 12px);
+  }
+
+  .library-files-screen .collection-header {
+    padding-top: calc(1.25rem + var(--safe-top) + 12px);
+  }
+
+  .sources-screen .sources-header {
+    padding-top: calc(1rem + var(--safe-top) + 8px);
+  }
+
+  .stats-page {
+    padding-top: calc(var(--safe-top) + 14px);
+  }
+
+  .settings-page {
+    padding-top: calc(var(--safe-top) + 14px);
+  }
+
+  .admin-registration-page {
+    padding-top: calc(var(--safe-top) + 14px);
+  }
+
+  .admin-services-page {
+    padding-top: calc(var(--safe-top) + 14px);
+  }
+
+  .account-page > .media-heading {
+    padding-top: calc(var(--safe-top) + 28px);
+  }
+
+  .opds-page {
+    padding-top: calc(var(--safe-top) + 14px);
+  }
+
+  .admin-users-page > .media-heading {
+    padding-top: calc(var(--safe-top) + 28px);
+  }
+}

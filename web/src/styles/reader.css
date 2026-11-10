@@ -218,13 +218,6 @@
   --reader-indicator-inset: max(var(--reader-page-margin), var(--reader-page-padding-inline));
 }
 
-/* Safari Version/27.2 (see main.tsx data-safari): paginated columns need a top/bottom inset
-   the UA's env(safe-area-inset-top) does not report under status-bar-style:default.
-   Inherits into the book shadow tree as --reader-paginated-padding-block. */
-html[data-safari='27.2'] {
-  --reader-paginated-padding-block: 24px;
-}
-
 *,
 *::before,
 *::after {
@@ -3413,8 +3406,12 @@ book-content {
   background: var(--color-surface-2);
 }
 
-.preference-place { margin: 4px 0 12px; }
-.preference-place .muted { margin: 8px 0 0; }
+.preference-place {
+  margin: 4px 0 12px;
+}
+.preference-place .muted {
+  margin: 8px 0 0;
+}
 
 .muted {
   color: var(--reader-muted);
@@ -4500,10 +4497,6 @@ svg.icon {
   pointer-events: none;
 }
 
-html[data-safari='27.2'] .reading-indicator-top {
-  top: 1.5rem;
-}
-
 .reading-indicator-top {
   top: 0;
   height: calc(1.8rem + var(--safe-top));
@@ -4543,10 +4536,6 @@ html[data-safari='27.2'] .reading-indicator-top {
   background: var(--reader-surface);
   border: 0;
   box-shadow: 0 2px 12px #0000000a;
-}
-
-html[data-safari='27.2'] .reader-screen .topbar {
-  padding-top: calc(0.6rem + var(--safe-top) + 20px);
 }
 
 .reader-heading {
@@ -5135,6 +5124,7 @@ html[data-safari='27.2'] .reader-screen .topbar {
   padding-top: calc(1.25rem + var(--safe-top));
   padding-bottom: 0.85rem;
 }
+
 .shelf-head-actions {
   margin-top: 0;
 }

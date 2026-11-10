@@ -6,12 +6,14 @@ import './features/media/styles/presentation.css';
 import './features/media/styles/v2.css';
 import './features/media/styles/manager.css';
 import './app/shell.css';
+import './styles/safari-27.2.scss';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { AppProviders } from './app/providers/AppProviders.tsx';
 import { createAppRuntime, inferDefaultUrl } from './app/runtime.ts';
 import { router } from './app/router/router.tsx';
 import { registerPwa } from './core/pwa.ts';
+import { applySafariVersion } from './shared/safari-version.ts';
 
 /**
  * Entry point.
@@ -25,8 +27,7 @@ const root = document.getElementById('app');
 if (!root) throw new Error('missing #app root element');
 const appRoot: HTMLElement = root;
 
-const ver = navigator.userAgent.match(/Version\/(\d+(?:\.\d+)*)/i)?.[1];
-if (ver) document.documentElement.dataset.safari = ver;
+applySafariVersion();
 
 declare global {
   interface Window {

@@ -403,5 +403,7 @@ export interface PreferenceDocument {
   theme: object;
   media: object;
   playback: object;
+  /** Absent on a row written before the field existed: that row is the account copy. */
+  place?: 'local' | 'account';
   updatedAt: number;
 }

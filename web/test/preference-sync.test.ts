@@ -116,6 +116,23 @@ describe('preference place', () => {
     expect(pushed).toHaveLength(0);
   });
 
+  it('loads the account copy on a device that has not chosen yet', async () => {
+    const { sync, applied, pushed } = harness({ remote: document(50, 1.8) });
+    await sync.ready();
+    expect(usePreferencePlaceStore.getState().place).toBe('account');
+    expect(applied).toHaveLength(1);
+    expect((applied[0]!.app as { fontScale: number }).fontScale).toBe(1.8);
+    expect(pushed).toHaveLength(0);
+  });
+
+  it('does not upload this device over a copy another device already saved', async () => {
+    const { sync, applied, pushed, reports } = harness({ remote: document(50, 1.8) });
+    await sync.setPlace('account');
+    expect(pushed).toHaveLength(0);
+    expect((applied[0]!.app as { fontScale: number }).fontScale).toBe(1.8);
+    expect(reports.at(-1)).toContain('已用账号里保存的设置');
+  });
+
   it('waits for a login, then uploads this device instead of an older account copy', async () => {
     const { sync, pushed, reports, remote, signIn } = harness({ signedIn: false, remote: document(10, 2) });
     await sync.ready();

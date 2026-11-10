@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { MediaSelect } from './select.tsx';
 import type { MediaAccount } from '../api/media-api.ts';
 import { readMediaPreferences, saveMediaPreferences, type MediaPreferences } from '../services/preferences.ts';
@@ -44,7 +44,7 @@ export function MediaBrowseSettings({ scope }: { scope: string }) {
 }
 
 /** 账号与连接: who is signed in and to which server. Never shows tokens. */
-export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onClearAvatar }: {
+export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onClearAvatar, extraDirty = false, onExtraSave, children }: {
   account: MediaAccount;
   /** Needed to fetch the current avatar through Authorization. */
   api?: ReaderApi;
@@ -54,6 +54,11 @@ export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onCle
   onAvatar?(file: File): Promise<User>;
   /** Removes the avatar so the initial letter shows again. */
   onClearAvatar?(): Promise<User>;
+  /** Another field in this form, such as the iOS version, has an unsaved edit. */
+  extraDirty?: boolean;
+  /** Runs with the display-name save. A throw keeps the one error line. */
+  onExtraSave?(): void;
+  children?: ReactNode;
 }) {
   const stored = account.displayName === account.username ? '' : account.displayName;
   const [draft, setDraft] = useState(stored);
@@ -107,13 +112,15 @@ export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onCle
     <p>@{account.username} · {account.role === 'admin' ? '管理员' : '普通用户'}</p>
     <p className="media-manager-note">共享作品资料，收藏、队列和播放进度按账号隔离</p>
     <dl><dt>当前服务器</dt><dd>{account.server || window.location.origin}</dd></dl>
-    {(onDisplayName || onAvatar) && <form className="media-account-profile" onSubmit={event => {
+    {(onDisplayName || onAvatar || children) && <form className="media-account-profile" onSubmit={event => {
       event.preventDefault();
-      if (!onDisplayName || !dirty || busy) return;
+      if (busy || (!dirty && !extraDirty)) return;
       setBusy(true); setError(''); setSaved(false);
-      void onDisplayName(draft.trim()).then(() => {
+      void (async () => {
+        if (dirty && onDisplayName) await onDisplayName(draft.trim());
+        if (extraDirty) onExtraSave?.();
         setSaved(true);
-      }).catch(reason => {
+      })().catch(reason => {
         setError(reason instanceof Error ? reason.message : '保存失败');
       }).finally(() => setBusy(false));
     }}>
@@ -134,8 +141,9 @@ export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onCle
           onChange={event => { setDraft(event.currentTarget.value); setSaved(false); setError(''); }}
         />
       </label>}
+      {children}
       <div className="media-account-name-actions">
-        {onDisplayName && <button type="submit" className="button primary" disabled={!dirty || busy}>{busy ? '保存中…' : '保存'}</button>}
+        {(onDisplayName || children) && <button type="submit" className="button primary" disabled={(!dirty && !extraDirty) || busy}>{busy ? '保存中…' : '保存'}</button>}
         {saved && !dirty && <span role="status">已保存</span>}
         {(error || avatarError) && <span role="alert">{error || avatarError}</span>}
       </div>

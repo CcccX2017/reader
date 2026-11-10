@@ -7,6 +7,8 @@ export interface PreferenceDocument {
   theme: Record<string, unknown>;
   media: Record<string, unknown>;
   playback: Record<string, unknown>;
+  /** `local` means the account stopped following this row. Absent means account. */
+  place: 'local' | 'account';
   updatedAt: number;
 }
 
@@ -25,11 +27,15 @@ export function preferenceDocument(body: unknown): PreferenceDocument {
   if (typeof updatedAt !== 'number' || !Number.isSafeInteger(updatedAt) || updatedAt < 0) {
     throw badRequest('updatedAt must be a non-negative integer');
   }
+  if (raw.place !== undefined && raw.place !== 'local' && raw.place !== 'account') {
+    throw badRequest('place must be local or account');
+  }
   const document: PreferenceDocument = {
     app: asObject(raw.app, 'app'),
     theme: asObject(raw.theme, 'theme'),
     media: asObject(raw.media, 'media'),
     playback: asObject(raw.playback, 'playback'),
+    place: raw.place === 'local' ? 'local' : 'account',
     updatedAt,
   };
   if (JSON.stringify(document).length > MAX_DOCUMENT) throw badRequest('preferences are too large', 'PAYLOAD_TOO_LARGE');
@@ -49,6 +55,7 @@ function stored(row: { document: string; updated_at: number } | undefined): Pref
       theme: record(parsed.theme),
       media: record(parsed.media),
       playback: record(parsed.playback),
+      place: parsed.place === 'local' ? 'local' : 'account',
       updatedAt: row.updated_at,
     };
   } catch {
@@ -74,6 +81,7 @@ export class PreferencesService {
       theme: document.theme,
       media: document.media,
       playback: document.playback,
+      place: document.place,
     });
     this.db.run(
       `INSERT INTO user_preferences (user_id, document, updated_at) VALUES (?, ?, ?)
