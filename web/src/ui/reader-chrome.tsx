@@ -1,3 +1,4 @@
+import { Select } from './select.tsx';
 import type { CSSProperties } from 'react';
 import {
   paperIds,
@@ -510,7 +511,7 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
                   <h4>{state.alternativeTitle}</h4>
                   <label>
                     切换后阅读的章节
-                    <select
+                    <Select
                       value={state.alternativeChapter ?? ''}
                       disabled={state.switching === true}
                       onChange={(event) => handlers.onAlternativeChapter?.(event.currentTarget.value)}
@@ -523,7 +524,7 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
                           {chapter.title}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   {state.alternativeLatest && <p>最新章节：{state.alternativeLatest}</p>}
                   <Button disabled={state.switching || state.alternativeQualityBusy || !state.alternativeChapter} onClick={() => handlers.onCheckAlternative?.()}>
@@ -1262,13 +1263,13 @@ function SelectRow({
   return (
     <div className="field">
       <label>{label}</label>
-      <select aria-label={label} value={value} onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}>
+      <Select aria-label={label} value={value} onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }
