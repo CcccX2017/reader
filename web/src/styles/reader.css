@@ -1390,6 +1390,8 @@ book-content {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  /* auto, not pan-y: a non-passive touchmove has to be able to cancel a pull. */
+  touch-action: auto;
   overscroll-behavior-y: none;
   /* Gap under the toolbar and under the last row (was the old section margin). */
   padding-top: 0.75rem;
@@ -3578,6 +3580,8 @@ book-content {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  /* auto, not pan-y: a non-passive touchmove has to be able to cancel a pull. */
+  touch-action: auto;
   overscroll-behavior-y: none;
   padding-top: 0.25rem;
   padding-bottom: calc(1.35rem + var(--safe-bottom));
@@ -3897,6 +3901,7 @@ book-content {
 }
 .shelf[data-pulling='true'],
 .shelf-scroll[data-pulling='true'],
+.library-browse-screen[data-pulling='true'],
 .library-browse-scroll[data-pulling='true'],
 .manager-body[data-pulling='true'] {
   touch-action: none;

@@ -79,14 +79,35 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
   const scrollHostRef = useRef<HTMLElement | null>(null);
   const live = useRef({ distance: 0, refreshing: false });
 
-  const scrollTop = () => (scrollHostRef.current ?? surfaceRef.current)?.scrollTop ?? 0;
+  const scroller = () => scrollHostRef.current ?? surfaceRef.current;
+  const scrollTop = () => scroller()?.scrollTop ?? 0;
+  /**
+   * WebKit will not let a page cancel a downward touch while a scroller sits
+   * at exactly 0 — it keeps that gesture, and with overscroll disabled the
+   * finger then moves nothing. A 1px offset makes the same gesture an
+   * ordinary scroll the non-passive listener can claim.
+   */
+  const bumped = useRef(false);
+  const releaseBump = () => {
+    const node = scroller();
+    const reset = bumped.current && !!node && node.scrollTop <= 1;
+    bumped.current = false;
+    if (reset && node) node.scrollTop = 0;
+  };
 
+  const attached = useRef<{ surface: HTMLElement | null; scroll: HTMLElement | null } | null>(null);
+  const bindQueued = useRef(false);
   const bind = useCallback(() => {
+    const element = surfaceRef.current;
+    const scrollHost = scrollHostRef.current;
+    // Shelf and library pass a fresh inline ref on every render. React then calls
+    // it with null and the same node again, and rebuilding the listeners here
+    // drops the finger that is already down — the cue freezes and release never syncs.
+    if (attached.current && attached.current.surface === element && attached.current.scroll === scrollHost) return;
     detach.current?.();
     detach.current = null;
-    const element = surfaceRef.current;
+    attached.current = { surface: element, scroll: scrollHost };
     if (!element) return;
-    const scrollHost = scrollHostRef.current;
     // Touch must reach the scroller itself on WebKit; pointer stays on the surface.
     const touchRoots = scrollHost && scrollHost !== element ? [element, scrollHost] : [element];
 
@@ -107,6 +128,7 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
       tracking = false;
       start = null;
       stream = null;
+      releaseBump();
       if (!shouldRefresh || live.current.refreshing) {
         setPull(0);
         return;
@@ -134,6 +156,11 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
       if (ownsGesture(path, element)) return;
       start = { x, y, id };
       stream = kind;
+      if (kind !== 'touch') return;
+      const node = scroller();
+      if (!node || node.scrollTop > 0) return;
+      node.scrollTop = 1;
+      bumped.current = node.scrollTop > 0;
     };
 
     const move = (x: number, y: number, id: number, event: Event) => {
@@ -146,11 +173,13 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
         if (Math.abs(dx) > Math.abs(dy) * 0.7) {
           start = null;
           stream = null;
+          releaseBump();
           return;
         }
         if (scrollTop() > 1) {
           start = null;
           stream = null;
+          releaseBump();
           return;
         }
         // Claim the gesture before the browser starts scrolling — after that,
@@ -269,16 +298,28 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
     };
   }, []);
 
+  const schedule = useCallback(() => {
+    if (bindQueued.current) return;
+    bindQueued.current = true;
+    queueMicrotask(() => {
+      bindQueued.current = false;
+      bind();
+    });
+  }, [bind]);
+
   const ref = useCallback((element: HTMLElement | null) => {
     surfaceRef.current = element;
-    bind();
-  }, [bind]);
+    // Null is deferred: React calls an inline ref with null and then the same
+    // node in one commit. Binding on the null would drop a pull already in progress.
+    if (element) bind();
+    else schedule();
+  }, [bind, schedule]);
 
   const scrollRef = useCallback((element: HTMLElement | null) => {
     scrollHostRef.current = element;
-    // Re-bind so touch listeners attach to the scroller once it mounts.
-    if (surfaceRef.current) bind();
-  }, [bind]);
+    if (element) bind();
+    else schedule();
+  }, [bind, schedule]);
 
   return {
     ref,

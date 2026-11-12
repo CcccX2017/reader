@@ -84,7 +84,8 @@ export function LibraryBrowsePage() {
   const crumbs = listing.data && listing.data.crumbs.length > 1
     ? <div className="manager-crumbs library-path" aria-label="当前文件夹">{listing.data.crumbs.map((crumb, index) => <span key={`${crumb.path}-${index}`}>{index > 0 && <span className="manager-crumb-sep">/</span>}<button type="button" className="manager-crumb" onClick={() => navigate(crumb.path)}>{crumb.name}</button></span>)}</div>
     : undefined;
-  return <div className="library-screen library-browse-screen">
+  return <div ref={pull.ref} className="library-screen library-browse-screen">
+    <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
     <div className="select-head-slot">
       <div data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
         <CollectionHeader title="书库" subtitle="浏览本地书籍，发现下一本好书" backTo={back} actions={role === 'admin' ? <Link className="button collection-link" to="/library/files" state={{ returnTo: back }}><Icon name="folder" size={18} /><span>文件管理</span><Icon name="chevron-right" /></Link> : uploadButton} footer={crumbs} />
@@ -92,8 +93,7 @@ export function LibraryBrowsePage() {
       {picking.active && <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} />}
     </div>
     {/* Header / search / folders stay put; only the book pane scrolls (same split as 书架). */}
-    <main ref={pull.ref} className="manager-body library-browse-body">
-      <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
+    <main className="manager-body library-browse-body">
       <form className="shelf-search library-search" role="search" onSubmit={(event: FormEvent) => { event.preventDefault(); navigate(path, 1, draft.trim()); }}><Icon name="search" size={18} className="search-glyph" /><input type="search" aria-label="搜索书库" placeholder="在书库中搜索书名、作者" value={draft} onChange={event => setDraft(event.currentTarget.value)} />{draft && <button type="button" className="search-clear" aria-label="清除搜索" onClick={() => { setDraft(''); navigate(path); }}><Icon name="close" /></button>}</form>
       {/* The way into a folder: the books below are this folder's and everything under it,
           and each chip narrows the scope one level (the crumbs above widen it again). */}

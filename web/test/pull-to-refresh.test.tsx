@@ -105,6 +105,65 @@ describe('usePullToRefresh', () => {
     expect(host.textContent).toContain('正在同步书库');
   });
 
+  it('offsets a scroller sitting at 0 so WebKit will let the page claim the pull', async () => {
+    const onRefresh = vi.fn(async () => undefined);
+    const { scroller } = mount(onRefresh);
+    let top = 0;
+    Object.defineProperty(scroller, 'scrollTop', { configurable: true, get: () => top, set: (value: number) => { top = value; } });
+    const touch = (type: string, y: number) => {
+      const t = { identifier: 1, clientX: 100, clientY: y, target: scroller, screenX: 100, screenY: y, pageX: 100, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
+      scroller.dispatchEvent(new window.TouchEvent(type, {
+        bubbles: true, cancelable: true, composed: true,
+        touches: type === 'touchend' ? [] : [t as unknown as Touch],
+        targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
+        changedTouches: [t as unknown as Touch],
+      }));
+    };
+    act(() => touch('touchstart', 40));
+    expect(top).toBe(1);
+    await act(async () => {
+      touch('touchmove', 200);
+      touch('touchend', 200);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(top).toBe(0);
+  });
+
+  it('survives the inline scroll ref React calls again on each pull frame', async () => {
+    const onRefresh = vi.fn(async () => undefined);
+    function Page() {
+      const pull = usePullToRefresh(onRefresh);
+      return <div ref={pull.ref} id="surface">
+        <div ref={element => { pull.scrollRef(element); }} id="pane" style={{ height: 120, overflow: 'auto' }}><p>books</p></div>
+      </div>;
+    }
+    const host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    await act(async () => { root!.render(<Page />); await Promise.resolve(); });
+    const pane = document.getElementById('pane')!;
+    let top = 0;
+    Object.defineProperty(pane, 'scrollTop', { configurable: true, get: () => top, set: (value: number) => { top = value; } });
+    const touch = (type: string, y: number) => {
+      const t = { identifier: 1, clientX: 80, clientY: y, target: pane, screenX: 80, screenY: y, pageX: 80, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
+      pane.dispatchEvent(new window.TouchEvent(type, {
+        bubbles: true, cancelable: true, composed: true,
+        touches: type === 'touchend' ? [] : [t as unknown as Touch],
+        targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
+        changedTouches: [t as unknown as Touch],
+      }));
+    };
+    await act(async () => {
+      touch('touchstart', 40);
+      touch('touchmove', 90);
+      touch('touchmove', 220);
+      touch('touchend', 220);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes from a real touch stream (phones cannot rely on pointer preventDefault)', async () => {
     const onRefresh = vi.fn(async () => undefined);
     const { latest, scroller } = mount(onRefresh);

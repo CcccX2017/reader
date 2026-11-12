@@ -5,8 +5,8 @@ import { useCallback, useEffect, useRef } from 'react';
  *
  * Touch only: a mouse drag on a page is a text selection, and desktop has the
  * tabs in plain sight. The element gets `touch-action: pan-y` (`.swipe-tabs` in
- * app.css), so vertical scrolling stays the browser's and a horizontal move is
- * left to this hook instead of being claimed as the browser's back gesture.
+ * app.css), except the shelf, which uses `auto` so a pull can cancel the pan.
+ * A clearly horizontal touch is taken here.
  *
  * A touch is not a swipe when it starts on something that owns horizontal
  * movement itself — a form control, a range thumb, a row that scrolls sideways —
@@ -97,16 +97,49 @@ export function useSwipeTabs<T extends HTMLElement>(onSwipe: ((direction: SwipeD
       event.stopPropagation();
     };
 
+    // pan-y would also stop a pull-to-refresh on a scroller inside this element,
+    // so a clearly horizontal touch is claimed here instead of by touch-action.
+    let touch: { x: number; y: number; id: number } | null = null;
+    const touchStart = (event: TouchEvent) => {
+      touch = null;
+      if (event.touches.length !== 1 || !handler.current) return;
+      if (ownsHorizontal(event.composedPath(), element) || hasSelection()) return;
+      const point = event.touches[0];
+      if (!point) return;
+      touch = { x: point.clientX, y: point.clientY, id: point.identifier };
+    };
+    const touchMove = (event: TouchEvent) => {
+      if (!touch) return;
+      let point: Touch | undefined;
+      for (let i = 0; i < event.touches.length; i += 1) {
+        if (event.touches[i]!.identifier === touch.id) point = event.touches[i];
+      }
+      if (!point) return;
+      const dx = point.clientX - touch.x;
+      const dy = point.clientY - touch.y;
+      if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * MIN_RATIO) return;
+      if (event.cancelable) event.preventDefault();
+    };
+    const touchEnd = () => { touch = null; };
+
     element.addEventListener('pointerdown', down);
     element.addEventListener('pointerup', up);
     element.addEventListener('pointercancel', cancel);
     element.addEventListener('click', click, true);
+    element.addEventListener('touchstart', touchStart, { capture: true });
+    element.addEventListener('touchmove', touchMove, { capture: true, passive: false });
+    element.addEventListener('touchend', touchEnd, { capture: true });
+    element.addEventListener('touchcancel', touchEnd, { capture: true });
     detach.current = () => {
       element.classList.remove('swipe-tabs');
       element.removeEventListener('pointerdown', down);
       element.removeEventListener('pointerup', up);
       element.removeEventListener('pointercancel', cancel);
       element.removeEventListener('click', click, true);
+      element.removeEventListener('touchstart', touchStart, { capture: true });
+      element.removeEventListener('touchmove', touchMove, { capture: true });
+      element.removeEventListener('touchend', touchEnd, { capture: true });
+      element.removeEventListener('touchcancel', touchEnd, { capture: true });
     };
   }, [enabled]);
 }

@@ -5,9 +5,13 @@
    100vh stays only as the fallback for a WebView that predates dvh. */
 .reader-route-host { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 
-/* Swipe between tabs (shared/ui/use-swipe-tabs.ts). Vertical panning stays the
-   browser's; a horizontal move is the hook's rather than the browser's back gesture. */
+/* Swipe between tabs (shared/ui/use-swipe-tabs.ts). pan-y keeps a horizontal
+   move from becoming the browser's back gesture, and the browser may scroll
+   vertically without asking the page. That also makes a downward pull
+   uncancellable, so the shelf — which both swipes and pull-to-refreshes — opts
+   out. Its horizontal moves are claimed by the hook's touch listener instead. */
 .swipe-tabs { touch-action: pan-y; }
+.shelf.swipe-tabs { touch-action: auto; }
 /* The page the swipe brought in slides from the side the finger came from. Only the
    body moves: a transform on the page itself would re-anchor the header's fixed
    actions to it for the length of the slide, and the header and the tab row name the tabs anyway. */

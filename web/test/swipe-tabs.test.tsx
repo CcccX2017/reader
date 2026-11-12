@@ -59,6 +59,29 @@ describe('useSwipeTabs', () => {
     expect(seen).toEqual([]);
   });
 
+  it('claims a horizontal touch and leaves a vertical one to scroll', () => {
+    const { at } = mount();
+    const page = at('text');
+    const fire = (type: string, x: number, y: number) => {
+      const t = { identifier: 1, clientX: x, clientY: y, target: page, screenX: x, screenY: y, pageX: x, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
+      const event = new window.TouchEvent(type, {
+        bubbles: true, cancelable: true, composed: true,
+        touches: type === 'touchend' ? [] : [t as unknown as Touch],
+        targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
+        changedTouches: [t as unknown as Touch],
+      });
+      page.dispatchEvent(event);
+      return event;
+    };
+    fire('touchstart', 200, 300);
+    const horizontal = fire('touchmove', 40, 304);
+    expect(horizontal.defaultPrevented).toBe(true);
+    fire('touchend', 40, 304);
+    fire('touchstart', 200, 300);
+    const vertical = fire('touchmove', 198, 120);
+    expect(vertical.defaultPrevented).toBe(false);
+  });
+
   it('leaves a control and a sideways-scrolling row alone', () => {
     const { seen, at } = mount();
     const row = at('row');
