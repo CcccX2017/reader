@@ -143,7 +143,7 @@ describe('首页', () => {
     vi.stubGlobal('URL', { createObjectURL: () => 'blob:avatar', revokeObjectURL: () => undefined });
     let release: (bytes: Uint8Array) => void = () => undefined;
     const coverBytes = vi.fn(() => new Promise<Uint8Array>(resolve => { release = resolve; }));
-    useAuthStore.setState({ verifiedUser: { ...user, avatarUrl: '/api/v1/users/u1/avatar?v=1' } as typeof user });
+    useAuthStore.setState({ verifiedUser: { ...user, role: 'member', avatarUrl: '/api/v1/users/u1/avatar?v=1' } });
     mount({ coverBytes });
     expect(root.querySelector('.home-avatar')?.textContent).toBe('');
     expect(root.querySelector('.home-avatar img')).toBeNull();
