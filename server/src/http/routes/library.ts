@@ -933,7 +933,7 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     booksDir: ctx.config.booksDir,
     // Reported so an operator can confirm the mount is where they think it is.
     dataDir: ctx.config.dataDir,
-    version: process.env.npm_package_version ?? '1.0.10',
+    version: process.env.npm_package_version ?? '1.0.11',
     dataDirIsInsideBooks: ctx.config.dataDir.startsWith(join(ctx.config.booksDir, '/')),
   }));
 }
