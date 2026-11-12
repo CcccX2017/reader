@@ -7,6 +7,7 @@ import { ThemeController, loginThemeScope } from '../../../shared/theme/theme.ts
 import { Icon } from '../../../ui/toolkit.tsx';
 import { applySiteBrand, readCachedSiteBrand, siteAssetUrl } from '../../../app/site-branding.ts';
 import { dismissAppStartup } from '../../../app/startup.ts';
+import { DisplayNameInput } from '../../../shared/ui/display-name-input.tsx';
 
 export function LoginPage() {
   const runtime = useRuntime();
@@ -104,7 +105,7 @@ export function LoginPage() {
       <div className="field"><label htmlFor="login-server">服务端地址 <em>*</em></label><div className="login-server-input"><input id="login-server" type="url" value={serverUrl} onChange={event => setServerUrl(event.currentTarget.value)} placeholder="http://127.0.0.1:5888" required />{probing ? <span className="login-server-status is-probing" role="status" aria-label="正在连接服务端">…</span> : instance ? <span className="login-server-status" role="img" aria-label="已连接服务端"><Icon name="check" /></span> : null}</div><div className="login-server-meta"><span>{instance?.name || '尚未连接服务端'}</span>{instance && <span>API v{instance.apiVersion}</span>}</div></div>
     </details>
     <div className="field"><label htmlFor="login-username">用户名 <em>*</em></label><input id="login-username" autoComplete="username" value={username} onChange={event => setUsername(event.currentTarget.value)} required /></div>
-    {registering && <div className="field"><label htmlFor="login-display-name">显示名（可选）</label><input id="login-display-name" value={displayName} onChange={event => setDisplayName(event.currentTarget.value)} /></div>}
+    {registering && <div className="field"><label htmlFor="login-display-name">显示名（可选）</label><DisplayNameInput id="login-display-name" value={displayName} onChange={setDisplayName} /></div>}
     {registering && instance?.invitationRequired && <div className="field"><label htmlFor="login-invite">邀请码 <em>*</em></label><input id="login-invite" value={inviteCode} onChange={event => setInviteCode(event.currentTarget.value)} required /></div>}
     <div className="field"><label htmlFor="login-password">密码 <em>*</em></label><div className="login-password-input"><input id="login-password" type={showPassword ? 'text' : 'password'} autoComplete={registering ? 'new-password' : 'current-password'} value={password} onChange={event => setPassword(event.currentTarget.value)} required /><button type="button" className="login-password-toggle" aria-label={showPassword ? '隐藏密码' : '显示密码'} onClick={() => setShowPassword(value => !value)}>{showPassword ? <Icon name="eye-off" size={18} /> : <Icon name="eye" size={18} />}</button></div></div>
     {registering && <p className="login-register-hint">注册后会自动登录并保存此服务端地址。</p>}

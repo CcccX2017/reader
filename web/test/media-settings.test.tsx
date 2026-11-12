@@ -52,11 +52,19 @@ it('lets the reader rename their display name from 账号与连接',async()=>{
   await act(async()=>render(<MediaAccountPanel account={{username:'lin',displayName:'lin',role:'member',server:'https://reader.example',avatarUrl:null}} onDisplayName={save}/>,root));
   const input=root.querySelector<HTMLInputElement>('input[aria-label="显示名"]')!;
   expect(input.placeholder).toBe('lin');
+  expect(root.querySelector('.display-name-count')?.textContent).toBe('0/10');
+  const write=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;
   await act(async()=>{
-    const write=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!;
     write.call(input,'林间');
     input.dispatchEvent(new Event('input',{bubbles:true}));
   });
   await act(async()=>{root.querySelector<HTMLButtonElement>('button[type=submit]')!.click();});
   expect(save).toHaveBeenCalledWith('林间');
+  expect(root.querySelector('.display-name-count')?.textContent).toBe('4/10');
+  await act(async()=>{
+    write.call(input,'字'.repeat(6));
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  expect(input.value).toBe('字'.repeat(5));
+  expect(root.querySelector('.display-name-count')?.textContent).toBe('10/10');
 });

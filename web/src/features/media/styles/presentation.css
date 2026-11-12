@@ -751,6 +751,9 @@ body:has(>#app>.media-screen) { background: var(--color-bg); }
 .media-account-avatar-field {align-items:center}
 .media-account-avatar-control {display:flex;align-items:center;justify-self:start;gap:12px}
 .media-account-profile .media-setting-field input {box-sizing:border-box;width:min(16rem,100%);min-width:0;justify-self:start;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:inherit;font-size:var(--text-title)}
+.media-account-profile .display-name-control {width:min(20rem,100%);justify-self:start}
+.media-account-profile .media-setting-field .display-name-control > input {width:auto;flex:1 1 auto}
+.media-account-profile .display-name-count {color:var(--muted)}
 .media-account-name-actions {display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:8px}
 .media-account-name-actions [role=status] {font-size:var(--text-meta);color:var(--muted)}
 .media-account-name-actions [role=alert] {font-size:var(--text-meta);color:var(--color-danger, #b42318)}

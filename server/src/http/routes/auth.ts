@@ -44,7 +44,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: AppContext): void 
 
   app.post('/api/v1/auth/register', async (request, reply) => {
     const body = (request.body ?? {}) as Credentials;
-    if (typeof body.username!=='string' || typeof body.password!=='string' || !body.username || !body.password || body.username.length>100 || body.password.length>1024 || (body.displayName!==undefined && (typeof body.displayName!=='string' || body.displayName.length>100))) throw badRequest('请填写有效的用户名、密码和显示名');
+    if (typeof body.username!=='string' || typeof body.password!=='string' || !body.username || !body.password || body.username.length>100 || body.password.length>1024 || (body.displayName!==undefined && typeof body.displayName!=='string')) throw badRequest('请填写有效的用户名、密码和显示名');
     if (!ctx.users.canRegisterPublicly()) {
       throw badRequest('public registration is disabled on this instance', 'REGISTRATION_DISABLED');
     }

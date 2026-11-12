@@ -4,6 +4,7 @@ import type { ReaderApi } from '../api/client.ts';
 import type { ManagedUser, RegistrationSettings } from '../api/types.ts';
 import { ConfirmSheet } from './sheet.tsx';
 import { FloatingNotice } from './floating-notice.tsx';
+import { DisplayNameInput } from '../shared/ui/display-name-input.tsx';
 
 /**
  * Administration of the server's accounts, split by job: 用户管理 and 注册与邀请
@@ -52,7 +53,7 @@ export function UserManagement({ api,onSaved }: { api: ReaderApi;onSaved?:()=>vo
     {form && <form className="user-manager-form" onSubmit={e => { e.preventDefault(); void work(async () => { await api.adminCreateUser({ username: username.trim(), password, displayName: displayName.trim(), role,...(mediaEnabled===undefined?{}:{mediaEnabled}) }); setForm(false); setUsername(''); setPassword(''); setDisplayName(''); setRole('member');setMediaEnabled(undefined); }, '用户已创建'); }}>
       <label>用户名<input required minLength={3} maxLength={100} value={username} onInput={e => setUsername(e.currentTarget.value)} /></label>
       <label>初始密码<input required type="password" autoComplete="new-password" minLength={8} maxLength={1024} value={password} onInput={e => setPassword(e.currentTarget.value)} /></label>
-      <label>显示名<input maxLength={100} value={displayName} onInput={e => setDisplayName(e.currentTarget.value)} /></label>
+      <label>显示名<DisplayNameInput ariaLabel="新用户显示名" value={displayName} onChange={setDisplayName} /></label>
       <label>账号角色<Select value={role} onChange={e => setRole(e.currentTarget.value as 'admin' | 'member')}><option value="member">普通用户</option><option value="admin">管理员</option></Select></label>
       <label className="business-setting-toggle">允许使用影音<input type="checkbox" checked={mediaEnabled??defaultMedia} onChange={event=>setMediaEnabled(event.currentTarget.checked)}/></label>
       <button className="button primary" disabled={busy}>创建账号</button>

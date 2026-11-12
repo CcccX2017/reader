@@ -3167,6 +3167,12 @@ book-content {
   outline: 2px solid color-mix(in srgb, var(--reader-accent) 28%, transparent);
   outline-offset: 1px;
 }
+.display-name-control { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+.display-name-control > input { flex: 1 1 auto; width: auto; min-width: 0; }
+.display-name-count { flex: none; font-size: var(--text-meta); font-variant-numeric: tabular-nums; color: var(--reader-muted, var(--muted)); }
+.display-name-count[data-over='true'] { color: var(--color-danger); }
+.login-card .display-name-control > input,
+.user-management .display-name-control > input { width: auto; }
 .login-connection {
   margin-bottom: 1.4rem;
   border-bottom: 1px solid var(--reader-line);

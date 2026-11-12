@@ -891,7 +891,7 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
   app.post('/api/v1/admin/users', { preHandler: auth }, async (request, reply) => {
     requireAdmin(request);
     const body = (request.body ?? {}) as { username?: string; password?: string; displayName?: string; role?: 'admin' | 'member'; mediaEnabled?:boolean };
-    if (typeof body.username!=='string' || typeof body.password!=='string' || !body.username || !body.password || body.username.length>100 || body.password.length>1024 || (body.displayName!==undefined && (typeof body.displayName!=='string' || body.displayName.length>100))) throw badRequest('请填写有效的用户名、密码和显示名');
+    if (typeof body.username!=='string' || typeof body.password!=='string' || !body.username || !body.password || body.username.length>100 || body.password.length>1024 || (body.displayName!==undefined && typeof body.displayName!=='string')) throw badRequest('请填写有效的用户名、密码和显示名');
     if (body.role!==undefined && body.role!=='admin' && body.role!=='member') throw badRequest('无效的用户角色');
     if (body.mediaEnabled!==undefined && typeof body.mediaEnabled!=='boolean') throw badRequest('无效的影音权限');
     const user = await ctx.users.createAsAdmin({

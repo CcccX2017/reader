@@ -79,7 +79,16 @@ test('a signed-in user can change their display name without signing out', async
   const cleared = await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: '  ' } });
   assert.equal(cleared.statusCode, 200);
   assert.equal(cleared.json().user.displayName, 'lin');
-  assert.equal((await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: 'x'.repeat(101) } })).statusCode, 400);
+  const ten = await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: `  ${'字'.repeat(5)}  ` } });
+  assert.equal(ten.statusCode, 200, ten.body);
+  assert.equal(ten.json().user.displayName, '字'.repeat(5));
+  const letters = await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: 'n'.repeat(10) } });
+  assert.equal(letters.statusCode, 200, letters.body);
+  assert.equal(letters.json().user.displayName, 'n'.repeat(10));
+  const tooLong = await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: '字'.repeat(6) } });
+  assert.equal(tooLong.statusCode, 400);
+  assert.equal(tooLong.json().error.code, 'DISPLAY_NAME_TOO_LONG');
+  assert.equal((await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers, payload: { displayName: 'n'.repeat(11) } })).statusCode, 400);
 });
 
 test('a signed-in user can replace their avatar; a new upload overwrites the old one', async t => {

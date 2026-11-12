@@ -8,8 +8,15 @@ import { RegistrationService } from './registration.ts';
 import { removeAvatar, sniffAvatarImage, writeAvatar } from './avatars.ts';
 import { BusinessSettingsReader } from './business-settings.ts';
 import { AuthWorkLimiter } from './auth-limits.ts';
+import { DISPLAY_NAME_MAX_UNITS, displayNameUnits } from '../lib/display-name.ts';
 
 export type Role = 'admin' | 'member';
+
+function displayNameToStore(displayName: string): string {
+  const next = displayName.trim();
+  if (displayNameUnits(next) > DISPLAY_NAME_MAX_UNITS) throw badRequest(`显示名最多 ${DISPLAY_NAME_MAX_UNITS} 个字符`, 'DISPLAY_NAME_TOO_LONG');
+  return next;
+}
 
 export interface UserRow {
   id: string;
@@ -102,7 +109,7 @@ export class UserService {
       const row: UserRow = {
         id: randomUUID(),
         username,
-        display_name: input.displayName?.trim() ?? '',
+        display_name: displayNameToStore(input.displayName ?? ''),
         password_hash: passwordHash,
         // The first user to register owns the instance.
         role: input.role ?? (this.count() === 0 ? 'admin' : 'member'),
@@ -259,8 +266,7 @@ export class UserService {
   setDisplayName(userId: string, displayName: string): PublicUser {
     const row = this.byId(userId);
     if (!row) throw notFound('user not found');
-    const next = displayName.trim();
-    if (next.length > 100) throw badRequest('显示名最多 100 个字', 'DISPLAY_NAME_TOO_LONG');
+    const next = displayNameToStore(displayName);
     this.db.run('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?', next, Date.now(), userId);
     return toPublicUser({ ...row, display_name: next, updated_at: Date.now() });
   }

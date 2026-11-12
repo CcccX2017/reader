@@ -3,6 +3,7 @@ import { MediaSelect } from './select.tsx';
 import type { MediaAccount } from '../api/media-api.ts';
 import { readMediaPreferences, saveMediaPreferences, type MediaPreferences } from '../services/preferences.ts';
 import { useAvatar } from '../../../shared/ui/use-avatar.ts';
+import { DisplayNameInput } from '../../../shared/ui/display-name-input.tsx';
 import type { ReaderApi } from '../../../api/client.ts';
 import type { User } from '../../../api/types.ts';
 
@@ -134,13 +135,12 @@ export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onCle
         </div>
       </div>}
       {onDisplayName && <label className="media-setting-field"><span>显示名</span>
-        <input
-          aria-label="显示名"
-          maxLength={100}
+        <DisplayNameInput
+          ariaLabel="显示名"
           value={draft}
           placeholder={account.username}
           disabled={busy}
-          onChange={event => { setDraft(event.currentTarget.value); setSaved(false); setError(''); }}
+          onChange={value => { setDraft(value); setSaved(false); setError(''); }}
         />
       </label>}
       {children}

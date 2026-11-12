@@ -86,11 +86,19 @@
 }
 .home-header h1 {
   margin: 6px 0 0;
+  min-width: 0;
+  overflow: hidden;
   font-family: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', serif;
   font-size: 28px;
   font-weight: 600;
   line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--color-ink);
+}
+/* 9em is 晚上好， plus a full 10-unit name. 150px is the avatar, its gap, the search button and the page padding. */
+@media (max-width: 700px) {
+  .home-header h1 { font-size: clamp(18px, calc((100vw - 150px) / 9), 28px); }
 }
 .home-page .home-header { position: relative; padding-right: 52px; }
 .home-search { position: absolute; top: 2px; right: 0; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-md); color: var(--color-ink); }
