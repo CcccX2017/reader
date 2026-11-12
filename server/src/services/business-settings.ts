@@ -109,6 +109,13 @@ export class BusinessSettings extends BusinessSettingsReader {
           database.run('INSERT INTO business_settings(name,value,revision) VALUES(?,?,1)',group,JSON.stringify(initial));
         }
       }
+      // Early builds stored the unset system name as 阅读. A name the admin
+      // actually chose is left alone; only that previous built-in word is corrected.
+      const site=database.get<{value:string}>('SELECT value FROM business_settings WHERE name=?','site');
+      if(site){
+        const parsed=JSON.parse(site.value) as BusinessValues['site'];
+        if((parsed.name??'').trim()==='阅读')database.run('UPDATE business_settings SET value=?,revision=revision+1 WHERE name=?',JSON.stringify({...parsed,name:'reader'}),'site');
+      }
     });
     this.apply(config);
   }

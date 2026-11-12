@@ -145,6 +145,20 @@ test('site name and icon are public, and the stored path stays out of the form',
   assert.equal((await app.inject({url:'/api/v1/instance'})).json().name,'新书房');
 });
 
+test('an unset system name stored as 阅读 becomes reader, and a chosen name stays',()=>{
+  const db=new Db(':memory:');
+  db.run('INSERT INTO business_settings(name,value,revision) VALUES(?,?,?)','site',JSON.stringify({name:'阅读',icon:'site/icon.png'}),4);
+  const root=join(tmpdir(),'site-name-default');
+  const settings=new BusinessSettings(db,config(root));
+  try{
+    assert.equal(settings.read('site').name,'reader');
+    assert.equal(settings.read('site').icon,'site/icon.png');
+    assert.equal(settings.view('site').values.name,'reader');
+    settings.save('site',{name:'书房'},settings.view('site').revision);
+    assert.equal(new BusinessSettings(db,config(root)).read('site').name,'书房');
+  }finally{db.close();}
+});
+
 test('registration stores legacy default once instead of falling back after later env changes',()=>{
   const db=new Db(':memory:'),old=process.env.ALLOW_REGISTRATION;
   try{process.env.ALLOW_REGISTRATION='true';const service=new RegistrationService(db);assert.equal(service.mode(),'open');service.setMode('closed');assert.equal(new RegistrationService(db).mode(),'closed');}
