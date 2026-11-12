@@ -39,6 +39,7 @@ MainActivity 启动
 | `renderPage(request)` | boolean | shell ≥ 2。见第 3 节 |
 | `hidePage()` | void | 移除原生页面，露出 WebView |
 | `canOpenDocument(mediaType)` | boolean | 目前总是 `false`，PDF 留在 WebView |
+| `setKeepScreenOn(enabled)` | void | 可选。阅读中点亮屏幕；旧外壳没有该方法时，页面改用 Screen Wake Lock |
 | `speech()` | object | Kotlin 侧访问器；页面看到的是下面的独立接口 |
 
 ### `window.ReaderAndroidSpeech`（`bridge/SpeechBridge.kt`，shell ≥ 3）

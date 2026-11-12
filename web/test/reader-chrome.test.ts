@@ -362,4 +362,15 @@ describe('ReaderChrome', () => {
     );
     expect(stop?.getAttribute('class')).toContain('tts-stop');
   });
+
+  it('offers 屏幕常亮 in the reading settings and reports the new value', () => {
+    const onSetting = vi.fn();
+    const stage = document.createElement('div');
+    render(h(ReaderChrome, { state: chromeState({ settingsOpen: true, settingsTab: 'behavior' }), stage, handlers: { ...handlers(), onSetting } }), container);
+    const row = [...container.querySelectorAll('.switch-field')].find((field) => field.textContent?.includes('屏幕常亮'));
+    const toggle = row?.querySelector('button');
+    expect(toggle?.getAttribute('aria-pressed')).toBe('false');
+    act(() => toggle?.click());
+    expect(onSetting).toHaveBeenCalledWith({ keepAwake: true });
+  });
 });

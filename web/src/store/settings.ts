@@ -116,6 +116,14 @@ export interface AppSettings extends ViewSettings {
   shelfShowAuthor: boolean;
   /** Show the progress bar under a cover that has been started. */
   shelfShowProgress: boolean;
+  /**
+   * Keep the screen on while a book is open.
+   *
+   * Off unless the reader asks: a phone left on a page should still lock.
+   * It applies only inside the reader; the shelf and the library keep the
+   * system's own timeout.
+   */
+  keepAwake: boolean;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -154,6 +162,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   homeShelfSort: 'recent',
   shelfShowAuthor: true,
   shelfShowProgress: true,
+  keepAwake: false,
 };
 
 /** Fills gaps and folds old stored values forward. A bad value becomes the default. */
@@ -181,6 +190,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   settings.paper = validReaderPaper(settings.paper);
   settings.tapZones = normalizeTapZones(parsed.tapZones, parsed.tapZone);
   if (typeof settings.paperFollowsDark !== 'boolean') settings.paperFollowsDark = true;
+  if (typeof settings.keepAwake !== 'boolean') settings.keepAwake = false;
   if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort)) settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
   if (settings.homeShelfCount !== 'all' && !(HOME_SHELF_COUNTS as readonly number[]).includes(settings.homeShelfCount)) {
     settings.homeShelfCount = DEFAULT_APP_SETTINGS.homeShelfCount;

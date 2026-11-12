@@ -1,9 +1,11 @@
 package com.htmake.readerpro.bridge
 
+import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Toast
@@ -179,6 +181,22 @@ class ReaderBridge(
             .put("density", metrics.density.toDouble())
             .put("densityDpi", metrics.densityDpi)
             .toString()
+    }
+
+    /**
+     * Keeps the activity window from sleeping while a book is open.
+     *
+     * Only this app can call it. A Huawei or Xiaomi phone that opens the site
+     * in its own browser never reaches here; the page keeps the screen on
+     * from the web side. The page clears the flag on the way out of the book.
+     */
+    @JavascriptInterface
+    fun setKeepScreenOn(enabled: Boolean) {
+        val activity = context as? Activity ?: return
+        mainHandler.post {
+            if (enabled) activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     /** Native toast, for feedback that should survive the web layer being busy. */

@@ -69,6 +69,7 @@ export function MediaThemeSettings({ scope, onReaderSettings }: { scope: string;
   const { preference, systemDark } = useThemeState(scope);
   const paper = useSettingsStore(state => state.settings.paper);
   const paperFollowsDark = useSettingsStore(state => state.settings.paperFollowsDark);
+  const keepAwake = useSettingsStore(state => state.settings.keepAwake);
   // One notice for the panel: a run of taps updates it in place instead of stacking (ui.md §3.6).
   const notice = useRef(Symbol('theme-notice'));
   const report = (message: string, kind: 'success' | 'error') => notify(message, { kind }, notice.current);
@@ -110,6 +111,14 @@ export function MediaThemeSettings({ scope, onReaderSettings }: { scope: string;
       <h2>阅读纸色</h2>
       <ReadingPapers themeId={resolveReadingTheme(preference, systemDark).theme} settings={{ paper, paperFollowsDark }} onChange={patch => { onReaderSettings(patch); report('主题已保存', 'success'); }} />
       <p className="theme-settings-note">纸色只改阅读页的底色和文字，工具栏仍用阅读主题；也可在阅读页的“外观”里切换。</p>
+      <h2>屏幕常亮</h2>
+      <div className="theme-settings-card">
+        <button type="button" className="theme-follow" aria-label="屏幕常亮" aria-pressed={keepAwake} onClick={() => onReaderSettings({ keepAwake: !keepAwake })}>
+          <span className="theme-follow-text"><strong>屏幕常亮</strong><small>阅读时不锁屏</small></span>
+          <span className="theme-switch" aria-hidden="true" />
+        </button>
+      </div>
+      <p className="theme-settings-note">离开阅读页后恢复系统的自动锁屏。阅读页的阅读设置里也有这个开关。</p>
     </>}
   </section>;
 }

@@ -161,6 +161,8 @@ export interface ChromeState {
   ttsVoice: string;
   ttsAutoAdvance: boolean;
   ttsEngine: AppSettings['ttsEngine'];
+  /** Screen stays on while this book is open. Absent on an older chrome state. */
+  keepAwake?: boolean;
   showFitRow: boolean;
   showDirectionRow: boolean;
   showEncodingRow: boolean;
@@ -802,6 +804,12 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
         </>
       ) : (
         <>
+          <SwitchRow
+            label="屏幕常亮"
+            hint="阅读时不锁屏，离开阅读页后恢复系统的自动锁屏"
+            checked={state.keepAwake ?? false}
+            onChange={(value) => handlers.onSetting({ keepAwake: value })}
+          />
           {state.layout !== 'fixed' ? (
             <SegmentedRow
               label="翻页方式"

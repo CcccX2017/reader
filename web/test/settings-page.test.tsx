@@ -68,6 +68,10 @@ describe('偏好设置', () => {
     expect([...root.querySelectorAll('button')].some(b => /保存/.test(b.textContent ?? ''))).toBe(false);
     const place = (label: string) => [...root.querySelectorAll<HTMLButtonElement>('[aria-label="保存位置"] button')].find(button => button.textContent === label);
     expect(place('本地存储')?.getAttribute('aria-pressed')).toBe('true');
+    const awake = root.querySelector<HTMLButtonElement>('[aria-label="屏幕常亮"]');
+    expect(awake?.getAttribute('aria-pressed')).toBe('false');
+    act(() => { awake?.click(); });
+    expect(updateSettings).toHaveBeenCalledWith({ keepAwake: true });
   });
 
   it('records a switch from local storage to the account', () => {

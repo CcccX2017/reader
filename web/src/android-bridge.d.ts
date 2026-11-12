@@ -58,6 +58,15 @@ export interface AndroidBridge {
   canOpenDocument(mediaType: string): boolean;
 
   /**
+   * Holds the screen on while a book is open, and releases it afterwards.
+   *
+   * Optional. Present only inside this app. A Huawei phone (鸿蒙) or a Xiaomi
+   * phone (澎湃) that opens the site in its own browser has no such method,
+   * and the page keeps the screen on itself.
+   */
+  setKeepScreenOn?(enabled: boolean): void;
+
+  /**
    * The native speech surface, if this shell has one.
    *
    * A nested object rather than more top-level methods because it is a *feature*

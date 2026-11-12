@@ -36,6 +36,7 @@ import { htmlToText, isTextOnlyMarkup, textToChapterHtml } from '../formats/segm
 import { parseLocator } from './locator.ts';
 import { tapActionAt, tapZonePreset } from './tap-zones.ts';
 import { ReadingTimeTracker } from '../features/stats/reading-time.ts';
+import { ScreenAwake } from './keep-awake.ts';
 
 export interface ReaderScreenOptions {
   /** Where the shared app theme is stored (see the media theme service). */
@@ -178,6 +179,8 @@ export class ReaderScreen {
   private book: Book | null = null;
   /** 时长统计: active reading time for the open book (see ReadingTimeTracker). */
   private readonly readingTime: ReadingTimeTracker;
+  /** Screen lock, held only while this book is open and the reader asked for it. */
+  private readonly screenAwake = new ScreenAwake();
   private manifest: Manifest | null = null;
   private chromeVisible = false;
   /**
@@ -266,6 +269,7 @@ export class ReaderScreen {
       Object.assign(this.settings, app);
       this.view?.applySettings(this.viewSettings());
       this.applyReadingTheme();
+      this.syncScreenAwake();
       this.patch({});
     };
     window.addEventListener(preferencesAppliedEvent, onApplied);
@@ -275,6 +279,7 @@ export class ReaderScreen {
     this.renderChrome();
 
     this.bindSyncStatus();
+    this.syncScreenAwake();
   }
 
   private themeScope(): string {
@@ -688,6 +693,7 @@ export class ReaderScreen {
   }
 
   dispose(): void {
+    this.screenAwake.stop();
     this.pdfLoading?.abort();
     this.doc?.pdf?.dispose();
     this.themeOff?.();
@@ -2148,9 +2154,16 @@ export class ReaderScreen {
     }
   }
 
+  /** The lock follows the open book, not the rest of the app. */
+  private syncScreenAwake(): void {
+    if (this.settings.keepAwake) this.screenAwake.start();
+    else this.screenAwake.stop();
+  }
+
   private async updateSetting(patch: Partial<AppSettings>): Promise<void> {
     this.options.onSettingsChange(patch);
     Object.assign(this.settings, patch);
+    this.syncScreenAwake();
     if ('paper' in patch || 'paperFollowsDark' in patch) this.applyReadingTheme();
     // Reading information changes only the chrome, never the book's pagination.
     if (Object.keys(patch).some((key) => !READOUT_FIELDS.some((field) => field.key === key))) {
@@ -2597,6 +2610,7 @@ function emptyChromeSettings(): Partial<ChromeState> {
       comicDirection: 'ltr',
       paper: 'theme',
       paperFollowsDark: true,
+      keepAwake: false,
       ttsRate: 1,
       ttsPitch: 1,
       ttsVolume: 1,
@@ -2674,6 +2688,7 @@ function settingsView(
     comicDirection: settings.comicDirection,
     paper: settings.paper,
     paperFollowsDark: settings.paperFollowsDark,
+    keepAwake: settings.keepAwake,
     ttsRate: settings.ttsRate,
     ttsPitch: settings.ttsPitch,
     ttsVolume: settings.ttsVolume,
