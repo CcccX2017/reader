@@ -61,7 +61,7 @@ export function MinePage() {
     <div className="media-screen media-page mine-page">
       <header className="home-header"><h1>我的</h1></header>
       {user && <section className="mine-profile" aria-label="当前账号">
-        <div className="mine-avatar" aria-hidden="true">{avatar ? <img src={avatar} alt="" /> : Array.from(name)[0]}</div>
+        <div className={avatar.pending ? 'mine-avatar is-pending' : 'mine-avatar'} aria-hidden="true">{avatar.src ? <img src={avatar.src} alt="" /> : avatar.pending ? null : Array.from(name)[0]}</div>
         <div className="mine-profile-text">
           <strong>{name}<span className="mine-role">{admin ? '管理员' : '成员'}</span></strong>
           <small><span className="mine-dot" data-state={connection.state} aria-hidden="true" />{connection.label} {serverHost(runtime.api.baseUrl)}{connection.state !== 'online' && <Link className="mine-status-link" to="/me/account">查看原因</Link>}</small>

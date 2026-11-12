@@ -8,6 +8,7 @@ import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { OpdsAccess } from '../../../ui/opds-access.tsx';
 import { applySafariVersion, isIos, readSafariOverride, safariVersionFromUa, writeSafariOverride } from '../../../shared/safari-version.ts';
+import { rememberAvatar } from '../../../shared/ui/use-avatar.ts';
 
 /** 账号与连接 (/me/account): who is signed in, and to which server. */
 export function AccountPage() {
@@ -44,6 +45,7 @@ export function AccountPage() {
         }}
         onAvatar={async (file) => {
           const next = await runtime.api.setAvatar(file);
+          if (next.avatarUrl) rememberAvatar(runtime.api, next.avatarUrl, file);
           useAuthStore.getState().setUser(next);
           return next;
         }}

@@ -74,7 +74,8 @@ export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onCle
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   const name = account.displayName || account.username;
   const dirty = draft.trim() !== stored.trim();
-  const face = preview ?? remote;
+  const face = preview ?? remote.src;
+  const waiting = !preview && remote.pending;
   const upload = async (file: File | undefined) => {
     if (!file || !onAvatar) return;
     setAvatarBusy(true); setAvatarError('');
@@ -101,12 +102,13 @@ export function MediaAccountPanel({ account, api, onDisplayName, onAvatar, onCle
       setAvatarBusy(false);
     }
   };
+  const mark = face ? <img src={face} alt="" /> : waiting ? null : Array.from(name)[0];
   const avatar = onAvatar ? <>
-    <button type="button" className="media-account-avatar is-upload" aria-label="更换头像" disabled={avatarBusy} onClick={() => inputRef.current?.click()}>
-      {face ? <img src={face} alt="" /> : Array.from(name)[0]}
+    <button type="button" className={waiting ? 'media-account-avatar is-upload is-pending' : 'media-account-avatar is-upload'} aria-label="更换头像" disabled={avatarBusy} onClick={() => inputRef.current?.click()}>
+      {mark}
     </button>
     <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/gif,image/webp" aria-label="选择头像图片" onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(file); }} />
-  </> : <div className="media-account-avatar" aria-hidden="true">{face ? <img src={face} alt="" /> : Array.from(name)[0]}</div>;
+  </> : <div className={waiting ? 'media-account-avatar is-pending' : 'media-account-avatar'} aria-hidden="true">{mark}</div>;
   return <section className="media-account-panel">
     <h2>{name}</h2>
     <p>@{account.username} · {account.role === 'admin' ? '管理员' : '普通用户'}</p>

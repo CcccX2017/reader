@@ -43,14 +43,15 @@ function mount({
   discover = { items: [] as object[], total: 0 },
   shelf = [book],
   listBooks,
-}: { reading?: object[]; video?: object[]; audio?: object[]; discover?: { items: object[]; total: number }; shelf?: object[]; listBooks?: ReturnType<typeof vi.fn> } = {}) {
+  coverBytes,
+}: { reading?: object[]; video?: object[]; audio?: object[]; discover?: { items: object[]; total: number }; shelf?: object[]; listBooks?: ReturnType<typeof vi.fn>; coverBytes?: ReturnType<typeof vi.fn> } = {}) {
   const runtime = {
     api: {
       baseUrl: 'https://reader.example.com',
       currentSession: () => ({ user }),
       continueReading: vi.fn().mockResolvedValue(reading),
       listBooks: listBooks ?? vi.fn().mockResolvedValue({ items: shelf, total: shelf.length }),
-      coverBytes: vi.fn().mockRejectedValue(new Error('none')),
+      coverBytes: coverBytes ?? vi.fn().mockRejectedValue(new Error('none')),
     },
     mediaApi: {
       preferenceScope: () => 'home-test',
@@ -88,6 +89,7 @@ afterEach(() => {
   useAuthStore.setState({ session: null, verifiedUser: null });
   useSettingsStore.setState({ settings: { ...DEFAULT_APP_SETTINGS } });
   localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
 describe('首页', () => {
@@ -117,6 +119,7 @@ describe('首页', () => {
     await until(() => root.querySelector('.home-continue a.home-resume strong')?.textContent === '示例剧集');
     expect(root.querySelector('h1')?.textContent).toContain('林间');
     expect(root.querySelector('.home-avatar')?.textContent).toBe('林');
+    expect(root.querySelector('.home-avatar img')).toBeNull();
     const cards = [...root.querySelectorAll<HTMLAnchorElement>('.home-continue a.home-resume')];
     expect(cards.map((card) => card.dataset.channel)).toEqual(['video', 'read']);
     const [video, read] = cards as [HTMLAnchorElement, HTMLAnchorElement];
@@ -134,6 +137,21 @@ describe('首页', () => {
     expect(video.closest('.home-resume-slot')).toBeNull();
     expect(root.querySelector('.home-shelf .book-more')).toBeTruthy();
     expect(root.querySelector('.home-discover')).toBeNull();
+  });
+
+  it('holds the letter back until an uploaded avatar has loaded', async () => {
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:avatar', revokeObjectURL: () => undefined });
+    let release: (bytes: Uint8Array) => void = () => undefined;
+    const coverBytes = vi.fn(() => new Promise<Uint8Array>(resolve => { release = resolve; }));
+    useAuthStore.setState({ verifiedUser: { ...user, avatarUrl: '/api/v1/users/u1/avatar?v=1' } as typeof user });
+    mount({ coverBytes });
+    expect(root.querySelector('.home-avatar')?.textContent).toBe('');
+    expect(root.querySelector('.home-avatar img')).toBeNull();
+    expect(root.querySelector('.home-avatar')?.classList.contains('is-pending')).toBe(true);
+    await act(async () => { release(new Uint8Array([1, 2, 3, 4])); });
+    expect(root.querySelector('.home-avatar img')?.getAttribute('src')).toBe('blob:avatar');
+    expect(root.querySelector('.home-avatar')?.textContent).toBe('');
+    expect(root.querySelector('.home-avatar')?.classList.contains('is-pending')).toBe(false);
   });
 
   it('shows as many home-shelf books as chosen, in the chosen order', async () => {

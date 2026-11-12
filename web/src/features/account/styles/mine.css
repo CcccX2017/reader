@@ -39,6 +39,7 @@
   font-weight: 700;
   box-shadow: 0 0 0 3px var(--color-surface);
 }
+.mine-avatar.is-pending { background: var(--color-surface-2); box-shadow: none; }
 .mine-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .mine-profile-text { min-width: 0; }

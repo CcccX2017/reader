@@ -296,7 +296,7 @@ export function HomePage() {
       <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
       <div className="select-head-slot">
         <header className="home-header" data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
-          {name && <div className="home-avatar" aria-hidden="true">{avatar ? <img src={avatar} alt="" /> : Array.from(name)[0]}</div>}
+          {name && <div className={avatar.pending ? 'home-avatar is-pending' : 'home-avatar'} aria-hidden="true">{avatar.src ? <img src={avatar.src} alt="" /> : avatar.pending ? null : Array.from(name)[0]}</div>}
           <div className="home-header-text">
             <h1>
               {greeting(new Date().getHours())}
