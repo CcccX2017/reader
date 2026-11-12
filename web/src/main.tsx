@@ -12,7 +12,8 @@ import { RouterProvider } from 'react-router-dom';
 import { AppProviders } from './app/providers/AppProviders.tsx';
 import { createAppRuntime, inferDefaultUrl } from './app/runtime.ts';
 import { router } from './app/router/router.tsx';
-import { registerPwa } from './core/pwa.ts';
+import { offerReload, registerPwa, requestServiceWorkerUpdate } from './core/pwa.ts';
+import { releaseResponse, subscribeReleases } from './core/release-events.ts';
 import { dismissAppStartup } from './app/startup.ts';
 import { applySafariVersion } from './shared/safari-version.ts';
 
@@ -49,6 +50,11 @@ async function start(): Promise<void> {
   window.__readerFlush = () => runtime.flush();
   createRoot(appRoot).render(<AppProviders runtime={runtime}><RouterProvider router={router} /></AppProviders>);
   registerPwa();
+  subscribeReleases(runtime.api.baseUrl, (change) => {
+    const action = releaseResponse(change, !!navigator.serviceWorker?.controller);
+    if (action.updateWorker) requestServiceWorkerUpdate();
+    if (action.reload) offerReload();
+  });
 }
 
 void start().catch((err: unknown) => {

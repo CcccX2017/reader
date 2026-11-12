@@ -11,6 +11,7 @@ import { buildApp } from './http/app.ts';
 import { setLogger } from './lib/log.ts';
 import type { AppContext } from './http/context.ts';
 import {createMediaService} from './media/start-runtime.ts';
+import { watchRelease } from './lib/release.ts';
 
 interface Schedulers {
   scanTimer: NodeJS.Timeout | undefined;
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
   app.log.info({ booksDir: config.booksDir, dataDir: config.dataDir }, 'starting reader server');
 
   let scheduler = startSchedulers(ctx, app.log);
+  const stopReleaseWatch = ctx.release ? watchRelease(ctx.release, config.webDir) : () => undefined;
   ctx.settingsChanged=group=>{
     if(group==='modules'){void mediaRuntime.setEnabled(ctx.settings!.read('modules').mediaEnabled);return;}
     if(group!=='scanning')return;
@@ -70,6 +72,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info({ signal }, 'shutting down');
+    stopReleaseWatch();
     if (scheduler.scanTimer) clearInterval(scheduler.scanTimer);
     if (scheduler.watchTimer) clearInterval(scheduler.watchTimer);
     await app.close();

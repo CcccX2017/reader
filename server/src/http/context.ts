@@ -10,6 +10,7 @@ import type { BrowseService } from '../services/browse.ts';
 import type { UploadService } from '../services/uploads.ts';
 import type { SourceHost } from '../services/source-host.ts';
 import type { BusinessSettings } from '../services/business-settings.ts';
+import type { ReleaseHub } from '../lib/release.ts';
 
 export interface AppContext {
   config: AppConfig;
@@ -42,6 +43,8 @@ export interface AppContext {
    */
   uploads: UploadService;
   sources?: SourceHost;
+  /** Publishes the running server version and the web bundle being served. */
+  release?: ReleaseHub;
   log: FastifyBaseLogger;
 }
 

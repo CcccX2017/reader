@@ -23,6 +23,8 @@ import {registerBusinessSettingsRoutes} from './routes/business-settings.ts';
 import {registerAiRoutes} from './routes/ai.ts';
 import { serializeRequest } from './request-log.ts';
 import { registerAuthProtection } from './auth-protection.ts';
+import { registerEventRoutes } from './routes/events.ts';
+import { ReleaseHub, currentRelease } from '../lib/release.ts';
 
 export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyInstance {
   ctx.settings??=new BusinessSettings(ctx.db,ctx.config);
@@ -80,6 +82,8 @@ export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyIns
   registerAuthProtection(app);
   app.options('/*', async (_request, reply) => reply.status(204).send());
 
+  ctx.release ??= new ReleaseHub(currentRelease(ctx.config.webDir));
+  registerEventRoutes(app, ctx);
   registerAuthRoutes(app, ctx);
   registerBusinessSettingsRoutes(app,ctx);
   registerAiRoutes(app,ctx);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { registerPwa, watchPwaUpdates } from '../src/core/pwa.ts';
+import { offerReload, registerPwa, watchPwaUpdates } from '../src/core/pwa.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -144,6 +144,20 @@ it('ships standalone launch metadata and a first-paint startup shell', () => {
   const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
   expect(html).toContain('id="app-startup"');
   expect(html).toContain('apple-touch-startup-image');
+});
+
+it('shows one reload banner, and a failed save can be retried', async () => {
+  window.__readerFlush = vi.fn().mockRejectedValue(new Error('disk full'));
+  offerReload();
+  offerReload();
+  expect(document.querySelectorAll('.pwa-update')).toHaveLength(1);
+  const button = document.querySelector<HTMLButtonElement>('.pwa-update button')!;
+  button.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(button.disabled).toBe(false);
+  expect(button.textContent).toBe('重试更新');
+  delete window.__readerFlush;
 });
 
 it('reports failed registration without an unhandled rejection', async () => {

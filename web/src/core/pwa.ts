@@ -1,5 +1,44 @@
 import '../styles/pwa.css';
 
+let registration: ServiceWorkerRegistration | undefined;
+
+/** Asks the installed worker to download a new bundle. The ready banner follows from there. */
+export function requestServiceWorkerUpdate(): void {
+  if (registration) void registration.update().catch(() => undefined);
+}
+
+/** A reload is enough when no service worker is holding the previous bundle. */
+export function offerReload(): void {
+  if (document.querySelector('.pwa-update')) return;
+  const banner = document.createElement('aside');
+  banner.className = 'pwa-update';
+  banner.setAttribute('aria-label', '应用更新');
+  const message = document.createElement('span');
+  message.setAttribute('role', 'status');
+  message.textContent = '新版本已准备好';
+  const button = document.createElement('button');
+  button.className = 'button primary';
+  button.type = 'button';
+  button.textContent = '立即更新';
+  button.addEventListener('click', () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    message.textContent = '正在保存阅读进度…';
+    void (async () => {
+      try {
+        await window.__readerFlush?.();
+        location.reload();
+      } catch {
+        button.disabled = false;
+        button.textContent = '重试更新';
+        message.textContent = '更新未完成，请重试';
+      }
+    })();
+  });
+  banner.append(message, button);
+  document.body.append(banner);
+}
+
 /** Native shells and development builds keep their existing loading lifecycle. */
 export function registerPwa(): void {
   if (!import.meta.env.PROD || window.ReaderAndroid || !window.isSecureContext
@@ -10,7 +49,7 @@ export function registerPwa(): void {
     void navigator.serviceWorker.register(new URL('sw.js', base), {
       scope: base.pathname,
       updateViaCache: 'none',
-    }).then((registration) => watchPwaUpdates(registration)).catch((error: unknown) => {
+    }).then((worker) => { registration = worker; watchPwaUpdates(worker); }).catch((error: unknown) => {
       // PWA availability must not prevent ordinary online reading.
       console.warn('离线应用缓存注册失败', error);
     });
