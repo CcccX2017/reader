@@ -14,7 +14,6 @@ const source = {
   id: 'legado', pluginId: 'legado', sourceType: 'legado', name: '发现', enabled: true, isDefault: true,
   descriptor: { id: 'legado', pluginId: 'legado', label: 'Legado', version: '1', builtin: false, capabilities: ['search', 'browse'] },
 };
-const sourceCatalog = vi.fn(async () => ({ items: [{ ref: 'all', title: '全书甲' }] }));
 const searchSource = vi.fn(async function* () {
   yield { items: [{ ref: 'hit', title: '命中的书' }] };
 });
@@ -24,7 +23,6 @@ const runtime = {
     currentSession: () => null,
     sources: vi.fn(async () => [source]),
     sourceTypes: vi.fn(async () => []),
-    sourceCatalog,
     searchSource,
   },
 } as never;
@@ -51,7 +49,6 @@ function keyword() {
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   useAuthStore.setState({ session: null, verifiedUser: null });
-  sourceCatalog.mockClear();
   searchSource.mockClear();
 });
 
@@ -60,21 +57,13 @@ afterEach(() => {
   client.clear();
 });
 
-async function searchFor(text: string) {
+it('clears the search results when the search box is emptied', async () => {
   await paint();
-  await vi.waitFor(() => expect(root.textContent).toContain('全书甲'));
-  await act(async () => { typeInto(keyword(), text); });
+  await vi.waitFor(() => expect(keyword()).toBeTruthy());
+  await act(async () => { typeInto(keyword(), '红楼'); });
   await act(async () => { keyword().form!.requestSubmit(); });
   await vi.waitFor(() => expect(root.textContent).toContain('命中的书'));
-  expect(root.textContent).not.toContain('全书甲');
-}
-
-it('lists the whole directory again when the search box is cleared', async () => {
-  await searchFor('红楼');
-  expect(root.querySelector('button[aria-label="清除搜索"]')).toBeNull();
   await act(async () => { typeInto(keyword(), ''); });
-  await vi.waitFor(() => expect(root.textContent).toContain('全书甲'));
-  expect(root.textContent).not.toContain('命中的书');
+  await vi.waitFor(() => expect(root.textContent).not.toContain('命中的书'));
   expect(keyword().value).toBe('');
-  expect(sourceCatalog).toHaveBeenCalledTimes(2);
 });

@@ -1,5 +1,5 @@
+import { createHash } from 'node:crypto';
 import type { Db } from '../db/index.ts';
-import { isCustomCoverRel } from '../indexer/metadata.ts';
 import { applyOverrides, type BaseMetadata } from './merge.ts';
 import { safeJsonParse } from '../lib/text.ts';
 import { badRequest, notFound } from '../lib/errors.ts';
@@ -378,8 +378,9 @@ export class ShelfService {
       source: row.source,
     };
     const { effective, appliedFields } = applyOverrides(base, overrides);
-    const customCover = overrides.cover !== undefined && isCustomCoverRel(row.id, overrides.cover);
-    if (customCover) appliedFields.push('cover');
+    // A cover the user chose (upload, URL, or a book source) sits above the scanner's.
+    const coverPath = overrides.cover || row.cover_path;
+    if (overrides.cover) appliedFields.push('cover');
     return {
       id: row.id,
       title: effective.title,
@@ -393,9 +394,8 @@ export class ShelfService {
       tags: effective.tags,
       pubdate: effective.pubdate,
       format: row.format,
-      // `v` changes when the cover is replaced, so a year-long cache does not
-      // keep showing the picture this book used to have.
-      coverUrl: customCover || row.cover_path ? `/api/v1/books/${row.id}/cover?v=${row.updated_at}` : null,
+      // The cover response is immutable-cached; a changed cover file gets a new URL.
+      coverUrl: coverPath ? `/api/v1/books/${row.id}/cover?v=${createHash('sha1').update(coverPath).digest('hex').slice(0, 10)}` : null,
       fileSize: row.file_size,
       pageCount: row.page_count,
       source: effective.source,
@@ -417,13 +417,19 @@ export class ShelfService {
   }
 
   /**
-   * The cover file to serve: a custom upload wins over the picture extracted
-   * from the book. A rescan rewrites `books.cover_path` and leaves this alone.
+   * The cover file to serve: a manual choice (upload, URL, or book source) wins
+   * over the picture extracted from the book. A rescan rewrites `books.cover_path`
+   * and leaves the override alone.
    */
-  storedCoverRel(bookId: string, embedded: string | null): string | null {
-    const custom = this.loadOverrides(bookId).cover;
-    if (custom && isCustomCoverRel(bookId, custom)) return custom.replace(/\\/g, '/');
-    return embedded;
+  coverPath(bookId: string): string | null {
+    const manual = this.loadOverrides(bookId).cover;
+    if (manual) return manual.replace(/\\/g, '/');
+    return this.db.get<{ cover_path: string | null }>('SELECT cover_path FROM books WHERE id = ?', bookId)?.cover_path ?? null;
+  }
+
+  /** @deprecated Prefer `coverPath`; kept for OPDS and older call sites. */
+  storedCoverRel(bookId: string, _embedded: string | null): string | null {
+    return this.coverPath(bookId);
   }
 
   loadOverrides(bookId: string): Record<string, string> {

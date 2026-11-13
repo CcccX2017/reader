@@ -127,6 +127,42 @@ export function registerSourceRoutes(app: FastifyInstance, ctx: AppContext): voi
     const ref = parameter(q.ref, 'ref', true)!;
     return withSignal(request, reply, (signal) => host.detail(user.id, id, ref, signal));
   });
+  app.get('/api/v1/sources/:id/cover', { preHandler: auth }, async (request, reply) => {
+    const user = currentUser(request); const { id } = request.params as { id: string };
+    const q = request.query as { entryRef?: string; coverRef?: string };
+    const entryRef = parameter(q.entryRef, 'entryRef', true)!, coverRef = parameter(q.coverRef, 'coverRef', true)!;
+    const image = await withSignal(request, reply, (signal) => host.cover(user.id, id, entryRef, coverRef, signal));
+    reply.header('content-type', image.type);
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('cache-control', 'private, max-age=86400');
+    return reply.send(image.bytes);
+  });
+  app.get('/api/v1/books/:id/cover-candidate', { preHandler: auth }, async (request, reply) => {
+    const user = currentUser(request); const { id } = request.params as { id: string };
+    const q = request.query as { entryRef?: string; coverRef?: string };
+    const entryRef = parameter(q.entryRef, 'entryRef', true)!, coverRef = parameter(q.coverRef, 'coverRef', true)!;
+    const image = await withSignal(request, reply, (signal) => host.candidateCover(user.id, id, entryRef, coverRef, signal));
+    reply.header('content-type', image.type);
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('cache-control', 'private, max-age=86400');
+    return reply.send(image.bytes);
+  });
+  app.post('/api/v1/books/:id/cover-source', { preHandler: auth }, async (request, reply) => {
+    const user = currentUser(request); const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown> | null;
+    const entryRef = textBody(body, 'entryRef'), coverRef = textBody(body, 'coverRef');
+    if (host.chapters.has(id)) return withSignal(request, reply, (signal) => host.changeCover(user.id, id, entryRef, coverRef, signal));
+    // A local book: the cover comes from a source the user names, and is stored as a manual override.
+    ctx.shelf.get(user.id, id);
+    const sourceId = textBody(body, 'sourceId');
+    return withSignal(request, reply, (signal) => host.overrideCover(user.id, id, sourceId, entryRef, coverRef, signal));
+  });
+  app.delete('/api/v1/books/:id/cover-source', { preHandler: auth }, async (request) => {
+    const user = currentUser(request); const { id } = request.params as { id: string };
+    if (host.chapters.has(id)) throw badRequest('this book has no file cover to restore', 'SOURCE_UNSUPPORTED');
+    ctx.shelf.get(user.id, id);
+    return host.restoreCover(id);
+  });
   app.post('/api/v1/sources/:id/acquire', { preHandler: auth }, async (request, reply) => {
     const user = currentUser(request); const { id } = request.params as { id: string };
     const body = request.body as Record<string, unknown> | null;

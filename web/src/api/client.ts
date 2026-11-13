@@ -329,6 +329,12 @@ export class ReaderApi {
   async createOpdsCredential(name: string): Promise<OpdsCredential & { username: string; password: string; catalogUrl: string }> { return this.call('/api/v1/opds/credentials', 'POST', { name }); }
   async revokeOpdsCredential(id: string): Promise<void> { await this.call('/api/v1/opds/credentials/' + encodeURIComponent(id), 'DELETE'); }
   async deleteCredential(id: string, key: string): Promise<void> { await this.call('/api/v1/sources/' + encodeURIComponent(id) + '/credentials/' + encodeURIComponent(key),'DELETE'); }
+  /** Store another edition's cover as this book's cover. */
+  async changeCover(id: string, entryRef: string, coverRef: string, sourceId?: string): Promise<void> {
+    await this.call('/api/v1/books/' + encodeURIComponent(id) + '/cover-source', 'POST', { entryRef, coverRef, ...(sourceId ? { sourceId } : {}) });
+  }
+  /** A local book goes back to the cover its file carries. */
+  async restoreCover(id: string): Promise<void> { await this.call('/api/v1/books/' + encodeURIComponent(id) + '/cover-source', 'DELETE'); }
   async switchPreview(id: string, entryRef: string): Promise<{ chapters: Array<{ id: string; title: string }>; latestChapter?: string }> {
     return this.call('/api/v1/books/' + encodeURIComponent(id) + '/switch-preview', 'POST', { entryRef });
   }

@@ -333,7 +333,8 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
       const manifest = await ctx.sources.chapters.manifest(user.id, id);
       return {
         revision: manifest.revision,
-        toc: manifest.items.map((item) => ({ href: item.href, title: item.title, level: 0, spine: item.seq })),
+        toc: manifest.items.map((item) => ({ href: item.href, title: item.title, level: 0, spine: item.seq,
+          ...(item.volume ? { volume: item.volume } : {}), ...(item.note ? { note: item.note } : {}) })),
       };
     }
     const handler = resolveHandler(ctx, id, book.format);
@@ -512,11 +513,9 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
 
   app.get('/api/v1/books/:id/cover', { preHandler: auth }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const row = ctx.db.get<{ cover_path: string | null }>('SELECT cover_path FROM books WHERE id = ?', id);
-    if (!row) throw notFound('book not found');
-    const rel = ctx.shelf.storedCoverRel(id, row.cover_path);
-    if (!rel) throw notFound('no cover for this book', 'NO_COVER');
-    const abs = resolveInside(ctx.config.dataDir, assertSafeRel(rel));
+    const coverPath = ctx.shelf.coverPath(id);
+    if (!coverPath) throw notFound('no cover for this book', 'NO_COVER');
+    const abs = resolveInside(ctx.config.dataDir, assertSafeRel(coverPath));
     if (!existsSync(abs)) throw notFound('cover cache missing', 'NO_COVER');
     reply.header('content-type', imageContentType(abs));
     reply.header('cache-control', 'public, max-age=31536000, immutable');

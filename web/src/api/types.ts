@@ -123,6 +123,10 @@ export interface ContentItem {
   format?: 'text' | 'html';
   /** Byte length when the format knows it cheaply. */
   size?: number;
+  /** The volume a chapter belongs to; consecutive chapters sharing it sit under one heading. */
+  volume?: string;
+  /** A short line under the title, such as when the chapter was updated. */
+  note?: string;
 }
 
 /** A group of items: a comic volume, or a window of chapters. */
@@ -176,6 +180,8 @@ export interface TocEntry {
   title: string;
   level: number;
   spine?: number;
+  volume?: string;
+  note?: string;
 }
 
 export interface Manifest {

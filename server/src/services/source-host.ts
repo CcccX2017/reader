@@ -13,6 +13,10 @@ import { FileAcquisitions } from '../sources/acquisitions.ts';
 import { PluginManager } from '../sources/plugin-manager.ts';
 import { ChapterPublications } from '../publications/chapters.ts';
 import { ChapterUpdates } from './chapter-updates.ts';
+import { raster } from '../publications/rich-content.ts';
+import { saveCover } from '../indexer/metadata.ts';
+import { resolveInside } from '../lib/paths.ts';
+import { rm } from 'node:fs/promises';
 
 function json(value: unknown): string { return JSON.stringify(value ?? {}); }
 function parse(value: string): unknown { try { return JSON.parse(value); } catch { return {}; } }
@@ -29,7 +33,7 @@ export class SourceHost {
   private activeCalls = 0;
   private readonly activeSources = new Map<string, number>();
 
-  constructor(private readonly db: Db, private readonly config: AppConfig, shelf: () => ShelfService, private readonly log?: FastifyBaseLogger) {
+  constructor(private readonly db: Db, private readonly config: AppConfig, private readonly shelf: () => ShelfService, private readonly log?: FastifyBaseLogger) {
     this.access = new SourceAccess(db);
     this.key = createHash('sha256').update('reader/source-credentials/v1\0').update(config.jwtSecret).digest();
     this.acquisitions = new FileAcquisitions(db, config);
@@ -232,13 +236,89 @@ export class SourceHost {
       const bookId = acquisition.kind === 'chapters'
         ? await this.chapters.acquire(provider, ctx, { entryRef, optionId }, acquisition.publicationRef, entry)
         : await this.acquisitions.acquire(provider, ctx, { entryRef, optionId }, acquisition, entry);
+      // A missing cover never fails the acquisition; it can be chosen later.
+      if (acquisition.kind === 'chapters' && entry.coverRef && !this.coverPath(bookId)) {
+        await this.storeCover(provider, ctx, bookId, entryRef, entry.coverRef).catch((error) => this.log?.info({ sourceId: id, bookId, code: (error as { code?: string }).code }, 'source cover unavailable'));
+      }
       this.log?.info({ sourceId: id, bookId, kind: acquisition.kind }, 'source publication acquired');
       return { kind: 'ready' as const, publicationId: bookId };
     }, signal);
   }
 
-  refreshPublication(userId: string, bookId: string, signal?: AbortSignal) {
-    return this.updates.check(userId, bookId, signal);
+  async refreshPublication(userId: string, bookId: string, signal?: AbortSignal) {
+    const result = await this.updates.check(userId, bookId, signal);
+    // Books added before covers were kept pick theirs up on the next manual refresh.
+    if (!this.coverPath(bookId)) void this.adoptCover(userId, bookId).catch(() => undefined);
+    return result;
+  }
+
+  private async adoptCover(userId: string, bookId: string): Promise<void> {
+    const binding = this.chapters.binding(userId, bookId);
+    const entryRef = this.db.get<{ entry_ref: string }>('SELECT entry_ref FROM source_acquisitions WHERE book_id = ? AND user_id = ? AND source_id = ?', bookId, userId, binding.source_id)?.entry_ref;
+    if (!entryRef) return;
+    await this.call(userId, binding.source_id, async (provider, ctx) => {
+      const entry = await provider.detail(ctx, entryRef);
+      if (entry.coverRef && provider.readResource) await this.storeCover(provider, ctx, bookId, entryRef, entry.coverRef);
+    });
+  }
+
+  /** An entry's cover image, read through its source so no plugin URL reaches the browser. */
+  async cover(userId: string, id: string, entryRef: string, coverRef: string, signal?: AbortSignal) {
+    return this.call(userId, id, async (provider, ctx) => {
+      if (!provider.readResource) throw badRequest('source has no resources', 'SOURCE_UNSUPPORTED');
+      return raster(await provider.readResource(ctx, { publicationRef: entryRef, ref: coverRef }));
+    }, signal);
+  }
+
+  /** A candidate cover while choosing one for a book: read through the book's own source instance. */
+  async candidateCover(userId: string, bookId: string, entryRef: string, coverRef: string, signal?: AbortSignal) {
+    return this.cover(userId, this.chapters.binding(userId, bookId).source_id, entryRef, coverRef, signal);
+  }
+
+  /** 换封面: use the cover of another edition found by the book's own source instance. */
+  async changeCover(userId: string, bookId: string, entryRef: string, coverRef: string, signal?: AbortSignal) {
+    const binding = this.chapters.binding(userId, bookId);
+    return this.call(userId, binding.source_id, async (provider, ctx) => {
+      if (!provider.readResource) throw badRequest('source has no resources', 'SOURCE_UNSUPPORTED');
+      await this.storeCover(provider, ctx, bookId, entryRef, coverRef);
+      return { ok: true as const };
+    }, signal);
+  }
+
+  /**
+   * A cover for a book that is not a source publication (a local file): taken from any
+   * source the user can search, and kept as a manual override so a rescan never replaces it.
+   */
+  async overrideCover(userId: string, bookId: string, sourceId: string, entryRef: string, coverRef: string, signal?: AbortSignal) {
+    const { type, bytes } = await this.cover(userId, sourceId, entryRef, coverRef, signal);
+    const shelf = this.shelf(), previous = shelf.loadOverrides(bookId).cover;
+    const path = await saveCover(this.config.dataDir, `${bookId}-manual-${randomBytes(6).toString('hex')}`, { data: bytes, contentType: type });
+    shelf.setOverrides(bookId, { cover: path }, userId);
+    if (previous && previous !== path) await rm(resolveInside(this.config.dataDir, previous), { force: true }).catch(() => undefined);
+    return { ok: true as const };
+  }
+
+  /** Back to the cover the file itself carries. */
+  async restoreCover(bookId: string) {
+    const shelf = this.shelf(), previous = shelf.loadOverrides(bookId).cover;
+    if (!previous) return { ok: true as const };
+    shelf.clearOverride(bookId, 'cover');
+    await rm(resolveInside(this.config.dataDir, previous), { force: true }).catch(() => undefined);
+    return { ok: true as const };
+  }
+
+  private coverPath(bookId: string): string | null {
+    return this.db.get<{ cover_path: string | null }>('SELECT cover_path FROM books WHERE id = ?', bookId)?.cover_path ?? null;
+  }
+
+  private async storeCover(provider: SourceProvider, ctx: SourceContext, bookId: string, entryRef: string, coverRef: string): Promise<void> {
+    const { type, bytes } = raster(await provider.readResource!(ctx, { publicationRef: entryRef, ref: coverRef }));
+    ctx.signal.throwIfAborted();
+    const previous = this.coverPath(bookId);
+    // A new file name per cover: the cover URL is cached as immutable.
+    const path = await saveCover(this.config.dataDir, `${bookId}-${randomBytes(6).toString('hex')}`, { data: bytes, contentType: type });
+    this.db.run('UPDATE books SET cover_path = ?, updated_at = ? WHERE id = ?', path, Date.now(), bookId);
+    if (previous && previous !== path) await rm(resolveInside(this.config.dataDir, previous), { force: true }).catch(() => undefined);
   }
 
   async manifest(userId: string, id: string, ref: string, signal?: AbortSignal) {
