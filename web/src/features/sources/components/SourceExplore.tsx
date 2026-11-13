@@ -12,8 +12,10 @@ import { SourceBookDetailSheet } from './SourceBookDetailSheet.tsx';
 /** One step of the trail: the page a crumb leads back to. */
 interface Crumb { ref?: string; title: string }
 
-const coverUrl = (sourceId: string, entry: SourceEntry) => entry.coverRef
-  ? `/api/v1/sources/${encodeURIComponent(sourceId)}/cover?entryRef=${encodeURIComponent(entry.ref)}&coverRef=${encodeURIComponent(entry.coverRef)}` : null;
+const coverUrl = (sourceId: string, entry: SourceEntry) => entry.coverUrl
+  ?? (entry.coverRef
+    ? `/api/v1/sources/${encodeURIComponent(sourceId)}/cover?entryRef=${encodeURIComponent(entry.ref)}&coverRef=${encodeURIComponent(entry.coverRef)}`
+    : null);
 
 /**
  * 发现: walk what a source offers without a keyword.

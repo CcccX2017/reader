@@ -18,6 +18,8 @@ export interface SourceEntry {
 export interface SourcePage {
   limitReached?: boolean;
   items: SourceEntry[]; navigation?: Array<{ ref: string; title: string }>; nextCursor?: string; title?: string;
+  /** Known match count when the source reports one (local library). */
+  total?: number;
   errors?: Array<{ source: string; code: string; message: string }>;
   batch?: { completed: number; total: number };
 }

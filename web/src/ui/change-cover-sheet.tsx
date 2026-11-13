@@ -86,7 +86,7 @@ export function ChangeCoverSheet({ book, onClose, onChanged }: { book: CoverBook
     : !fromSource && !sources.length ? '还没有可以搜索封面的书源。请先在“书源”里添加并启用一个书源库。'
       : searching ? `正在书源中查找《${book.title}》的封面${progress ? ` · ${progress.completed} / ${progress.total}` : ''}`
         : entries.length ? `找到 ${entries.length} 个封面，点选一个使用` : '没有找到这本书的封面';
-  return <Sheet title="更换封面" subtitle={book.title} busy={!!saving} onClose={onClose}>
+  return <Sheet title="从书源选择封面" subtitle={book.title} busy={!!saving} onClose={onClose}>
     <div className="cover-picker">
       {!fromSource && (sources?.length ?? 0) > 1 && <label className="cover-picker-source">搜索封面的书源
         <Select aria-label="搜索封面的书源" value={sourceId} disabled={!!saving} onChange={(event) => setSourceId(event.currentTarget.value)}>{sources!.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</Select>

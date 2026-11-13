@@ -3,22 +3,23 @@ import type { ShelfService, BookDto } from '../services/shelf.ts';
 import { badRequest, notFound } from '../lib/errors.ts';
 import type { SourceProvider, CatalogEntry } from './types.ts';
 
-function entry(book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | 'format'>): CatalogEntry {
+function entry(book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | 'format' | 'coverUrl'>): CatalogEntry {
   return {
     ref: book.id, title: book.title, authors: book.author ? [book.author] : [],
     description: book.description,
+    ...(book.coverUrl ? { coverUrl: book.coverUrl } : {}),
     options: [{ id: 'read', label: '加入书架', available: true }], metadata: { format: book.format },
   };
 }
 
 export function createLocalProvider(db: Db, shelf: () => ShelfService): SourceProvider {
   const detail = async (_ctx: unknown, ref: string): Promise<CatalogEntry> => {
-    const row = db.get<BookDto>(
-      `SELECT id, title, author, description, format FROM books b
+    const row = db.get<{ id: string }>(
+      `SELECT b.id FROM books b
        WHERE b.id = ? AND EXISTS (SELECT 1 FROM book_files f WHERE f.book_id = b.id AND f.missing = 0)`, ref,
     );
     if (!row) throw notFound('local book not found', 'ENTRY_NOT_FOUND');
-    return entry(row);
+    return entry(shelf().bookById(ref));
   };
   function page(cursor?: string): number {
     if (cursor && !/^[1-9]\d{0,5}$/.test(cursor)) throw badRequest('invalid catalog cursor');
@@ -35,15 +36,19 @@ export function createLocalProvider(db: Db, shelf: () => ShelfService): SourcePr
       const result = shelf().list(ctx.userId, {
         scope: 'library', path: request.ref, page: page(request.cursor), pageSize: request.limit ?? 40,
       });
-      return { items: result.items.map(entry), ...(result.page * result.pageSize < result.total
-        ? { nextCursor: String(result.page + 1) } : {}) };
+      return {
+        items: result.items.map(entry), total: result.total,
+        ...(result.page * result.pageSize < result.total ? { nextCursor: String(result.page + 1) } : {}),
+      };
     },
     async search(ctx, request) {
       const result = shelf().list(ctx.userId, {
         scope: 'library', search: request.query, page: page(request.cursor), pageSize: request.limit ?? 40,
       });
-      return { items: result.items.map(entry), ...(result.page * result.pageSize < result.total
-        ? { nextCursor: String(result.page + 1) } : {}) };
+      return {
+        items: result.items.map(entry), total: result.total,
+        ...(result.page * result.pageSize < result.total ? { nextCursor: String(result.page + 1) } : {}),
+      };
     },
     detail,
     async acquire(ctx, request) {

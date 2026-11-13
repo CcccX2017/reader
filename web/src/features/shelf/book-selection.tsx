@@ -11,7 +11,6 @@ import { FloatingNotice } from '../../ui/floating-notice.tsx';
 import { notify } from '../../ui/notifications.ts';
 import { describeShelfAction, SHELF_ACTION_LABELS } from '../../ui/shelf-membership.ts';
 import { Icon } from '../../ui/toolkit.tsx';
-import { ChangeCoverSheet, type CoverBook } from '../../ui/change-cover-sheet.tsx';
 import { useBookMetadata } from './book-metadata.tsx';
 import { useCustomCover } from './custom-cover.tsx';
 
@@ -80,7 +79,6 @@ export function useBookCommands(finish: () => void) {
   const [error, setError] = useState('');
   const [removeTargets, setRemoveTargets] = useState<SelectableBook[] | null>(null);
   const [deleteTargets, setDeleteTargets] = useState<SelectableBook[] | null>(null);
-  const [coverBook, setCoverBook] = useState<CoverBook | null>(null);
   const covers = useCustomCover(setError);
   const metadata = useBookMetadata(setError);
 
@@ -135,7 +133,6 @@ export function useBookCommands(finish: () => void) {
     onShelf(book) && book.readingState && { label: '清除标记', onSelect: () => void mark([book], null) },
     ...metadata.menu(book),
     ...covers.menu(book),
-    { label: '更换封面', onSelect: () => setCoverBook(book) },
     book.shelfState === 'off'
       ? { label: SHELF_ACTION_LABELS.add, onSelect: () => void shelve([book], 'add') }
       : { label: SHELF_ACTION_LABELS.remove, danger: true, onSelect: () => setRemoveTargets([book]) },
@@ -151,8 +148,7 @@ export function useBookCommands(finish: () => void) {
       { label: '想读', icon: 'bookmark', disabled: !present.length, onSelect: () => void mark(present, 'want') },
       { label: '已读', icon: 'check', disabled: !present.length, onSelect: () => void mark(present, 'finished') },
       { label: '编辑信息', icon: 'edit', disabled: !one || metadata.busy, onSelect: () => { if (one) metadata.open(one); } },
-      { label: '设置封面', icon: 'upload', disabled: !one || covers.busy, onSelect: () => { if (one) covers.open(one.id); } },
-      { label: '更换封面', icon: 'versions', disabled: !one, onSelect: () => { if (one) setCoverBook(one); } },
+      { label: '设置封面', icon: 'upload', disabled: !one || covers.busy, onSelect: () => { if (one) covers.open(one); } },
       { label: '清除标记', icon: 'close', disabled: !present.length, onSelect: () => void mark(present, null) },
       { label: '恢复封面', icon: 'refresh', disabled: !one || !one.manualFields?.includes('cover') || covers.busy, onSelect: () => { if (one) void covers.clear(one.id); } },
       ...(absent.length ? [{ label: SHELF_ACTION_LABELS.add, icon: 'plus' as const, disabled: false, onSelect: () => void shelve(absent, 'add') }] : []),
@@ -166,7 +162,6 @@ export function useBookCommands(finish: () => void) {
     {covers.input}
     {covers.ui}
     {metadata.ui}
-    {coverBook && <ChangeCoverSheet book={coverBook} onClose={() => setCoverBook(null)} onChanged={() => { void invalidate(); finish(); }} />}
     {removeTargets && <DialogView dialog={{ kind: 'confirm', title: SHELF_ACTION_LABELS.remove, body: removeTargets.length === 1 ? `《${removeTargets[0]?.title || '未命名'}》会从你的书架上消失，书库里的文件不受影响，之后可以在书库重新加入。` : `这 ${removeTargets.length} 本会从你的书架上消失，书库里的文件不受影响，之后可以在书库重新加入。`, resolve: (_answer: boolean) => undefined } satisfies Dialog} destructive={SHELF_ACTION_LABELS.remove} onClose={answer => { const targets = removeTargets; setRemoveTargets(null); if (answer === true) void shelve(targets, 'remove'); }} />}
     {deleteTargets && <DialogView dialog={{ kind: 'confirm', title: '删除', body: deleteTargets.length === 1 ? `《${deleteTargets[0]?.title || '未命名'}》的文件会从书库删除，阅读进度、笔记和封面也不会保留，无法恢复。` : `这 ${deleteTargets.length} 本的文件会从书库删除，阅读进度、笔记和封面也不会保留，无法恢复。`, resolve: (_answer: boolean) => undefined } satisfies Dialog} destructive="删除" onClose={answer => { const targets = deleteTargets; setDeleteTargets(null); if (answer === true) void erase(targets); }} />}
   </>;

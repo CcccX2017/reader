@@ -109,6 +109,8 @@ export interface CatalogPage {
   readonly navigation?: readonly NavigationEntry[];
   readonly nextCursor?: string;
   readonly title?: string;
+  /** Known match count for this listing (e.g. local library); not required of plugins. */
+  readonly total?: number;
   readonly errors?: readonly CatalogError[];
   /** Finite source progress. Session cursors also drain buffered results and heartbeats. */
   readonly batch?: { readonly completed: number; readonly total: number };

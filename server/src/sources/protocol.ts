@@ -58,6 +58,9 @@ export function decodeCatalogPage(input: unknown): CatalogPage {
       string(error.message, 'catalog error message');
     }
   }
+  if (value.total !== undefined && (!Number.isSafeInteger(value.total) || (value.total as number) < 0)) {
+    invalid('invalid plugin catalog total');
+  }
   if (value.batch !== undefined) {
     const batch = object(value.batch, 'catalog batch');
     if (!Number.isSafeInteger(batch.completed) || !Number.isSafeInteger(batch.total)

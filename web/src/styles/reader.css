@@ -4290,9 +4290,62 @@ book-content {
   padding: 0 1rem 2rem;
   flex: 1;
 }
+/* 搜书: chrome stays put; only .source-results scrolls. */
+.sources-hub .sources-body-search {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+  min-height: 0;
+}
+.sources-hub .sources-body-search .source-picker {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.sources-hub .sources-body-search .source-picker .searchable-select {
+  display: flex;
+  width: 100%;
+  max-width: 32rem;
+}
+.sources-hub .sources-body-search .source-catalog {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+.sources-hub .sources-body-search .source-catalog > :not(.source-results) {
+  flex: none;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.sources-hub .sources-body-search .source-results {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-bottom: calc(1rem + var(--safe-bottom));
+  scrollbar-width: thin;
+}
+@media (pointer: coarse) {
+  .sources-hub .sources-body-search .source-results {
+    scrollbar-width: none;
+  }
+  .sources-hub .sources-body-search .source-results::-webkit-scrollbar {
+    display: none;
+  }
+}
 .sources-card {
   max-width: 64rem;
-  margin: 0 auto 1rem;
+  margin: 0 auto 0.5rem;
   padding: 1rem;
   border: 1px solid var(--reader-line);
   border-radius: var(--radius-lg);
@@ -4397,9 +4450,9 @@ book-content {
 .sources-search {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: flex-end;
   gap: 0.85rem;
-  margin: 1rem 0 1.5rem;
+  margin: 0.5rem 0 1rem;
 }
 .sources-search label {
   flex: 1 1 10rem;
@@ -4408,8 +4461,15 @@ book-content {
   font-size: var(--text-ui);
   color: var(--reader-muted);
 }
+/* Keyword + action stay on one row; filters above may still wrap. */
 .sources-search .source-keyword {
-  flex: 2 1 18rem;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.sources-search > .search-split,
+.sources-search > .search-stop {
+  flex: 0 0 auto;
+  align-self: flex-end;
 }
 /* The browser's own clear glyph. It otherwise fades out as soon as the field blurs. */
 .sources-search .source-keyword input:not(:placeholder-shown)::-webkit-search-cancel-button {
@@ -4439,16 +4499,19 @@ book-content {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem 1rem;
-  padding: 1rem;
-  border-radius: var(--radius-md);
+  gap: 0.35rem 0.75rem;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--reader-accent) 6%, var(--reader-paper));
-  font-size: var(--text-ui);
+  font-size: var(--text-label);
+  line-height: 1.4;
+  color: var(--reader-muted);
 }
 .search-progress progress {
-  width: 10rem;
+  width: 7rem;
   max-width: 100%;
-  height: 0.45rem;
+  height: 0.35rem;
   accent-color: var(--reader-accent);
 }
 .search-progress small {
@@ -4579,21 +4642,17 @@ book-content {
   padding-top: 1rem;
   border-top: 1px solid var(--reader-line);
 }
+.catalog-load-sentinel {
+  min-height: 1.5rem;
+  padding: 0.75rem 0 0.25rem;
+  text-align: center;
+}
 @media (max-width: 640px) {
   .catalog-errors li {
     grid-template-columns: minmax(0, 1fr);
   }
-  .sources-search .source-keyword {
-    flex-basis: 100%;
-  }
-  .sources-search > button {
-    width: 100%;
-  }
-  .sources-search > .search-split {
-    width: 100%;
-  }
-  .search-split > .primary:first-child {
-    flex: 1;
+  .sources-search .searchable-select {
+    flex: 1 1 100%;
   }
 }
 .source-description {
@@ -4601,6 +4660,10 @@ book-content {
   overflow: auto;
   font-size: var(--text-ui);
   white-space: pre-wrap;
+  scrollbar-width: none;
+}
+.source-description::-webkit-scrollbar {
+  display: none;
 }
 .catalog-book { padding:1.4rem 0; align-items:flex-start; }
 /* 发现: a trail of where you are, the levels below as chips, then books. */
@@ -4649,6 +4712,7 @@ book-content {
 .catalog-book .source-description { line-height:1.75; color:var(--reader-muted); margin:.7rem 0 0; }
 .catalog-book .sources-actions { padding-top:.2rem; }
 .catalog-pagination { display:flex; justify-content:flex-end; gap:.6rem; padding-top:1rem; border-top:1px solid var(--reader-line); }
+.catalog-load-sentinel { min-height:1.5rem; padding:.75rem 0 .25rem; text-align:center; }
 
 /* Mobile reading: the surface and its information strip never resize with chrome. */
 svg.icon {
@@ -5211,8 +5275,13 @@ svg.icon {
 .sources-hub .sources-tabs [role='tab'] {
   font-size: var(--text-ui);
 }
-.source-picker label {
+.source-picker label,
+.source-picker .searchable-select {
   max-width: 32rem;
+}
+.source-picker .searchable-select {
+  display: flex;
+  width: 100%;
 }
 .sources-search .searchable-select {
   flex: 1 1 12rem;

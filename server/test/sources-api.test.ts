@@ -294,6 +294,37 @@ test('local source acquisition restores the existing publication to the requesti
   assert.match(content.body, /既有内容和身份/);
 });
 
+test('local source search and browse return the library cover URL', async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await writeFile(join(h.booksDir, '有封面.txt'), '第一章\n\n本地书库搜书要带上封面。');
+  await h.ctx.scanner.scan();
+  const book = h.ctx.db.get<{ id: string }>('SELECT id FROM books WHERE title = ?', '有封面')!;
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const boundary = '----reader-cover';
+  const uploaded = await h.app.inject({
+    method: 'POST', url: `/api/v1/books/${book.id}/cover`,
+    headers: { ...auth(h.admin), 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload: Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="cover.png"\r\nContent-Type: image/png\r\n\r\n`),
+      png,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(uploaded.statusCode, 200, uploaded.body);
+  const coverUrl = uploaded.json().book.coverUrl as string;
+  assert.ok(coverUrl?.startsWith(`/api/v1/books/${book.id}/cover?v=`));
+
+  const browse = await h.app.inject({ method: 'GET', url: '/api/v1/sources/local/browse', headers: auth(h.admin) });
+  assert.equal(browse.statusCode, 200, browse.body);
+  assert.equal(browse.json().total, 1);
+  const listed = browse.json().items.find((item: { title: string }) => item.title === '有封面');
+  assert.equal(listed?.coverUrl, coverUrl);
+
+  const search = await h.app.inject({ method: 'POST', url: '/api/v1/sources/local/search', headers: auth(h.admin), payload: { query: '有封面', sessionId: 'local-cover-session' } });
+  assert.equal(search.statusCode, 200, search.body);
+  assert.match(search.body, new RegExp(coverUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+});
+
 test('OPDS acquisition feeds existing reading, shelf and progress APIs and survives source disable and restart', async (t) => {
   const h = await harness(); t.after(() => h.close());
   const catalog = await opdsFixture(); t.after(() => catalog.close());

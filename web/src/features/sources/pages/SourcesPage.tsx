@@ -19,11 +19,17 @@ import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { mergePages } from './SourceCatalogPage.tsx';
 import { SearchableSelect } from '../../../ui/searchable-select.tsx';
 import { groupSourceResults } from '../../../ui/source-results.ts';
-import { CatalogFeedback } from '../../../ui/catalog-feedback.tsx';
 import { PluginManager } from '../components/PluginManager.tsx';
+import { useMediaQuery } from '../../../shared/ui/use-media-query.ts';
 
-const sourceCoverUrl = (sourceId: string, entry: SourceEntry) => entry.coverRef
-  ? `/api/v1/sources/${encodeURIComponent(sourceId)}/cover?entryRef=${encodeURIComponent(entry.ref)}&coverRef=${encodeURIComponent(entry.coverRef)}` : null;
+/** Local books already have a library cover URL; chapter sources expose a coverRef. */
+const sourceCoverUrl = (sourceId: string, entry: SourceEntry) => entry.coverUrl
+  ?? (entry.coverRef
+    ? `/api/v1/sources/${encodeURIComponent(sourceId)}/cover?entryRef=${encodeURIComponent(entry.ref)}&coverRef=${encodeURIComponent(entry.coverRef)}`
+    : null);
+
+/** One screenful of search hits; further pages come from 加载更多 / scroll. */
+const SEARCH_PAGE_SIZE = 10;
 
 type SourceTab = 'search' | 'explore' | 'sources' | 'updates' | 'plugins';
 const SOURCE_TABS: SourceTab[] = ['search', 'explore', 'sources', 'updates', 'plugins'];
@@ -53,6 +59,7 @@ export function SourcesPage() {
   const [catalogFilters, setCatalogFilters] = useState<Record<string, string>>({});
   const [detail, setDetail] = useState<SourceEntry | null>(null);
   const [searchState, setSearchState] = useState<SearchState>('idle');
+  const [visibleCount, setVisibleCount] = useState(SEARCH_PAGE_SIZE);
   const [resultGroupKey, setResultGroupKey] = useState<string | null>(null);
   const [resultGroupQuery, setResultGroupQuery] = useState('');
   const [sourceNameQuery, setSourceNameQuery] = useState('');
@@ -61,6 +68,9 @@ export function SourcesPage() {
   const searchRequest = useRef<{ query: string; filters: Record<string, string> } | null>(null);
   const searchRun = useRef<AbortController | null>(null);
   const catalogEpoch = useRef(0);
+  const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
+  const resultsScroll = useRef<HTMLDivElement | null>(null);
+  const phone = useMediaQuery('(max-width: 700px)');
   const sources = useQuery({ queryKey: ['sources', runtime.api.baseUrl], queryFn: () => runtime.api.sources() });
   const types = useQuery({ queryKey: ['source-types', runtime.api.baseUrl], queryFn: () => runtime.api.sourceTypes(), staleTime: 300_000 });
   const subscriptions = useQuery({ queryKey: ['subscriptions', runtime.api.baseUrl], queryFn: () => runtime.api.subscriptions(), enabled: tab === 'updates' });
@@ -71,13 +81,32 @@ export function SourcesPage() {
   const sourceFilters = useQuery({ queryKey: ['source-filters', runtime.api.baseUrl, selectedSourceId], queryFn: () => runtime.api.sourceFilters(selectedSourceId), enabled: !!selectedSourceId && !!selectedSource?.descriptor?.capabilities.includes('search.filters') });
   const detailQuery = useQuery({ queryKey: ['source-detail', runtime.api.baseUrl, selectedSourceId, detail?.ref], queryFn: () => runtime.api.sourceDetail(selectedSourceId, detail!.ref), enabled: !!detail });
   const acquire = useMutation({ mutationFn: ({ ref, option }: { ref: string; option?: string }) => runtime.api.acquireSource(selectedSourceId, ref, option), onError: reason => notify(reason instanceof Error ? reason.message : '加入书架失败', { kind: 'error' }) });
-  const grouped = searchState !== 'idle' && !(selectedSource?.descriptor?.builtin && selectedSource.sourceType === 'local');
+  const isLocalLibrary = !!selectedSource && (selectedSource.pluginId === 'reader.local' || (selectedSource.descriptor?.builtin === true && selectedSource.sourceType === 'local'));
+  const canBrowseLocal = isLocalLibrary && !!selectedSource?.descriptor?.capabilities.includes('browse');
+  const browsingLocal = canBrowseLocal && searchState === 'idle' && !searchRequest.current;
+  const grouped = searchState !== 'idle' && !isLocalLibrary;
   const results = groupSourceResults(catalogPage?.items ?? [], grouped);
+  const filteredResults = results.filter(group => {
+    const q = resultGroupQuery.trim().toLocaleLowerCase();
+    return !q || group.entry.title.toLocaleLowerCase().includes(q) || group.entry.authors?.some(author => author.toLocaleLowerCase().includes(q));
+  });
+  const shownResults = filteredResults.slice(0, visibleCount);
+  const resultTotal = catalogPage?.total;
+  const resultCountLabel = resultTotal != null
+    ? (shownResults.length < resultTotal || catalogPage?.nextCursor ? ` / ${resultTotal}` : '')
+    : (filteredResults.length > shownResults.length || catalogPage?.nextCursor
+      ? ` / ${filteredResults.length}${catalogPage?.nextCursor ? '+' : ''}`
+      : '');
   const activeGroup = results.find(group => group.key === resultGroupKey);
   const canResume = !!searchSession.current && !!searchRequest.current && searchState !== 'limited'
     && !!(catalogPage?.nextCursor || searchState === 'stopped' || searchState === 'error')
     && keyword.trim() === searchRequest.current.query && JSON.stringify(catalogFilters) === JSON.stringify(searchRequest.current.filters);
   const resume = canResume && (searchState === 'stopped' || searchState === 'error');
+  const canRevealMore = visibleCount < filteredResults.length;
+  const canFetchMore = browsingLocal
+    ? !!catalogPage?.nextCursor
+    : !!catalogPage?.nextCursor && canResume && (searchState === 'complete' || searchState === 'stopped' || searchState === 'error');
+  const hasMoreResults = canRevealMore || canFetchMore;
   const filterOptions = (field: ExtensionField) => {
     const parent = catalogFilters[field.changeAction ?? field.dependsOn ?? ''];
     return (field.options ?? []).filter(option => !parent || !option.parentValues || option.parentValues.includes(parent));
@@ -85,7 +114,42 @@ export function SourcesPage() {
   useEffect(() => { if (!sourceId && selectedSourceId) setSourceId(selectedSourceId); }, [selectedSourceId, sourceId]);
   const sourceTypeLabel = (id: string) => types.data?.find(item => item.id === id)?.label ?? id;
   const stopSearch = () => { searchRun.current?.abort(); searchRun.current = null; setCatalogBusy(false); setSearchState('stopped'); };
-  // Clearing the search box drops the current results. Browse lives on 发现 now.
+  const loadLocalCatalog = async (append = false) => {
+    if (!selectedSource || !canBrowseLocal || catalogBusy) return;
+    if (append && !catalogPage?.nextCursor) return;
+    const run = ++catalogEpoch.current;
+    setCatalogBusy(true); setCatalogError('');
+    try {
+      const next = await runtime.api.sourceCatalog(selectedSource.id, {
+        ...(append && catalogPage?.nextCursor ? { cursor: catalogPage.nextCursor } : {}),
+        limit: SEARCH_PAGE_SIZE,
+      });
+      if (catalogEpoch.current !== run) return;
+      if (append && catalogPage) {
+        const seen = new Set(catalogPage.items.map(entry => entry.ref));
+        const cursor = next.items.length ? next.nextCursor : undefined;
+        const { nextCursor: _previous, ...rest } = catalogPage;
+        setCatalogPage({
+          ...rest, total: next.total ?? catalogPage.total,
+          items: [...catalogPage.items, ...next.items.filter(entry => !seen.has(entry.ref))],
+          ...(cursor ? { nextCursor: cursor } : {}),
+        });
+        setVisibleCount(count => count + SEARCH_PAGE_SIZE);
+      } else {
+        setCatalogPage(next);
+        setVisibleCount(SEARCH_PAGE_SIZE);
+      }
+      setSearchState('idle');
+    } catch (reason) {
+      if (catalogEpoch.current === run) {
+        setCatalogError(reason instanceof Error ? reason.message : '加载书库失败，请重试');
+        setCatalogPage({ items: [] });
+      }
+    } finally {
+      if (catalogEpoch.current === run) setCatalogBusy(false);
+    }
+  };
+  // Clearing the search box returns to the local library listing (or an empty search pane).
   const clearSearch = () => {
     const run = searchRun.current;
     searchRun.current = null;
@@ -101,6 +165,7 @@ export function SourcesPage() {
     setCatalogPage(undefined);
     setCatalogBusy(false);
     setSearchState('idle');
+    setVisibleCount(SEARCH_PAGE_SIZE);
   };
   const searchSources = async (append = false) => {
     const request = append ? searchRequest.current : { query: keyword.trim(), filters: { ...catalogFilters } };
@@ -108,11 +173,18 @@ export function SourcesPage() {
     const run = new AbortController(); searchRun.current = run; ++catalogEpoch.current;
     const current = () => searchRun.current === run;
     setCatalogBusy(true); setCatalogError(''); setSearchState('searching');
-    if (!append) { setCatalogPage(undefined); searchSession.current = crypto.randomUUID(); setAcquired(null); setResultGroupKey(null); }
+    if (!append) {
+      setCatalogPage(undefined); searchSession.current = crypto.randomUUID();
+      setAcquired(null); setResultGroupKey(null); setVisibleCount(SEARCH_PAGE_SIZE);
+    }
     searchRequest.current = request;
     try {
       let merged: SourcePage | undefined = append ? catalogPage : undefined;
-      for await (const page of runtime.api.searchSource(selectedSource.id, { ...request, sessionId: searchSession.current!, ...(append && catalogPage?.nextCursor ? { cursor: catalogPage.nextCursor } : {}), resultLimit: 10000 }, { signal: run.signal })) {
+      for await (const page of runtime.api.searchSource(selectedSource.id, {
+        ...request, sessionId: searchSession.current!,
+        ...(append && catalogPage?.nextCursor ? { cursor: catalogPage.nextCursor } : {}),
+        limit: SEARCH_PAGE_SIZE, resultLimit: 10000,
+      }, { signal: run.signal })) {
         if (!current()) return;
         merged = mergePages(merged, page); setCatalogPage(merged);
         if (page.limitReached) { setSearchState('limited'); break; }
@@ -121,6 +193,14 @@ export function SourcesPage() {
     } catch (reason) { if (current()) { setCatalogError(reason instanceof Error ? reason.message : '搜索失败，已保留找到的书籍。'); setSearchState('error'); } }
     finally { if (current()) { searchRun.current = null; setCatalogBusy(false); } }
   };
+  const loadMoreResults = () => {
+    if (canRevealMore) { setVisibleCount(count => count + SEARCH_PAGE_SIZE); return; }
+    if (browsingLocal && catalogPage?.nextCursor && !catalogBusy) { void loadLocalCatalog(true); return; }
+    if (!canFetchMore || catalogBusy) return;
+    void searchSources(true);
+  };
+  const loadMoreResultsRef = useRef(loadMoreResults);
+  loadMoreResultsRef.current = loadMoreResults;
   const acquireEntry = (entry: SourceEntry, option?: string) => acquire.mutate(option === undefined ? { ref: entry.ref } : { ref: entry.ref, option }, { onSuccess: result => { if (result.kind === 'action-required') notify(result.action?.label ?? '请先完成授权', { kind: 'error' }); else if (result.publicationId) { setAcquired({ id: result.publicationId, ref: entry.ref, title: entry.title }); notify(`已加入书架：《${entry.title}》`, { kind: 'success' }); void queryClient.invalidateQueries({ queryKey: ['shelf'] }); } } });
   const mutateSubscription = async (id: string, enabled?: boolean) => { setBusy(id); try { if (enabled === undefined) await runtime.api.refreshPublication(id); else await runtime.api.configureSubscription(id, { enabled }); await queryClient.invalidateQueries({ queryKey: ['subscriptions'] }); } catch (reason) { notify(reason instanceof Error ? reason.message : '操作失败，请重试', { kind: 'error' }); } finally { setBusy(null); } };
   const updateSource = async (id: string, patch: { enabled?: boolean; isDefault?: boolean }) => { setBusy(id); try { await runtime.api.saveSource(id, patch); await sources.refetch(); } catch (reason) { notify(reason instanceof Error ? reason.message : '保存书源失败，请重试', { kind: 'error' }); } finally { setBusy(null); } };
@@ -128,9 +208,29 @@ export function SourcesPage() {
     ++catalogEpoch.current; searchRun.current?.abort(); searchRun.current = null;
     setCatalogBusy(false); setCatalogPage(undefined); setCatalogError(''); setCatalogFilters({}); setDetail(null); searchSession.current = null;
     setSearchState('idle'); setKeyword(''); setResultGroupKey(null); setResultGroupQuery(''); setSourceNameQuery(''); searchRequest.current = null;
+    setVisibleCount(SEARCH_PAGE_SIZE); setAcquired(null);
     return () => { ++catalogEpoch.current; searchRun.current?.abort(); searchRun.current = null; };
   }, [selectedSourceId]);
+  // Local library is not on 发现 — entering 搜书 loads its first page immediately.
+  useEffect(() => {
+    if (tab !== 'search' || !canBrowseLocal || !selectedSource) return;
+    if (searchState !== 'idle' || keyword.trim() || searchRequest.current) return;
+    if (catalogPage || catalogBusy) return;
+    void loadLocalCatalog(false);
+  }, [tab, selectedSourceId, canBrowseLocal, searchState, keyword, catalogPage, catalogBusy, selectedSource]);
   useEffect(() => { if (detail && detailQuery.data) setDetail({ ...detail, ...detailQuery.data }); }, [detailQuery.data]);
+  // Phones keep scrolling the list; a pointer gets an explicit 加载更多.
+  useEffect(() => {
+    if (!phone || !hasMoreResults) return;
+    if (!canRevealMore && (catalogBusy || searchState === 'searching')) return;
+    const node = loadMoreSentinel.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) loadMoreResultsRef.current();
+    }, { root: resultsScroll.current, rootMargin: '240px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [phone, hasMoreResults, canRevealMore, catalogBusy, searchState, visibleCount, filteredResults.length, catalogPage?.nextCursor]);
   // 发现 appears once a source can be browsed; it is a place of its own, not a mode of 搜书.
   const exploreSources = enabledSources.filter(source => source.descriptor?.capabilities.includes('browse') && source.pluginId !== 'reader.local');
   const tabList = ([['search', '搜书'], ...(exploreSources.length || tab === 'explore' ? [['explore', '发现']] : []), ['sources', '书源管理'], ['updates', '自动追更'], ...(admin ? [['plugins', '插件管理']] : [])] as Array<[SourceTab, string]>);
@@ -148,7 +248,7 @@ export function SourcesPage() {
         document.getElementById(`sources-tab-${next}`)?.focus();
       }}>{label}{id === 'updates' && (subscriptions.data ?? []).some(item => item.newChapters > 0) && <span className="sources-tab-dot" aria-label="有更新" />}</button>)}
     </nav>
-    <main className="sources-body" role="tabpanel" id="sources-panel" aria-labelledby={`sources-tab-${tab}`}>
+    <main className={'sources-body' + (tab === 'search' ? ' sources-body-search' : '')} role="tabpanel" id="sources-panel" aria-labelledby={`sources-tab-${tab}`}>
       {tab === 'search' && <>
         <section className="sources-card source-picker">
           {/* The tab already says 搜书; with no source there is nothing to pick, so no disabled picker either. */}
@@ -161,19 +261,21 @@ export function SourcesPage() {
           {catalogError && <Callout tone="error" onDismiss={() => setCatalogError('')}>{catalogError}</Callout>}
           {selectedSource.descriptor?.capabilities.includes('search') && <form className="sources-search" onSubmit={event => { event.preventDefault(); void searchSources(resume); }}>
             {sourceFilters.data?.filter(field => field.type === 'select').map(field => <SearchableSelect key={field.key} label={field.label} value={catalogFilters[field.key] ?? ''} disabled={catalogBusy} options={filterOptions(field)} onChange={value => setCatalogFilters(previous => { const next = { ...previous, [field.key]: value }; for (const dependent of sourceFilters.data ?? []) { if ((dependent.changeAction ?? dependent.dependsOn) === field.key && !dependent.options?.some(option => option.value === next[dependent.key] && (!option.parentValues || !value || option.parentValues.includes(value)))) next[dependent.key] = ''; } return next; })} />)}
-            <label className="source-keyword">搜索书籍<input type="search" placeholder="输入书名或作者" required disabled={catalogBusy} value={keyword} onChange={event => { const value = event.currentTarget.value; setKeyword(value); if (!value.trim() && searchState !== 'idle') clearSearch(); }} /></label>
+            <label className="source-keyword"><input type="search" aria-label="搜索书籍" placeholder="输入书名或作者" required disabled={catalogBusy} value={keyword} onChange={event => { const value = event.currentTarget.value; setKeyword(value); if (!value.trim() && searchState !== 'idle') clearSearch(); }} /></label>
             {searchState === 'searching' ? <button className="button search-stop" type="button" onClick={stopSearch}>停止搜索</button> : <div className="search-split"><button className="button primary" type="submit" disabled={catalogBusy}><Icon name="search" size={16} />{resume ? '继续搜索' : '搜索'}</button>{searchRequest.current && <ActionMenu className="button primary search-menu-toggle" label="搜索选项" items={[
                 { label: '继续搜索', description: '保留结果，继续未完成的来源', disabled: !canResume, onSelect: () => void searchSources(true) },
                 { label: '重新搜索', description: '清空结果，从头搜索', onSelect: () => void searchSources(false) },
               ]} />}</div>}
           </form>}
-          {searchState !== 'idle' && <div className="search-progress" role="status"><span>{({ searching: '正在搜索', stopped: '已停止搜索', complete: '搜索完成', error: '搜索中断', limited: '已达到结果上限' })[searchState]}{catalogPage?.batch ? ` · 已检查 ${catalogPage.batch.completed} / ${catalogPage.batch.total} 个来源` : ''} · 已找到 {results.length} 本书</span>{catalogPage?.batch && <progress aria-label="书源搜索进度" max={Math.max(1, catalogPage.batch.total)} value={catalogPage.batch.completed} />}</div>}
+          {searchState !== 'idle' && <div className="search-progress" role="status"><span>{({ searching: '正在搜索', stopped: '已停止搜索', complete: '搜索完成', error: '搜索中断', limited: '已达到结果上限' })[searchState]}{catalogPage?.batch ? ` · 已检查 ${catalogPage.batch.completed} / ${catalogPage.batch.total} 个来源` : ''} · 已显示 {shownResults.length}{resultCountLabel} 本书</span>{catalogPage?.batch && <progress aria-label="书源搜索进度" max={Math.max(1, catalogPage.batch.total)} value={catalogPage.batch.completed} />}</div>}
+          {browsingLocal && catalogPage && searchState === 'idle' && <div className="search-progress" role="status"><span>已显示 {shownResults.length}{resultCountLabel} 本</span></div>}
           {catalogPage && grouped && <label className="catalog-group-filter">筛选分组<input type="search" placeholder="搜索书名或作者" value={resultGroupQuery} onChange={event => setResultGroupQuery(event.currentTarget.value)} /></label>}
-          {catalogPage && <CatalogFeedback page={catalogPage} count={results.length} merged={searchState !== 'idle'} searching={searchState === 'searching'} />}
           {catalogBusy && !catalogPage && <FloatingNotice message="正在加载目录…" busy />}
-          {catalogPage && <div className="source-results">{results.filter(group => { const q = resultGroupQuery.trim().toLocaleLowerCase(); return !q || group.entry.title.toLocaleLowerCase().includes(q) || group.entry.authors?.some(author => author.toLocaleLowerCase().includes(q)); }).map(group => <article className="sources-row catalog-book" key={group.key}><div className="catalog-book-main"><LazyCover url={sourceCoverUrl(selectedSourceId, group.entries.find(entry => entry.coverRef) ?? group.entry)} title={group.entry.title} /><div><strong>{group.entry.title}</strong><small>{group.entry.authors?.join(' / ') || '作者未知'}</small>{!grouped && group.entry.description && <p className="source-description">{group.entry.description}</p>}</div></div>{grouped ? <button className="button catalog-source-count" type="button" onClick={() => setResultGroupKey(group.key)}><span>{group.entries.length} 条书源</span><Icon name="chevron-right" size={16} /></button> : <div className="sources-actions"><button className="button" type="button" onClick={() => setDetail(group.entry)}>详情</button>{(group.entry.options?.length ? group.entry.options : [{ id: '', label: '加入书架' }]).map(option => <button className="button primary" type="button" key={option.id} disabled={option.available === false || acquire.isPending} onClick={() => acquireEntry(group.entry, option.id)}>{option.label}</button>)}</div>}</article>)}</div>}
-          {catalogPage && !catalogBusy && !catalogPage.items.length && <div className="catalog-empty"><strong>没有找到匹配书籍</strong><p>试试其他关键词，或调整搜索范围。</p></div>}
-          {searchState === 'complete' && catalogPage?.nextCursor && <div className="catalog-pagination"><button className="button" type="button" disabled={!canResume} onClick={() => void searchSources(true)}>加载更多结果</button></div>}
+          {catalogPage && !!catalogPage.items.length && <div ref={resultsScroll} className="source-results">{shownResults.map(group => <article className="sources-row catalog-book" key={group.key}><div className="catalog-book-main"><LazyCover url={sourceCoverUrl(selectedSourceId, group.entries.find(entry => entry.coverRef || entry.coverUrl) ?? group.entry)} title={group.entry.title} /><div><strong>{group.entry.title}</strong><small>{group.entry.authors?.join(' / ') || '作者未知'}</small>{!grouped && group.entry.description && <p className="source-description">{group.entry.description}</p>}</div></div>{grouped ? <button className="button catalog-source-count" type="button" onClick={() => setResultGroupKey(group.key)}><span>{group.entries.length} 条书源</span><Icon name="chevron-right" size={16} /></button> : <div className="sources-actions"><button className="button" type="button" onClick={() => setDetail(group.entry)}>详情</button>{(group.entry.options?.length ? group.entry.options : [{ id: '', label: '加入书架' }]).map(option => <button className="button primary" type="button" key={option.id} disabled={option.available === false || acquire.isPending} onClick={() => acquireEntry(group.entry, option.id)}>{option.label}</button>)}</div>}</article>)}
+            {hasMoreResults && !phone && <div className="catalog-pagination"><button className="button" type="button" disabled={!canRevealMore && catalogBusy} onClick={loadMoreResults}>{!canRevealMore && catalogBusy ? '正在加载…' : '加载更多'}</button></div>}
+            {hasMoreResults && phone && <div ref={loadMoreSentinel} className="catalog-load-sentinel" aria-hidden="true">{!canRevealMore && catalogBusy ? <p className="muted" role="status">正在加载…</p> : null}</div>}
+          </div>}
+          {catalogPage && !catalogBusy && !catalogPage.items.length && <div className="catalog-empty"><strong>{browsingLocal ? '书库里还没有书' : '没有找到匹配书籍'}</strong><p>{browsingLocal ? '把书籍放进书库目录并扫描后，就会出现在这里。' : '试试其他关键词，或调整搜索范围。'}</p></div>}
           {acquired && <button className="button" type="button" onClick={() => navigate(`/book/${encodeURIComponent(acquired.id)}`)}>阅读《{acquired.title}》</button>}
         </section>}
       </>}

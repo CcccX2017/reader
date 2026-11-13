@@ -360,13 +360,14 @@ export class ReaderApi {
   }
   async enablePlugin(id: string, enabled: boolean): Promise<void> { await this.call(`/api/v1/plugins/${encodeURIComponent(id)}`, 'PATCH', { enabled }); }
   async uninstallPlugin(id: string): Promise<void> { await this.call(`/api/v1/plugins/${encodeURIComponent(id)}`, 'DELETE'); }
-  async sourceCatalog(id: string, query: { ref?: string; cursor?: string } = {}, options: RequestOptions = {}): Promise<SourcePage> {
+  async sourceCatalog(id: string, query: { ref?: string; cursor?: string; limit?: number } = {}, options: RequestOptions = {}): Promise<SourcePage> {
     const params = new URLSearchParams();
     if (query.ref) params.set('ref', query.ref);
     if (query.cursor) params.set('cursor', query.cursor);
+    if (query.limit) params.set('limit', String(query.limit));
     return this.get(`/api/v1/sources/${encodeURIComponent(id)}/browse?${params}`, options);
   }
-  async *searchSource(id: string, query: { query: string; sessionId: string; cursor?: string; filters?: Record<string, string>; resultLimit?: number }, options: RequestOptions = {}): AsyncGenerator<SourcePage> {
+  async *searchSource(id: string, query: { query: string; sessionId: string; cursor?: string; filters?: Record<string, string>; limit?: number; resultLimit?: number }, options: RequestOptions = {}): AsyncGenerator<SourcePage> {
     yield* this.catalogStream('/api/v1/sources/' + encodeURIComponent(id) + '/search', query, options);
   }
   private async *catalogStream(path: string, query: unknown, options: RequestOptions): AsyncGenerator<SourcePage> {
