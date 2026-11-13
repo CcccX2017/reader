@@ -128,9 +128,11 @@ export function SourcesPage() {
       if (append && catalogPage) {
         const seen = new Set(catalogPage.items.map(entry => entry.ref));
         const cursor = next.items.length ? next.nextCursor : undefined;
+        const total = next.total ?? catalogPage.total;
         const { nextCursor: _previous, ...rest } = catalogPage;
         setCatalogPage({
-          ...rest, total: next.total ?? catalogPage.total,
+          ...rest,
+          ...(total != null ? { total } : {}),
           items: [...catalogPage.items, ...next.items.filter(entry => !seen.has(entry.ref))],
           ...(cursor ? { nextCursor: cursor } : {}),
         });
