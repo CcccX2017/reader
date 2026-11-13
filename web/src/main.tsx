@@ -16,6 +16,11 @@ import { offerReload, registerPwa, requestServiceWorkerUpdate } from './core/pwa
 import { releaseResponse, subscribeReleases } from './core/release-events.ts';
 import { dismissAppStartup } from './app/startup.ts';
 import { applySafariVersion } from './shared/safari-version.ts';
+import { paintStoredTheme } from './shared/theme/theme.ts';
+
+// The head script paints the saved theme before the first frame. Repeat it here so
+// a reload still corrects the top bar when that script did not run.
+if (typeof document !== 'undefined') paintStoredTheme();
 
 /**
  * Entry point.

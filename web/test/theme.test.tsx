@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render } from '../src/shared/ui/render-root.ts';
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import {
-  ThemeController, defaultThemePreference, loginThemeScope, migrateLegacyTheme, readThemePreference, resolveAppTheme,
+  ThemeController, defaultThemePreference, loginThemeScope, migrateLegacyTheme, paintStoredTheme, readThemePreference, resolveAppTheme, themes,
   resolveReaderSurface, resolveReadingTheme, saveThemePreference, themeSummary,
 } from '../src/shared/theme/theme.ts';
 import { MediaThemeSettings } from '../src/features/media/components/theme-settings.tsx';
@@ -18,6 +20,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
   delete document.documentElement.dataset.theme;
   delete document.documentElement.dataset.mode;
+  document.documentElement.style.backgroundColor = '';
+  document.documentElement.style.removeProperty('--boot-bg');
+  document.querySelector('meta[name="theme-color"]')?.remove();
 });
 
 /** A controllable prefers-color-scheme. */
@@ -93,14 +98,18 @@ describe('reading paper', () => {
 
 describe('ThemeController', () => {
   it('writes data-theme and data-mode on <html>, follows the system, and cleans up', () => {
+    document.head.insertAdjacentHTML('beforeend', '<meta name="theme-color" content="#fdf9f6">');
     const system = stubSystem(false);
     const changed = vi.fn();
     const controller = new ThemeController('a', changed);
     expect([document.documentElement.dataset.theme, document.documentElement.dataset.mode]).toEqual(['warm', 'light']);
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(themes.warm.light.bg);
     system.set(true);
     expect(document.documentElement.dataset.mode).toBe('dark');
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(themes.warm.dark.bg);
     saveThemePreference('a', { system: { light: 'warm', dark: 'green' } });
     expect(document.documentElement.dataset.theme).toBe('green');
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(themes.green.dark.bg);
     // Another account's choice is not this page's.
     saveThemePreference('b', { theme: 'blue', mode: 'light' });
     expect(document.documentElement.dataset.theme).toBe('green');
@@ -110,6 +119,8 @@ describe('ThemeController', () => {
     expect(changed).not.toHaveBeenCalled();
     expect(document.documentElement.dataset.theme).toBeUndefined();
     expect(document.documentElement.dataset.mode).toBeUndefined();
+    expect(document.documentElement.style.backgroundColor).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--boot-bg')).toBe('');
   });
 
   it('points the login page at the account theme for this server', () => {
@@ -132,6 +143,86 @@ describe('ThemeController', () => {
     window.dispatchEvent(new StorageEvent('storage', { key: 'reader.theme.v2:a' }));
     expect(controller.current).toEqual({ theme: 'blue', mode: 'dark' });
     controller.dispose();
+  });
+});
+
+describe('stored theme before first paint', () => {
+  const script = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8').match(/<script id="theme-boot">([\s\S]*?)<\/script>/)?.[1];
+  const runBoot = () => { new Function(script ?? '')(); };
+  const snapshot = () => ({
+    theme: document.documentElement.dataset.theme ?? '',
+    mode: document.documentElement.dataset.mode ?? '',
+    boot: document.documentElement.style.getPropertyValue('--boot-bg'),
+    background: document.documentElement.style.backgroundColor,
+    color: document.querySelector('meta[name="theme-color"]')?.getAttribute('content') ?? '',
+  });
+  const reset = () => {
+    delete document.documentElement.dataset.theme;
+    delete document.documentElement.dataset.mode;
+    document.documentElement.style.backgroundColor = '';
+    document.documentElement.style.removeProperty('--boot-bg');
+    document.querySelectorAll('meta[name="theme-color"]').forEach(node => node.remove());
+    document.head.insertAdjacentHTML('beforeend', '<meta name="theme-color" content="#fdf9f6">');
+  };
+  // The page script and paintStoredTheme are two copies of one lookup. A reload uses the
+  // script, because the module runs too late to move the browser's top bar.
+  function samePaint(prepare: () => void) {
+    reset();
+    prepare();
+    runBoot();
+    const early = snapshot();
+    reset();
+    paintStoredTheme();
+    expect(snapshot()).toEqual(early);
+    return early;
+  }
+
+  it('keeps the boot colours in step with the theme palettes', () => {
+    for (const id of ['warm', 'blue', 'green'] as const) {
+      expect(script).toContain(themes[id].light.bg);
+      expect(script).toContain(themes[id].dark.bg);
+    }
+  });
+
+  it('paints the saved theme before the page, including the top bar', () => {
+    const scope = JSON.stringify(['https://reader.test', 'u1']);
+    const painted = samePaint(() => {
+      stubSystem(false);
+      saveThemePreference(scope, { theme: 'blue', mode: 'light' });
+      localStorage.setItem('reader.theme.last-scope', scope);
+    });
+    expect(painted).toMatchObject({ theme: 'blue', mode: 'light', boot: themes.blue.light.bg, color: themes.blue.light.bg });
+  });
+
+  it('follows the system with the dark theme when the device is dark', () => {
+    const scope = JSON.stringify(['https://reader.test', 'u1']);
+    const painted = samePaint(() => {
+      stubSystem(true);
+      saveThemePreference(scope, { mode: 'system', system: { light: 'warm', dark: 'green' } });
+      localStorage.setItem('reader.theme.last-scope', scope);
+    });
+    expect(painted).toMatchObject({ theme: 'green', mode: 'dark', color: themes.green.dark.bg });
+  });
+
+  it('uses the only saved theme, and leaves a first visit on the default', () => {
+    const only = samePaint(() => {
+      stubSystem(false);
+      saveThemePreference('only', { theme: 'blue', mode: 'dark' });
+    });
+    expect(only).toMatchObject({ theme: 'blue', mode: 'dark', color: themes.blue.dark.bg });
+    localStorage.clear();
+    reset();
+    const untouched = samePaint(() => { stubSystem(false); });
+    expect(untouched).toMatchObject({ theme: '', mode: '', color: '#fdf9f6' });
+  });
+
+  it('paints the theme for this page when several accounts are saved and none was last', () => {
+    const painted = samePaint(() => {
+      stubSystem(false);
+      saveThemePreference(JSON.stringify([location.origin, 'u1']), { theme: 'blue', mode: 'light' });
+      saveThemePreference(JSON.stringify(['https://other.test', 'u2']), { theme: 'green', mode: 'dark' });
+    });
+    expect(painted).toMatchObject({ theme: 'blue', mode: 'light', color: themes.blue.light.bg });
   });
 });
 

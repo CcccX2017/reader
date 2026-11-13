@@ -24,6 +24,70 @@
     -->
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#fdf9f6" />
+    <!--
+      The top bar reads theme-color from this document as it is parsed. The update
+      button reloads the page, and a later change does not move that bar back onto
+      the saved theme, so this runs before the first frame. Same lookup as
+      paintStoredTheme in shared/theme/theme.ts.
+    -->
+    <script id="theme-boot">
+      (function () {
+        try {
+          var prefix = 'reader.theme.v2:';
+          var last = localStorage.getItem('reader.theme.last-scope');
+          var scope = last && localStorage.getItem(prefix + last) !== null ? last : '';
+          if (!scope) {
+            var found = [];
+            for (var i = 0; i < localStorage.length; i++) {
+              var key = localStorage.key(i);
+              if (key && key.indexOf(prefix) === 0) found.push(key.slice(prefix.length));
+            }
+            if (found.length === 1) scope = found[0];
+            else if (found.length > 1) {
+              var origin = location.origin.replace(/\/+$/, '');
+              var here = [];
+              for (var j = 0; j < found.length; j++) {
+                try {
+                  var parts = JSON.parse(found[j]);
+                  if (Array.isArray(parts) && typeof parts[0] === 'string' && typeof parts[1] === 'string' && parts[0].replace(/\/+$/, '') === origin) here.push(found[j]);
+                } catch (ignore) { /* a key that is not a server and account pair */ }
+              }
+              if (here.length === 1) scope = here[0];
+            }
+          }
+          if (!scope) return;
+          var pref = JSON.parse(localStorage.getItem(prefix + scope));
+          var dark = false;
+          try { dark = window.matchMedia('(prefers-color-scheme: dark)').matches === true; } catch (ignore) { /* light until the app can ask */ }
+          var allowed = { warm: 1, blue: 1, green: 1 };
+          var slot = function (value) { return allowed[value] ? value : 'warm'; };
+          var theme = 'warm';
+          var mode = dark ? 'dark' : 'light';
+          if (pref && (pref.mode === 'light' || pref.mode === 'dark')) {
+            theme = slot(pref.theme);
+            mode = pref.mode;
+          } else {
+            var system = (pref && pref.system) || {};
+            theme = slot(dark ? system.dark : system.light);
+          }
+          var bg = {
+            warm: { light: '#FDF9F6', dark: '#1F1713' },
+            blue: { light: '#F8FAFE', dark: '#0F1722' },
+            green: { light: '#F7FBF8', dark: '#0E1914' },
+          }[theme][mode];
+          var root = document.documentElement;
+          root.setAttribute('data-theme', theme);
+          root.setAttribute('data-mode', mode);
+          root.style.backgroundColor = bg;
+          root.style.setProperty('--boot-bg', bg);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) {
+            meta.setAttribute('content', bg);
+            if (meta.parentNode) meta.parentNode.appendChild(meta);
+          }
+        } catch (e) { /* a first visit, or blocked storage, keeps the default */ }
+      })();
+    </script>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./icons/reader.svg" />
     <link rel="alternate icon" type="image/png" href="./icons/icon-192.png" />
@@ -76,18 +140,17 @@
     <!-- startup-images:end -->
     <title>reader</title>
     <style>
-      /* First paint only: prevents a white flash before the bundle applies the
-         stored theme, and gives the reader something to look at on a slow LAN. */
+      /* First paint only: the boot script sets --boot-bg from the saved theme.
+         Until it does, 暖陶 covers the page, dark when the device is dark. */
       html,
       body {
         margin: 0;
         height: 100%;
-        background: #fdf9f6;
+        background: var(--boot-bg, #fdf9f6);
       }
-      .app-startup { position: fixed; inset: 0; display: grid; place-items: center; background: #fdf9f6; z-index: 9999; }
-      /* 暖陶 is the default theme; its dark half until the stored choice is applied. */
+      .app-startup { position: fixed; inset: 0; display: grid; place-items: center; background: var(--boot-bg, #fdf9f6); z-index: 9999; }
       @media (prefers-color-scheme: dark) {
-        html, body, .app-startup { background: #1f1713; }
+        html, body, .app-startup { background: var(--boot-bg, #1f1713); }
       }
       .app-startup img { width: 96px; height: 96px; }
     </style>

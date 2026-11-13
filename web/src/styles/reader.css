@@ -231,6 +231,12 @@ body {
   height: 100%;
 }
 
+/* Behind the page, and the strip a phone shows above it. index.html holds this
+   only until the saved theme is on <html>. */
+html {
+  background: var(--color-bg);
+}
+
 body {
   background: var(--reader-paper);
   color: var(--reader-ink);

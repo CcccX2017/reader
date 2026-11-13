@@ -233,6 +233,56 @@ export function subscribeTheme(scope: string, notify: () => void): () => void {
   };
 }
 
+/**
+ * Paints one resolved theme onto the document. The background is written on `<html>`
+ * itself: that is the colour behind the page and the one a phone uses for the top
+ * overscroll. `theme-color` is moved to the end of `<head>` so the browser reads the
+ * new value; changing the attribute in place is not enough after a reload.
+ */
+function paintTheme(resolved: { theme: AppThemeId; mode: ThemeMode }, doc: Document = document): void {
+  const bg = themes[resolved.theme][resolved.mode].bg;
+  const root = doc.documentElement;
+  root.dataset.theme = resolved.theme;
+  root.dataset.mode = resolved.mode;
+  root.style.backgroundColor = bg;
+  root.style.setProperty('--boot-bg', bg);
+  const meta = doc.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  meta.setAttribute('content', bg);
+  meta.parentElement?.append(meta);
+}
+
+/**
+ * The theme last on screen, found before the app module runs. `index.html` carries
+ * the same lookup so a reload (the update button) paints it before the first frame.
+ * A signed-in visit records its scope; otherwise the only saved theme, or the only
+ * one for this page's origin.
+ */
+function storedThemeScope(): string | undefined {
+  try {
+    const last = localStorage.getItem(lastThemeScopeKey);
+    if (last && localStorage.getItem(preferenceKey(last)) !== null) return last;
+    const found: string[] = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith('reader.theme.v2:')) found.push(key.slice('reader.theme.v2:'.length));
+    }
+    if (found.length === 1) return found[0];
+    const origin = location.origin.replace(/\/+$/, '');
+    const here = found.filter(scope => themeScopeParts(scope)?.[0].replace(/\/+$/, '') === origin);
+    return here.length === 1 ? here[0] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Applies the theme already saved on this device. Does nothing on a first visit. */
+export function paintStoredTheme(doc: Document = document): void {
+  const scope = storedThemeScope();
+  if (!scope) return;
+  paintTheme(resolveAppTheme(readThemePreference(scope), systemPrefersDark()), doc);
+}
+
 /** Writes the app theme onto <html>; the stylesheet does the rest. */
 export class ThemeController {
   current: { theme: AppThemeId; mode: ThemeMode };
@@ -246,16 +296,16 @@ export class ThemeController {
   private apply() {
     rememberThemeScope(this.scope);
     const resolved = resolveAppTheme(readThemePreference(this.scope), systemPrefersDark());
-    const root = document.documentElement;
-    root.dataset.theme = resolved.theme;
-    root.dataset.mode = resolved.mode;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeTokens(resolved).bg);
+    paintTheme(resolved);
     return resolved;
   }
   dispose() {
     this.unsubscribe();
-    delete document.documentElement.dataset.theme;
-    delete document.documentElement.dataset.mode;
+    const root = document.documentElement;
+    delete root.dataset.theme;
+    delete root.dataset.mode;
+    root.style.backgroundColor = '';
+    root.style.removeProperty('--boot-bg');
   }
 }
 
