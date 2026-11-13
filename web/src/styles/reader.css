@@ -4388,6 +4388,13 @@ book-content {
 .sources-search .source-keyword {
   flex: 2 1 18rem;
 }
+/* The browser's own clear glyph. It otherwise fades out as soon as the field blurs. */
+.sources-search .source-keyword input:not(:placeholder-shown)::-webkit-search-cancel-button {
+  -webkit-appearance: searchfield-cancel-button;
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+}
 .sources-search button {
   display: inline-flex;
   align-items: center;

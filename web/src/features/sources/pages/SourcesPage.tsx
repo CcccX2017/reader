@@ -88,6 +88,21 @@ export function SourcesPage() {
     finally { if (catalogEpoch.current === epoch) setCatalogBusy(false); }
   };
   const stopSearch = () => { searchRun.current?.abort(); searchRun.current = null; setCatalogBusy(false); setSearchState('stopped'); };
+  // A search replaces the directory. The field's clear control puts that directory back.
+  const restoreCatalog = () => {
+    const run = searchRun.current;
+    searchRun.current = null;
+    run?.abort();
+    searchSession.current = null;
+    searchRequest.current = null;
+    setKeyword('');
+    setResultGroupKey(null);
+    setResultGroupQuery('');
+    setAcquired(null);
+    setCatalogError('');
+    if (selectedSource?.descriptor?.capabilities.includes('browse')) void loadCatalog();
+    else { ++catalogEpoch.current; setCatalogPage(undefined); setCatalogBusy(false); setSearchState('idle'); }
+  };
   const searchSources = async (append = false) => {
     const request = append ? searchRequest.current : { query: keyword.trim(), filters: { ...catalogFilters } };
     if (!request?.query || !selectedSource || catalogBusy || (append && !canResume)) return;
@@ -146,7 +161,7 @@ export function SourcesPage() {
           {catalogError && <Callout tone="error" onDismiss={() => setCatalogError('')}>{catalogError}</Callout>}
           {selectedSource.descriptor?.capabilities.includes('search') && <form className="sources-search" onSubmit={event => { event.preventDefault(); void searchSources(resume); }}>
             {sourceFilters.data?.filter(field => field.type === 'select').map(field => <SearchableSelect key={field.key} label={field.label} value={catalogFilters[field.key] ?? ''} disabled={catalogBusy} options={filterOptions(field)} onChange={value => setCatalogFilters(previous => { const next = { ...previous, [field.key]: value }; for (const dependent of sourceFilters.data ?? []) { if ((dependent.changeAction ?? dependent.dependsOn) === field.key && !dependent.options?.some(option => option.value === next[dependent.key] && (!option.parentValues || !value || option.parentValues.includes(value)))) next[dependent.key] = ''; } return next; })} />)}
-            <label className="source-keyword">搜索书籍<input type="search" placeholder="输入书名或作者" required disabled={catalogBusy} value={keyword} onChange={event => setKeyword(event.currentTarget.value)} /></label>
+            <label className="source-keyword">搜索书籍<input type="search" placeholder="输入书名或作者" required disabled={catalogBusy} value={keyword} onChange={event => { const value = event.currentTarget.value; setKeyword(value); if (!value.trim() && searchState !== 'idle') restoreCatalog(); }} /></label>
             {searchState === 'searching' ? <button className="button search-stop" type="button" onClick={stopSearch}>停止搜索</button> : <div className="search-split"><button className="button primary" type="submit" disabled={catalogBusy}><Icon name="search" size={16} />{resume ? '继续搜索' : '搜索'}</button>{searchRequest.current && <ActionMenu className="button primary search-menu-toggle" label="搜索选项" items={[
                 { label: '继续搜索', description: '保留结果，继续未完成的来源', disabled: !canResume, onSelect: () => void searchSources(true) },
                 { label: '重新搜索', description: '清空结果，从头搜索', onSelect: () => void searchSources(false) },
