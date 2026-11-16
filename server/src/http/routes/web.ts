@@ -1,6 +1,7 @@
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { siteDisplayName } from '../../services/site-icon.ts';
 import type { AppContext } from '../context.ts';
 
 /**
@@ -50,6 +51,13 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
     return;
   }
 
+  // Blank or the built-in "reader" keeps the bundle's own "reader 阅读器" splash.
+  const configuredName = (): string | null => {
+    try {
+      const name = siteDisplayName(ctx.settings?.read('site').name);
+      return name === 'reader' ? null : name;
+    } catch { return null; }
+  };
   const sendFile = (filePath: string, reply: FastifyReply, cacheControl: string): FastifyReply => {
     reply.header('content-type', MIME_BY_EXT[extname(filePath).toLowerCase()] ?? 'application/octet-stream');
     reply.header('cache-control', cacheControl);
@@ -82,6 +90,18 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
       return;
     }
     if (existsSync(candidate) && statSync(candidate).isFile()) {
+      const name = configuredName();
+      // The installed app's welcome screen reads this file before any script runs.
+      if (name && raw === 'manifest.webmanifest') {
+        try {
+          const manifest = JSON.parse(readFileSync(candidate, 'utf8')) as { name?: string; short_name?: string };
+          manifest.name = name;
+          manifest.short_name = name;
+          reply.header('content-type', MIME_BY_EXT['.webmanifest']);
+          reply.header('cache-control', 'no-cache');
+          return reply.send(JSON.stringify(manifest));
+        } catch { /* a manifest that is not JSON is still the file on disk */ }
+      }
       // The Android-compatible build uses fixed names (client.js, sw.js, etc.).
       // Only explicitly fingerprinted assets can safely be cached forever.
       const immutable = raw.startsWith('assets/') && /-[a-zA-Z0-9_-]{6,}\.[^.]+$/.test(raw);

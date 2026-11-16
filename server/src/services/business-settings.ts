@@ -23,7 +23,7 @@ export type SettingsGroup=keyof BusinessValues;
 type Field={key:string;label:string;type:'text'|'textarea'|'password'|'number'|'checkbox'|'url'|'select';default:string|number|boolean;min?:number;max?:number;help?:string;options?:Array<{value:string;label:string}>};
 export const SETTINGS_SCHEMA:Record<SettingsGroup,{label:string;fields:Field[]}>= {
   site:{label:'系统配置',fields:[
-    {key:'name',label:'系统名称',type:'text',default:'reader',help:'显示在浏览器标题和登录页'},
+    {key:'name',label:'系统名称',type:'text',default:'reader',help:'显示在浏览器标题、登录页，以及安装后打开应用时的欢迎页'},
   ]},
   modules:{label:'功能模块',fields:[
     {key:'mediaEnabled',label:'启用影音模块',type:'checkbox',default:true,help:'关闭后全站进入纯阅读模式，停止影音播放和后台任务，保留媒体库与播放记录；不影响书籍朗读'},

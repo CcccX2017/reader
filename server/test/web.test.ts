@@ -124,4 +124,24 @@ test('an asset is served with its real bytes, not an empty second send', async (
     const res = await app.inject({ method: 'GET', url: `/%2e%2e/secret-${process.pid}.txt` });
     assert.equal(res.body.includes('do not serve me'), false);
   });
+
+  test('the installed app welcome name follows the configured site name', async () => {
+    const branded = Fastify();
+    registerWebRoutes(branded, { settings: { read: () => ({ name: '书房' }) } } as unknown as AppContext);
+    await branded.ready();
+    const manifest = await branded.inject({ method: 'GET', url: '/manifest.webmanifest' });
+    assert.equal(manifest.statusCode, 200);
+    assert.deepEqual(JSON.parse(manifest.body), { name: '书房', short_name: '书房' });
+    await branded.close();
+  });
+
+  test('the built-in welcome name stays when the site name is still reader', async () => {
+    const branded = Fastify();
+    registerWebRoutes(branded, { settings: { read: () => ({ name: 'reader' }) } } as unknown as AppContext);
+    await branded.ready();
+    const manifest = await branded.inject({ method: 'GET', url: '/manifest.webmanifest' });
+    assert.equal(JSON.parse(manifest.body).name, 'reader');
+    assert.equal(manifest.body.includes('short_name'), false);
+    await branded.close();
+  });
 });

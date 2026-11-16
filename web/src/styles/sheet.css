@@ -36,6 +36,11 @@
   animation: sheet-rise var(--motion-duration) var(--motion-ease);
 }
 
+/* The dialog is focused on open so the close button is not. It is not a control. */
+.sheet:focus {
+  outline: none;
+}
+
 /* The fallback colour is for WebViews whose ::backdrop does not inherit custom properties. */
 .sheet::backdrop {
   background: var(--color-scrim, rgb(0 0 0 / 0.4));
@@ -82,6 +87,21 @@
 
 .sheet-header > .icon-button {
   flex: none;
+}
+
+/* iOS draws the system blue ring on the close button a dialog focuses as it opens.
+   A keyboard tab still gets the product ring; a tap or the open itself does not. */
+.sheet .sheet-close {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet .sheet-close:focus {
+  outline: none;
+}
+
+.sheet .sheet-close:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .sheet-body {

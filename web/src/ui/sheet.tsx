@@ -79,7 +79,11 @@ export function Sheet({
     } else {
       dialog.setAttribute('open', '');
     }
-    if (initialFocus) dialog.querySelector<HTMLElement>(initialFocus)?.focus({ preventScroll: true });
+    // showModal focuses the first control, which is the header close button. iOS then
+    // paints its system blue ring on that button and leaves it there. Land on the
+    // requested field, or on the dialog itself, so the close button is not focused.
+    const focusTarget = initialFocus ? dialog.querySelector<HTMLElement>(initialFocus) : null;
+    (focusTarget ?? dialog).focus({ preventScroll: true });
     placeNotifications();
     return () => {
       if (typeof dialog.close === 'function' && dialog.open) dialog.close(); else dialog.removeAttribute('open');
@@ -104,6 +108,7 @@ export function Sheet({
       role={role}
       aria-label={title}
       aria-busy={busy}
+      tabIndex={-1}
       onCancel={(event) => { event.preventDefault(); requestClose(); }}
       onPointerDown={(event) => { pressedOutside.current = outside(event); }}
       onClick={(event) => {
