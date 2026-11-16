@@ -139,7 +139,7 @@
 | `path` | 只返回**这个目录下**（含子目录）有文件的书。库内相对路径，`''` 等于不过滤 |
 | `scope` | `shelf`（默认）\| `library`。见下 |
 | `status` | `reading` \| `want` \| `finished`，仅书架范围生效，见 [`PUT /books/:id/reading-status`](#put-booksidreading-status) |
-| `sort` | `title` \| `author` \| `added` \| `updated`，默认 `added` |
+| `sort` | `title` \| `author` \| `added` \| `updated`，默认 `added`。`updated` 在书架（默认 scope）是**本账号最近阅读这本书的时间**（阅读进度的更新时间，没读过的排在后面、按入库时间新到旧）；在 `scope=library` 是书本身的更新时间。未知值返回 `400` |
 | `order` | `asc` \| `desc`，默认 `desc` |
 | `page` `pageSize` | 默认 1 / 50，`pageSize` 夹到 1–200 |
 
@@ -501,6 +501,8 @@ pdf / 单图没有独立目录，回落到 items。来源章节出版物（`chap
 **这是往 `/books` 写入新书籍字节的端点。** `BOOKS_DIR` 可以按需以只读方式挂载，
 也可以以可写方式挂载以启用上传和管理员文件管理。改名、移动、删除和新建目录等端点同样会修改
 可写书库中的目录项；只读挂载时所有这些写操作统一返回 `403 READ_ONLY_MOUNT`。
+
+**书库和书架是两回事。** 扫描到的新书只进入书库；上传成功的书加入上传者自己的书架。业务设置 `library.autoShelf`（「书库 → 新书自动加入所有账号的书架」，默认关闭）开启后，新书会加到每个账号的书架，新建的账号也带上书库里的全部书。
 
 **成员只能新增书籍。** 管理员的上传不受限制。成员能否上传由业务设置 `library.memberUpload`
 （「我的 → 服务配置 → 书库 → 允许成员上传书籍」，默认开启）决定；关闭时成员的
@@ -1069,8 +1071,8 @@ AI 配置在业务设置的 `ai` 分组（见下文 Administrator business setti
 
 ### `GET /ai/capabilities`
 
-任何已登录账号可读 → `{ "summary": true }`。`summary` 为 AI 与章节总结都已启用且地址、密钥、模型齐全；不返回任何配置值。
-阅读器据此决定是否显示「AI 总结」按钮；旧服务端没有此接口（404）时客户端照旧显示。
+任何已登录账号可读 → `{ "summary": true, "scan": false, "assist": true }`。每一项为 AI 与对应功能（章节总结、媒体扫描、选区助手）都已启用且地址、密钥、模型齐全；不返回任何配置值。
+阅读器据此决定是否显示「AI 总结」按钮和选区工具条的「问AI」；旧服务端没有此接口（404）时客户端照旧显示「AI 总结」，不显示「问AI」。
 
 ### `POST /ai/summary`
 
@@ -1078,6 +1080,19 @@ AI 配置在业务设置的 `ai` 分组（见下文 Administrator business setti
 
 正文按配置的 `maxInputChars` 截断；结果按账号、书、章节、正文哈希和提示词哈希缓存。AI 或章节总结未启用返回 `403 AI_DISABLED`，
 地址 / 密钥 / 模型未配置完整返回 `400`。
+
+### `POST /ai/assist`
+
+就读者选中的一段文字翻译、解释或提问。
+
+`{ "bookId": "...", "action": "translate" | "explain" | "ask", "text": "选中的文字", "context": "可选，所在段落", "question": "action 为 ask 时必填" }`
+→ `{ "answer": "...", "cached": false }`。
+
+- `text` 去除首尾空白后不能为空，最多 4000 字（超出返回 `400 AI_TEXT_TOO_LONG`）；`context` 截断到 2000 字；`question` 最多 500 字。
+- 翻译与回答使用配置的 `assistLanguage`（默认「简体中文」）；原文已是该语言时翻译改为通俗转述。
+- 选中的文字和上下文在提示词里用 `<<<` / `>>>` 围起并声明为材料，其中的指令不执行。
+- 结果按账号、书和请求哈希（动作、文字、上下文、问题、语言、模型）缓存；上游失败不缓存。
+- AI 或选区助手未启用返回 `403 AI_DISABLED`；上游失败返回 `502 AI_REQUEST_FAILED` / `AI_CONNECTION_FAILED` / `AI_EMPTY_RESPONSE`。
 
 ---
 

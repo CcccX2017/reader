@@ -424,3 +424,64 @@ test('a local book takes a cover from a source as a manual override that survive
   const after = (await h.app.inject({ method: 'GET', url: '/api/v1/books?scope=library', headers: auth(h.admin) })).json().items.find((item: { title: string }) => item.title === '本地小说') as { coverUrl: string | null; manualFields: string[] };
   assert.equal(after.coverUrl, null); assert.ok(!after.manualFields.includes('cover'));
 });
+
+test('the local library browses folder by folder with covers, like any source in 发现', async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await mkdir(join(h.booksDir, '科幻', '刘慈欣'), { recursive: true }); await mkdir(join(h.booksDir, '科学'));
+  await writeFile(join(h.booksDir, '根目录的书.txt'), '第一章\n\n正文一。\n');
+  await writeFile(join(h.booksDir, '科幻', '科幻的书.txt'), '第一章\n\n正文二。\n');
+  await writeFile(join(h.booksDir, '科幻', '刘慈欣', '三体.txt'), '第一章\n\n正文三。\n');
+  await writeFile(join(h.booksDir, '科学', '科学的书.txt'), '第一章\n\n正文四。\n');
+  await h.ctx.scanner.scan();
+  const browse = async (query = '') => {
+    const response = await h.app.inject({ method: 'GET', url: `/api/v1/sources/local/browse${query}`, headers: auth(h.admin) });
+    assert.equal(response.statusCode, 200, response.body);
+    return response.json() as { title: string; items: Array<{ ref: string; title: string; coverRef?: string }>; navigation?: Array<{ title: string; ref: string }>; nextCursor?: string };
+  };
+  const root = await browse();
+  assert.deepEqual([root.title, root.items.map((item) => item.title), root.navigation?.map((item) => item.title)], ['本地书库', ['根目录的书'], ['科幻', '科学']]);
+  const folder = await browse(`?ref=${encodeURIComponent('科幻')}`);
+  assert.deepEqual([folder.title, folder.items.map((item) => item.title), folder.navigation?.map((item) => [item.title, item.ref])], ['科幻', ['科幻的书'], [['刘慈欣', '科幻/刘慈欣']]]);
+  const leaf = await browse(`?ref=${encodeURIComponent('科幻/刘慈欣')}`);
+  assert.deepEqual([leaf.title, leaf.items.map((item) => item.title), leaf.navigation], ['刘慈欣', ['三体'], undefined]);
+  assert.equal((await h.app.inject({ method: 'GET', url: `/api/v1/sources/local/browse?ref=${encodeURIComponent('../etc')}`, headers: auth(h.admin) })).statusCode, 403);
+
+  const book = leaf.items[0]!;
+  assert.equal(book.coverRef, undefined, 'a text file has no cover');
+  assert.equal((book as { metadata?: { publicationId?: string } }).metadata?.publicationId, undefined, 'a library book is not yet a shelf book');
+  const shelved = await h.app.inject({ method: 'GET', url: '/api/v1/books', headers: auth(h.admin) });
+  assert.deepEqual(shelved.json().items, [], 'a scanned book joins the library, not a shelf');
+  await h.app.inject({ method: 'POST', url: '/api/v1/library/browse/shelf', headers: auth(h.admin), payload: { bookIds: [book.ref], action: 'add' } });
+  const fixture = await installFixture(h);
+  await fixture.state({ ...initialState(), covers: { cover: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aHf8AAAAASUVORK5CYII=' } });
+  await h.app.inject({ method: 'POST', url: `/api/v1/books/${book.ref}/cover-source`, headers: auth(h.admin), payload: { sourceId: SOURCE_ID, entryRef: BOOK_REF, coverRef: 'cover' } });
+  const covered = (await browse(`?ref=${encodeURIComponent('科幻/刘慈欣')}`)).items[0]!;
+  assert.equal(covered.coverRef, 'cover');
+  assert.equal((covered as { metadata?: { publicationId?: string } }).metadata?.publicationId, book.ref, 'once shelved, the entry names the shelf book so a client offers 阅读');
+  const image = await h.app.inject({ method: 'GET', url: `/api/v1/sources/local/cover?entryRef=${covered.ref}&coverRef=cover`, headers: auth(h.admin) });
+  assert.equal(image.statusCode, 200, image.body); assert.equal(image.headers['content-type'], 'image/png');
+});
+
+test('by default a book joins the library only; an upload lands on the uploader\'s shelf; autoShelf restores sharing', async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  const shelf = async (session: Session) => (await h.app.inject({ method: 'GET', url: '/api/v1/books', headers: auth(session) })).json().items.map((item: { title: string }) => item.title).sort();
+  const library = async (session: Session) => (await h.app.inject({ method: 'GET', url: '/api/v1/books?scope=library', headers: auth(session) })).json().items.map((item: { title: string }) => item.title).sort();
+  await writeFile(join(h.booksDir, '扫描到的书.txt'), '第一章\n\n正文。\n');
+  await h.ctx.scanner.scan();
+  assert.deepEqual(await shelf(h.admin), []); assert.deepEqual(await library(h.admin), ['扫描到的书']);
+  const member = await h.member();
+  assert.deepEqual(await shelf(member), [], 'a new account starts with an empty shelf'); assert.deepEqual(await library(member), ['扫描到的书']);
+
+  const boundary = '----reader-test', file = '第一章\n\n自己上传的正文。\n';
+  const body = `--${boundary}\r\nContent-Disposition: form-data; name="path"\r\n\r\n\r\n--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="上传的书.txt"\r\nContent-Type: text/plain\r\n\r\n${file}\r\n--${boundary}--\r\n`;
+  const uploaded = await h.app.inject({ method: 'POST', url: '/api/v1/library/upload', headers: { ...auth(member), 'content-type': `multipart/form-data; boundary=${boundary}` }, payload: body });
+  assert.equal(uploaded.statusCode, 200, uploaded.body);
+  assert.deepEqual(await shelf(member), ['上传的书'], 'what a reader uploads is on their own shelf');
+  assert.deepEqual(await shelf(h.admin), [], 'and on nobody else\'s');
+  assert.deepEqual(await library(h.admin), ['上传的书', '扫描到的书']);
+
+  const { autoShelf } = await import('./auto-shelf.ts'); autoShelf(h.ctx.db);
+  await writeFile(join(h.booksDir, '共享的书.txt'), '第一章\n\n共享正文。\n');
+  await h.ctx.scanner.scan();
+  assert.deepEqual(await shelf(h.admin), ['共享的书']); assert.deepEqual(await shelf(member), ['上传的书', '共享的书'].sort());
+});

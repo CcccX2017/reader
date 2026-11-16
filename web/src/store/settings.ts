@@ -106,6 +106,8 @@ export interface AppSettings extends ViewSettings {
    * synced value would be wrong on one of them.
    */
   shelfDensity: ShelfDensity;
+  /** How 发现 draws books: a list with descriptions, or a grid of covers. */
+  exploreLayout: 'list' | 'grid';
   /** What the shelf sorts by when the reader has not picked this session. */
   shelfSort: ShelfSort;
   /** How many books 首页「我的书架」 shows. The shelf page itself stays paginated. */
@@ -148,6 +150,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   txtParagraphGap: 0.55,
   txtEncoding: '',
   comicDirection: 'ltr',
+  focus: false,
   paper: 'theme',
   paperFollowsDark: true,
   ttsRate: 1,
@@ -157,6 +160,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   ttsAutoAdvance: true,
   ttsEngine: 'auto',
   shelfDensity: 'cozy',
+  exploreLayout: 'list',
   shelfSort: 'recent',
   homeShelfCount: 8,
   homeShelfSort: 'recent',
@@ -191,6 +195,8 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   settings.tapZones = normalizeTapZones(parsed.tapZones, parsed.tapZone);
   if (typeof settings.paperFollowsDark !== 'boolean') settings.paperFollowsDark = true;
   if (typeof settings.keepAwake !== 'boolean') settings.keepAwake = false;
+  if (typeof settings.focus !== 'boolean') settings.focus = false;
+  if (!['list', 'grid'].includes(settings.exploreLayout)) settings.exploreLayout = DEFAULT_APP_SETTINGS.exploreLayout;
   if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort)) settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
   if (settings.homeShelfCount !== 'all' && !(HOME_SHELF_COUNTS as readonly number[]).includes(settings.homeShelfCount)) {
     settings.homeShelfCount = DEFAULT_APP_SETTINGS.homeShelfCount;

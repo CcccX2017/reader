@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '../src/shared/ui/render-root.ts';
 import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
-import { LibraryBrowsePage } from '../src/features/library/pages/LibraryPage.tsx';
 import { SourcesPage } from '../src/features/sources/pages/SourcesPage.tsx';
 
 const root = document.createElement('div');
@@ -23,13 +22,11 @@ const runtime = {
 } as never;
 let client: QueryClient;
 
-function paint(page: 'library' | 'sources', state?: unknown) {
-  const path = page === 'library' ? '/library' : '/sources';
-  const element = page === 'library' ? <LibraryBrowsePage /> : <SourcesPage />;
+function paint(state?: unknown) {
   return act(async () => render(
     <RuntimeContext value={runtime}>
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[{ pathname: path, state }]}>{element}</MemoryRouter>
+        <MemoryRouter initialEntries={[{ pathname: '/sources', state }]}><SourcesPage /></MemoryRouter>
       </QueryClientProvider>
     </RuntimeContext>,
     root,
@@ -50,21 +47,21 @@ afterEach(() => {
 });
 
 describe('书库和书源的返回', () => {
-  it('书库回到打开它的那一页', async () => {
-    await paint('library', { returnTo: '/me' });
+  it('发现里的书库回到打开它的那一页', async () => {
+    await paint({ returnTo: '/me' });
+    expect(root.textContent).toContain('书源与追更');
     expect(backHref()).toBe('/me');
   });
 
   it('书源回到打开它的那一页', async () => {
-    await paint('sources', { returnTo: '/shelf?page=2' });
-    expect(root.textContent).toContain('书源与追更');
+    await paint({ returnTo: '/shelf?page=2' });
     expect(backHref()).toBe('/shelf?page=2');
   });
 
   it('直接打开时回到书架，并丢掉站外地址', async () => {
-    await paint('library');
+    await paint();
     expect(backHref()).toBe('/shelf');
-    await paint('sources', { returnTo: '//evil.example' });
+    await paint({ returnTo: '//evil.example' });
     expect(backHref()).toBe('/shelf');
   });
 });

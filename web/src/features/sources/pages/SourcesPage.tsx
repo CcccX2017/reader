@@ -51,7 +51,9 @@ export function SourcesPage() {
   const requested = params.get('tab') as SourceTab | null;
   const tab: SourceTab = requested && SOURCE_TABS.includes(requested) ? requested : pluginsPath ? 'plugins' : 'search';
   const setTab = (next: SourceTab) => setParams(previous => { const merged = new URLSearchParams(previous); if (next === 'search' && !pluginsPath) merged.delete('tab'); else merged.set('tab', next); return merged; }, { replace: true, state: location.state });
-  const [sourceId, setSourceId] = useState('');
+  // A link may name the source and the keyword (?source=&q=): 书库's search arrives this way.
+  const [sourceId, setSourceId] = useState(() => params.get('source') ?? '');
+  const linkedQuery = useRef(params.get('q')?.trim() ?? '');
   const [keyword, setKeyword] = useState('');
   const [catalogPage, setCatalogPage] = useState<SourcePage>();
   const [catalogError, setCatalogError] = useState('');
@@ -76,7 +78,9 @@ export function SourcesPage() {
   const subscriptions = useQuery({ queryKey: ['subscriptions', runtime.api.baseUrl], queryFn: () => runtime.api.subscriptions(), enabled: tab === 'updates' });
   const [busy, setBusy] = useState<string | null>(null);
   const enabledSources = (sources.data ?? []).filter(source => source.enabled && source.descriptor);
-  const selectedSourceId = sourceId || enabledSources.find(source => source.isDefault)?.id || enabledSources[0]?.id || '';
+  // `local` names the built-in library whatever id an old database gave it; an id that is not an enabled source falls back to the default.
+  const selectedSourceId = (enabledSources.find(source => source.id === sourceId) ?? (sourceId === 'local' ? enabledSources.find(source => source.pluginId === 'reader.local') : undefined)
+    ?? enabledSources.find(source => source.isDefault) ?? enabledSources[0])?.id ?? '';
   const selectedSource = enabledSources.find(source => source.id === selectedSourceId);
   const sourceFilters = useQuery({ queryKey: ['source-filters', runtime.api.baseUrl, selectedSourceId], queryFn: () => runtime.api.sourceFilters(selectedSourceId), enabled: !!selectedSourceId && !!selectedSource?.descriptor?.capabilities.includes('search.filters') });
   const detailQuery = useQuery({ queryKey: ['source-detail', runtime.api.baseUrl, selectedSourceId, detail?.ref], queryFn: () => runtime.api.sourceDetail(selectedSourceId, detail!.ref), enabled: !!detail });
@@ -111,7 +115,7 @@ export function SourcesPage() {
     const parent = catalogFilters[field.changeAction ?? field.dependsOn ?? ''];
     return (field.options ?? []).filter(option => !parent || !option.parentValues || option.parentValues.includes(parent));
   };
-  useEffect(() => { if (!sourceId && selectedSourceId) setSourceId(selectedSourceId); }, [selectedSourceId, sourceId]);
+  useEffect(() => { if (selectedSourceId && sourceId !== selectedSourceId) setSourceId(selectedSourceId); }, [selectedSourceId, sourceId]);
   const sourceTypeLabel = (id: string) => types.data?.find(item => item.id === id)?.label ?? id;
   const stopSearch = () => { searchRun.current?.abort(); searchRun.current = null; setCatalogBusy(false); setSearchState('stopped'); };
   const loadLocalCatalog = async (append = false) => {
@@ -169,8 +173,8 @@ export function SourcesPage() {
     setSearchState('idle');
     setVisibleCount(SEARCH_PAGE_SIZE);
   };
-  const searchSources = async (append = false) => {
-    const request = append ? searchRequest.current : { query: keyword.trim(), filters: { ...catalogFilters } };
+  const searchSources = async (append = false, linked?: string) => {
+    const request = append ? searchRequest.current : { query: linked ?? keyword.trim(), filters: linked ? {} : { ...catalogFilters } };
     if (!request?.query || !selectedSource || catalogBusy || (append && !canResume)) return;
     const run = new AbortController(); searchRun.current = run; ++catalogEpoch.current;
     const current = () => searchRun.current === run;
@@ -215,7 +219,7 @@ export function SourcesPage() {
   }, [selectedSourceId]);
   // Local library is not on 发现 — entering 搜书 loads its first page immediately.
   useEffect(() => {
-    if (tab !== 'search' || !canBrowseLocal || !selectedSource) return;
+    if (tab !== 'search' || !canBrowseLocal || !selectedSource || linkedQuery.current) return;
     if (searchState !== 'idle' || keyword.trim() || searchRequest.current) return;
     if (catalogPage || catalogBusy) return;
     void loadLocalCatalog(false);
@@ -233,8 +237,14 @@ export function SourcesPage() {
     observer.observe(node);
     return () => observer.disconnect();
   }, [phone, hasMoreResults, canRevealMore, catalogBusy, searchState, visibleCount, filteredResults.length, catalogPage?.nextCursor]);
+  // After the reset above: a linked keyword is searched once, on the source it arrived for.
+  useEffect(() => {
+    const query = linkedQuery.current;
+    if (!query || !selectedSource || tab !== 'search') return;
+    linkedQuery.current = ''; setKeyword(query); void searchSources(false, query);
+  }, [selectedSourceId]);
   // 发现 appears once a source can be browsed; it is a place of its own, not a mode of 搜书.
-  const exploreSources = enabledSources.filter(source => source.descriptor?.capabilities.includes('browse') && source.pluginId !== 'reader.local');
+  const exploreSources = enabledSources.filter(source => source.descriptor?.capabilities.includes('browse'));
   const tabList = ([['search', '搜书'], ...(exploreSources.length || tab === 'explore' ? [['explore', '发现']] : []), ['sources', '书源管理'], ['updates', '自动追更'], ...(admin ? [['plugins', '插件管理']] : [])] as Array<[SourceTab, string]>);
   return <div className="sources-screen sources-hub">
     <SourcesHeader title="书源与追更" backTo={back} />

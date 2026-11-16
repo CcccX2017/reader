@@ -6,7 +6,7 @@ import { removeSiteIcon, writeSiteIcon } from './site-icon.ts';
 
 export interface BusinessValues {
   modules:{mediaEnabled:boolean;newUserMediaEnabled:boolean};
-  ai:{enabled:boolean;scanEnabled:boolean;summaryEnabled:boolean;baseUrl:string;apiKey:string;model:string;scanPrompt:string;summaryPrompt:string;batchSize:number;maxInputChars:number};
+  ai:{enabled:boolean;scanEnabled:boolean;summaryEnabled:boolean;assistEnabled:boolean;assistLanguage:string;baseUrl:string;apiKey:string;model:string;scanPrompt:string;summaryPrompt:string;batchSize:number;maxInputChars:number};
   playback:{mode:'auto'|'direct'|'proxy'};
   tmdb:{enabled:boolean;token:string;apiKey:string;language:string};
   musicbrainz:{enabled:boolean;userAgent:string};
@@ -15,7 +15,7 @@ export interface BusinessValues {
   scraping:{timeoutMs:number;retries:number};
   access:{publicUrl:string;corsOrigins:string;accessTokenTtl:number;refreshTokenTtl:number};
   webdav:{url:string;username:string;password:string;maxBytes:number};
-  library:{memberUpload:boolean};
+  library:{memberUpload:boolean;autoShelf:boolean};
   /** `icon` is a data-dir path written by the icon upload, not a form field. */
   site:{name:string;icon?:string};
 }
@@ -33,6 +33,8 @@ export const SETTINGS_SCHEMA:Record<SettingsGroup,{label:string;fields:Field[]}>
     {key:'enabled',label:'启用 AI',type:'checkbox',default:false},
     {key:'scanEnabled',label:'启用 AI 扫描',type:'checkbox',default:false},
     {key:'summaryEnabled',label:'启用 AI 总结',type:'checkbox',default:false},
+    {key:'assistEnabled',label:'启用 AI 选区助手',type:'checkbox',default:false,help:'阅读时选中文字可翻译、解释或提问；选中的文字及其前后文会发送给下面配置的 AI 服务'},
+    {key:'assistLanguage',label:'翻译与解答语言',type:'text',default:'简体中文'},
     {key:'baseUrl',label:'Base URL',type:'url',default:'',help:'OpenAI 兼容接口地址，例如 https://api.openai.com/v1'},
     {key:'apiKey',label:'API Key',type:'password',default:''},
     {key:'model',label:'模型',type:'text',default:'',help:'填写地址和密钥后即可获取模型，无需先保存'},
@@ -87,6 +89,7 @@ export const SETTINGS_SCHEMA:Record<SettingsGroup,{label:string;fields:Field[]}>
   ]},
   library:{label:'书库',fields:[
     {key:'memberUpload',label:'允许成员上传书籍',type:'checkbox',default:true,help:'成员只能新增支持格式的书籍文件：不解包压缩包、不覆盖已有文件。改名、移动、删除和新建目录始终仅限管理员'},
+    {key:'autoShelf',label:'新书自动加入所有账号的书架',type:'checkbox',default:false,help:'开启后，扫描到的新书会加到每个账号的书架，新建的账号也会带上书库里的全部书。关闭时书只进入书库，由各人在书库或发现里自行加入；自己上传的书始终加入自己的书架'},
   ]},
 };
 export function settingsDefaults<K extends SettingsGroup>(group:K):BusinessValues[K]{
@@ -205,7 +208,7 @@ function legacySettings<K extends SettingsGroup>(group:K,config:AppConfig):Busin
   const integer=(name:string,fallback:number)=>{const value=Number(env[name]);return env[name]&&Number.isSafeInteger(value)&&value>=0?value:fallback;};
   const intervals=[config.scanInterval,config.watchInterval].filter(value=>value>0);
   const legacy:Partial<BusinessValues>={
-    ai:{enabled:false,scanEnabled:false,summaryEnabled:false,baseUrl:text('AI_BASE_URL'),apiKey:text('AI_API_KEY'),model:text('AI_MODEL'),scanPrompt:'请根据以下媒体路径识别类型。必须返回 JSON 数组，每项包含 path、category（movie/series/music/audiobook/other）、title、year、season、artist、album。不要添加解释。',summaryPrompt:'请用中文总结以下章节内容，提炼主要情节、人物和关键信息，输出简洁连贯的段落。',batchSize:500,maxInputChars:60000},
+    ai:{enabled:false,scanEnabled:false,summaryEnabled:false,assistEnabled:false,assistLanguage:'简体中文',baseUrl:text('AI_BASE_URL'),apiKey:text('AI_API_KEY'),model:text('AI_MODEL'),scanPrompt:'请根据以下媒体路径识别类型。必须返回 JSON 数组，每项包含 path、category（movie/series/music/audiobook/other）、title、year、season、artist、album。不要添加解释。',summaryPrompt:'请用中文总结以下章节内容，提炼主要情节、人物和关键信息，输出简洁连贯的段落。',batchSize:500,maxInputChars:60000},
     tmdb:{enabled:!!(text('MEDIA_TMDB_TOKEN')||text('MEDIA_TMDB_API_KEY')),token:text('MEDIA_TMDB_TOKEN'),apiKey:text('MEDIA_TMDB_API_KEY'),language:'zh-CN'},
     musicbrainz:{enabled:!!text('MEDIA_MUSICBRAINZ_USER_AGENT'),userAgent:text('MEDIA_MUSICBRAINZ_USER_AGENT')},
     tts:{enabled:!!text('TTS_URL'),url:text('TTS_URL'),token:text('TTS_TOKEN'),voicesUrl:text('TTS_VOICES_URL'),timeoutMs:integer('TTS_TIMEOUT_MS',20000),cacheMaxBytes:integer('TTS_CACHE_BYTES',268435456)},

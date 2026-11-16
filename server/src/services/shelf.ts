@@ -133,6 +133,12 @@ export interface ListOptions {
    */
   path?: string;
   /**
+   * With `path` (or the root, when it is absent): only the books that sit directly in
+   * that folder, not the ones in folders below it. A folder-by-folder view lists the
+   * subfolders beside these, so listing their books here as well would say them twice.
+   */
+  direct?: boolean;
+  /**
    * Which set to list: the reader's shelf, or the library's index.
    *
    * The shelf is the default and the only thing the shelf screen ever wants. The
@@ -248,6 +254,15 @@ export class ShelfService {
         WHERE f.book_id = b.id AND f.missing = 0 AND f.rel_path LIKE ? ESCAPE '\\'
       )`);
       params.push(`${escapeLike(prefix)}/%`);
+      if (options.direct) {
+        where.push(`EXISTS (
+          SELECT 1 FROM book_files f
+          WHERE f.book_id = b.id AND f.missing = 0 AND f.rel_path LIKE ? ESCAPE '\\' AND f.rel_path NOT LIKE ? ESCAPE '\\'
+        )`);
+        params.push(`${escapeLike(prefix)}/%`, `${escapeLike(prefix)}/%/%`);
+      }
+    } else if (options.direct) {
+      where.push(`EXISTS (SELECT 1 FROM book_files f WHERE f.book_id = b.id AND f.missing = 0 AND f.rel_path NOT LIKE '%/%')`);
     }
 
     // 在读 / 想读 / 已读 reads reading_progress through the shelf join (below).
@@ -256,19 +271,29 @@ export class ShelfService {
       where.push(`(${READING_STATE}) = ?`);
       params.push(options.status);
     }
-    const sortColumn = options.sort === 'recent'
-      // 最近阅读 is the progress row's clock. A book with no progress sorts last:
-      // SQLite treats NULL as smaller than every timestamp, so DESC puts it after
-      // every book the reader has actually opened. The library scope has no
-      // progress join, and falls back to the book row.
-      ? (library ? 'b.updated_at' : 'rp.updated_at')
-      : {
-          title: 'b.title',
-          author: 'b.author',
-          added: 'ub.added_at',
-          updated: 'b.updated_at',
-        }[options.sort ?? 'added'];
     const order = options.order === 'asc' ? 'ASC' : 'DESC';
+    const requested = options.sort ?? 'added';
+    // `recent` is this fork's name for 最近阅读. Upstream calls the same shelf order `updated`.
+    const sort = requested === 'recent' ? 'updated' : requested;
+    if (!['title', 'author', 'added', 'updated'].includes(sort)) throw badRequest('invalid sort');
+    /*
+     * `updated` asks two different questions in the two scopes, and the shelf's is
+     * the one the client calls 最近阅读.
+     *
+     * In the index it is when the *book* last changed. On the shelf it is when this
+     * reader last *read* it, which is on their progress row and not on the book's:
+     * a book's own timestamp moves when its metadata is edited or a chapter source
+     * updates, and never because somebody read it. Sorting the shelf by it is why
+     * finishing an evening in one book left another at the top of 最近阅读. A book
+     * never opened has no progress row; those come after every book that has one,
+     * newest on the shelf first.
+     */
+    const sortColumn = {
+      title: 'b.title',
+      author: 'b.author',
+      added: 'ub.added_at',
+      updated: library ? 'b.updated_at' : `COALESCE(rp.updated_at, 0) ${order}, ub.added_at`,
+    }[sort];
     const whereSql = where.join(' AND ');
     /*
      * Sorting by `added` in library scope sorts on `ub.added_at`, which is `NULL` for a
@@ -430,6 +455,18 @@ export class ShelfService {
   /** @deprecated Prefer `coverPath`; kept for OPDS and older call sites. */
   storedCoverRel(bookId: string, _embedded: string | null): string | null {
     return this.coverPath(bookId);
+  }
+
+  /** The folders directly inside a library folder, by name, from the indexed files. */
+  folders(path = ''): string[] {
+    const prefix = path.replace(/\/+$/, ''), start = prefix ? prefix.length + 1 : 0;
+    const rows = this.db.all<{ rel_path: string }>(
+      prefix ? "SELECT rel_path FROM book_files WHERE missing = 0 AND rel_path LIKE ? ESCAPE '\\'" : 'SELECT rel_path FROM book_files WHERE missing = 0',
+      ...(prefix ? [`${escapeLike(prefix)}/%`] : []),
+    );
+    const names = new Set<string>();
+    for (const { rel_path } of rows) { const rest = rel_path.slice(start), end = rest.indexOf('/'); if (end > 0) names.add(rest.slice(0, end)); }
+    return [...names].sort((left, right) => left.localeCompare(right, 'zh-Hans-CN', { numeric: true }));
   }
 
   loadOverrides(bookId: string): Record<string, string> {

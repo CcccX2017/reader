@@ -102,10 +102,19 @@ async function installReaderApiStubs(page) {
   });
   await page.route('**/api/v1/sources**', async route => {
     const path = new URL(route.request().url()).pathname;
-    let body = { sources: [] };
+    // The built-in local library: 书库 is this source in 发现.
+    let body = { sources: [{ id: 'local', pluginId: 'reader.local', sourceType: 'local', name: '本地书库', enabled: true, isDefault: true,
+      descriptor: { id: 'local', label: '本地书库', version: '1.0.0', builtin: true, capabilities: ['browse', 'search', 'detail'] } }] };
+    if (path.endsWith('/browse')) body = { title: '本地书库', navigation: ['科幻', '历史', '武侠'].map(title => ({ title, ref: title, kind: 'catalog' })),
+      items: Array.from({ length: 9 }, (_, index) => ({ ref: `local-${index}`, title: `书库里的书 ${index + 1}`, authors: ['作者'], description: '一段简介，用来看列表里两行截断的样子。', options: [{ id: 'read', label: '加入书架', available: true }], ...(index % 3 ? {} : { metadata: { publicationId: 'review-book' } }) })) };
     if (path.endsWith('/types')) body = { types: [] };
     if (path.includes('/subscriptions')) body = { subscriptions: [] };
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  // Uploading is allowed, so 发现 shows the local library's whole bar.
+  await page.route('**/api/v1/library/upload', async route => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ writable: true, allowed: true }) });
   });
   await page.route('**/api/v1/plugins**', async route => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ plugins: [] }) });
@@ -217,10 +226,18 @@ async function runReaderReview(browser, origin, checks, errors) {
   await page.emulateMedia({ colorScheme: 'dark' });
   await capture(page, 'shelf-dark', checks, errors);
   await page.emulateMedia({ colorScheme: 'light' });
+  // 书库 is the local library in 发现; its old address lands there (ui.md §3.4.1).
   await page.goto(`${origin}/#/library`);
-  await waitHeading(page, '书库');
+  await page.waitForURL('**/#/sources?tab=explore&source=local');
+  await page.locator('.explore-books .explore-book').first().waitFor();
   await capture(page, 'library', checks, errors);
-  const backBoxes = [['library', await backBox(page)]];
+  await page.locator('.explore-layout').getByRole('button', { name: '网格' }).click();
+  await page.locator('.explore-grid .explore-card').first().waitFor();
+  const cardWidths = await page.locator('.explore-grid .explore-card').evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().width)));
+  assert.ok(Math.max(...cardWidths) - Math.min(...cardWidths) <= 1 && cardWidths[0] >= 80, `explore grid cards ${JSON.stringify(cardWidths)}`);
+  await capture(page, 'library-grid', checks, errors);
+  await page.locator('.explore-layout').getByRole('button', { name: '列表' }).click();
+  const backBoxes = [];
   await page.goto(`${origin}/#/library/files`);
   await waitHeading(page, '文件管理');
   // File-manager selection is local UI state; exercise it before taking the
@@ -259,11 +276,11 @@ async function runReaderReview(browser, origin, checks, errors) {
   await page.locator('book-content').getByText('第 1 段', { exact: false }).first().waitFor();
   // Hash history is part of the router contract.
   await page.goto(`${origin}/#/shelf`);
-  await page.goto(`${origin}/#/library`);
+  await page.goto(`${origin}/#/library/files`);
   await page.goBack();
   assert.equal(new URL(page.url()).hash, '#/shelf');
   await page.goForward();
-  assert.equal(new URL(page.url()).hash, '#/library');
+  assert.equal(new URL(page.url()).hash, '#/library/files');
   await context.close();
 }
 
@@ -601,7 +618,12 @@ async function runMediaReview(browser, fixture, checks, errors) {
   const createPost = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/api/v1/media/libraries'));
   await page.getByRole('button', { name: '创建并扫描', exact: true }).click();
   assert.equal((await createPost).status(), 201);
-  await page.getByRole('status').filter({ hasText: '已创建' }).waitFor({ state: 'visible' });
+  // Creating starts the scan and then opens that library's tasks. The "已创建" line is
+  // only on screen between those two requests, so waiting for it raced the app: when
+  // the scan answered first the page had already moved on and the wait timed out.
+  // The place the flow ends is what is checked.
+  const createdId = (await (await createPost).json()).id;
+  await page.waitForURL(url => url.hash.startsWith('#/media/video/settings/tasks?library=' + encodeURIComponent(createdId)));
 
   // Member session: browse allowed content; administrator settings denied.
   const memberContext = await browser.newContext({ viewport: { width: 390, height: heightFor(390) }, isMobile: true, hasTouch: true });
