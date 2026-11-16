@@ -95,30 +95,38 @@ export function MediaThemeSettings({ scope, onReaderSettings }: { scope: string;
       </> : <div className="theme-settings-row"><span>明暗</span><Chips label="明暗" options={modeOptions} value={resolved.mode} onChange={mode => save({ mode })} /></div>}
     </div>
 
-    <h2>应用主题</h2>
-    <div className="theme-grid" role="group" aria-label="应用主题">
-      {appThemes.map(theme => <ThemeCard key={theme.id} id={theme.id} label={theme.name} note="浅色 · 深色" pressed={themePressed(theme.id)} onClick={() => chooseTheme(theme.id)} />)}
-    </div>
+    <section className="settings-group">
+      <h2>应用主题</h2>
+      <div className="theme-grid" role="group" aria-label="应用主题">
+        {appThemes.map(theme => <ThemeCard key={theme.id} id={theme.id} label={theme.name} note="浅色 · 深色" pressed={themePressed(theme.id)} onClick={() => chooseTheme(theme.id)} />)}
+      </div>
+    </section>
 
-    <h2>阅读主题</h2>
-    <div className="theme-grid" role="group" aria-label="阅读主题">
-      <ThemeCard id={resolved.theme} label="跟随应用" note={'与应用一致 · ' + themes[resolved.theme].name} pressed={preference.reading === 'app'} onClick={() => save({ reading: 'app' })} />
-      <ThemeCard id="gray" label={themes.gray.name} note="阅读专用 · 浅色 · 深色" pressed={preference.reading === 'gray'} onClick={() => save({ reading: 'gray' })} />
-    </div>
-    <p className="theme-settings-note">黑白灰只用于阅读器，可以与应用主题分开设置；浅色和夜间跟随应用的明暗。</p>
+    <section className="settings-group">
+      <h2>阅读主题</h2>
+      <div className="theme-grid" role="group" aria-label="阅读主题">
+        <ThemeCard id={resolved.theme} label="跟随应用" note={'与应用一致 · ' + themes[resolved.theme].name} pressed={preference.reading === 'app'} onClick={() => save({ reading: 'app' })} />
+        <ThemeCard id="gray" label={themes.gray.name} note="阅读专用 · 浅色 · 深色" pressed={preference.reading === 'gray'} onClick={() => save({ reading: 'gray' })} />
+      </div>
+      <p className="theme-settings-note">黑白灰只用于阅读器，可以与应用主题分开设置；浅色和夜间跟随应用的明暗。</p>
+    </section>
 
     {onReaderSettings && <>
-      <h2>阅读纸色</h2>
-      <ReadingPapers themeId={resolveReadingTheme(preference, systemDark).theme} settings={{ paper, paperFollowsDark }} onChange={patch => { onReaderSettings(patch); report('主题已保存', 'success'); }} />
-      <p className="theme-settings-note">纸色只改阅读页的底色和文字，工具栏仍用阅读主题；也可在阅读页的“外观”里切换。</p>
-      <h2>屏幕常亮</h2>
-      <div className="theme-settings-card">
-        <button type="button" className="theme-follow" aria-label="屏幕常亮" aria-pressed={keepAwake} onClick={() => onReaderSettings({ keepAwake: !keepAwake })}>
-          <span className="theme-follow-text"><strong>屏幕常亮</strong><small>阅读时不锁屏</small></span>
-          <span className="theme-switch" aria-hidden="true" />
-        </button>
-      </div>
-      <p className="theme-settings-note">离开阅读页后恢复系统的自动锁屏。阅读页的阅读设置里也有这个开关。</p>
+      <section className="settings-group">
+        <h2>阅读纸色</h2>
+        <ReadingPapers themeId={resolveReadingTheme(preference, systemDark).theme} settings={{ paper, paperFollowsDark }} onChange={patch => { onReaderSettings(patch); report('主题已保存', 'success'); }} />
+        <p className="theme-settings-note">纸色只改阅读页的底色和文字，工具栏仍用阅读主题；也可在阅读页的“外观”里切换。</p>
+      </section>
+      <section className="settings-group">
+        <h2>屏幕常亮</h2>
+        <div className="theme-settings-card">
+          <button type="button" className="theme-follow" aria-label="屏幕常亮" aria-pressed={keepAwake} onClick={() => onReaderSettings({ keepAwake: !keepAwake })}>
+            <span className="theme-follow-text"><strong>屏幕常亮</strong><small>阅读时不锁屏</small></span>
+            <span className="theme-switch" aria-hidden="true" />
+          </button>
+        </div>
+        <p className="theme-settings-note">离开阅读页后恢复系统的自动锁屏。阅读页的阅读设置里也有这个开关。</p>
+      </section>
     </>}
   </section>;
 }

@@ -76,7 +76,20 @@
 }
 
 .mine-group { margin: 24px 0 0; }
-.mine-group > h2 { margin: 0 0 8px 6px; font-size: var(--text-meta); font-weight: 600; letter-spacing: 0.08em; color: var(--color-muted); }
+/* The title stays at the top of this scroller while its card moves. It leaves
+   with the group once that card has scrolled past, so the next title can take the spot. */
+.mine-group > h2 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0 6px 8px;
+  background: var(--media-background);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
 
 .mine-card {
   overflow: hidden;
@@ -158,6 +171,11 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   padding-bottom: calc(96px + var(--safe-bottom));
   scrollbar-width: thin;
 }
+/* Phone page padding is 16px and the title rule is pulled out to the screen edge.
+   Give the scroller that same inset so a stuck label can paint across the whole rule. */
+@media (max-width: 700px) {
+  .settings-body { margin-inline: -16px; padding-inline: 16px; }
+}
 @media (pointer: coarse) {
   .settings-body { scrollbar-width: none; }
   .settings-body::-webkit-scrollbar { display: none; }
@@ -193,10 +211,33 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
 .settings-page .media-settings { max-width: none; }
 .settings-page .media-settings .media-settings-panel { margin: 4px 0 0; }
 
-/* The shelf's toolkit rows were drawn for a sheet: on the page their headings are
- * plain sub-labels, not sticky bars. 保存位置 uses the same label as 阅读主题. */
-.settings-page .shelf-settings .section-title { position: static; margin: 22px 0 10px; padding: 0; border: 0; background: none; color: var(--color-muted); }
-.settings-page .preference-place .section-title { position: static; z-index: auto; margin: 22px 0 10px; padding: 0; border: 0; background: none; letter-spacing: normal; font-size: var(--text-label); font-weight: 600; color: var(--color-muted); }
+/* Same release as .mine-group: a label sticks while its own controls move, then
+ * leaves once that block has scrolled past. The sheet's bar stays the sheet's. */
+.settings-page .settings-group { margin: 12px 0 0; padding: 0; border: 0; }
+.settings-page .settings-group > h2,
+.settings-page .settings-group > .section-title,
+.settings-page .preference-place > .section-title {
+  position: sticky;
+  /* Past the scroller edge, so the title rule cannot show through the seam. */
+  top: -2px;
+  z-index: 2;
+  margin: 0 -16px;
+  padding: 10px 16px 12px;
+  border: 0;
+  background: var(--media-background);
+  letter-spacing: normal;
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--color-muted);
+}
+@media (min-width: 701px) {
+  .settings-page .settings-group > h2,
+  .settings-page .settings-group > .section-title,
+  .settings-page .preference-place > .section-title {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
 .settings-page .shelf-settings .segmented { width: 100%; }
 /* The page's generic button rule (min-height, padding, a square radius, no background)
  * outranks the toolkit switch; give the switch back its pill (ui.md: one on/off control). */

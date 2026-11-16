@@ -25,7 +25,7 @@
 import { HOME_SHELF_COUNTS, type AppSettings, type HomeShelfCount } from '../store/settings.ts';
 import { Button, SectionTitle, Segmented, SwitchRow } from './toolkit.tsx';
 import { Sheet } from './sheet.tsx';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 export const DENSITY_LABELS: Record<AppSettings['shelfDensity'], string> = {
   compact: '紧凑',
@@ -59,61 +59,72 @@ export interface ShelfSettingsOptions {
  * The shelf's controls themselves, without a container: the shelf's gear opens them
  * in a sheet, and 我的 › 偏好设置 shows them as its 书架 section. One component, so
  * the two can never offer different choices.
+ *
+ * Each title is wrapped with the controls it names, so the title can stick and
+ * then leave with them.
  */
+function SettingsGroup({ title, children }: { title: string; children: ReactNode }): JSX.Element {
+  return <section className="settings-group"><SectionTitle>{title}</SectionTitle>{children}</section>;
+}
+
 export function ShelfSettingsFields({ settings, onPatch }: Pick<ShelfSettingsOptions, 'settings' | 'onPatch'>): JSX.Element {
   return (
     <>
-      <SectionTitle>封面大小</SectionTitle>
-      <Segmented
-        label="封面大小"
-        options={[
-          { value: 'compact', label: DENSITY_LABELS.compact },
-          { value: 'cozy', label: DENSITY_LABELS.cozy },
-          { value: 'comfortable', label: DENSITY_LABELS.comfortable },
-        ]}
-        value={settings.shelfDensity}
-        onChange={(value) => onPatch({ shelfDensity: value })}
-      />
-
-      <SectionTitle>显示</SectionTitle>
-      <SwitchRow
-        label="显示作者"
-        hint="关闭后每本书只显示书名，封面可以更小"
-        checked={settings.shelfShowAuthor}
-        onChange={(checked) => onPatch({ shelfShowAuthor: checked })}
-      />
-      <SwitchRow
-        label="显示阅读进度"
-        hint="在封面底部画一条进度条"
-        checked={settings.shelfShowProgress}
-        onChange={(checked) => onPatch({ shelfShowProgress: checked })}
-      />
-
-      <SectionTitle>首页</SectionTitle>
-      <div className="notice">只影响首页「我的书架」显示多少本、按什么顺序。书架页的排序仍由那里的按钮决定</div>
-      <Segmented
-        label="首页显示数量"
-        options={[...HOME_SHELF_COUNTS.map((count) => ({ value: String(count), label: `${count} 本` })), { value: 'all', label: '全部' }]}
-        value={String(settings.homeShelfCount)}
-        onChange={(value) => onPatch({ homeShelfCount: value === 'all' ? 'all' : Number(value) as HomeShelfCount })}
-      />
-      <div className="home-shelf-order">
+      <SettingsGroup title="封面大小">
         <Segmented
-          label="首页排序"
-          options={SHELF_SORTS}
-          value={settings.homeShelfSort}
-          onChange={(value) => onPatch({ homeShelfSort: value })}
+          label="封面大小"
+          options={[
+            { value: 'compact', label: DENSITY_LABELS.compact },
+            { value: 'cozy', label: DENSITY_LABELS.cozy },
+            { value: 'comfortable', label: DENSITY_LABELS.comfortable },
+          ]}
+          value={settings.shelfDensity}
+          onChange={(value) => onPatch({ shelfDensity: value })}
         />
-      </div>
+      </SettingsGroup>
 
-      <SectionTitle>默认排序</SectionTitle>
-      <div className="notice">书架上的排序按钮会记住最后一次选择，这里设置的是首次打开时的默认值</div>
-      <Segmented
-        label="默认排序"
-        options={SHELF_SORTS}
-        value={settings.shelfSort}
-        onChange={(value) => onPatch({ shelfSort: value })}
-      />
+      <SettingsGroup title="显示">
+        <SwitchRow
+          label="显示作者"
+          hint="关闭后每本书只显示书名，封面可以更小"
+          checked={settings.shelfShowAuthor}
+          onChange={(checked) => onPatch({ shelfShowAuthor: checked })}
+        />
+        <SwitchRow
+          label="显示阅读进度"
+          hint="在封面底部画一条进度条"
+          checked={settings.shelfShowProgress}
+          onChange={(checked) => onPatch({ shelfShowProgress: checked })}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup title="首页">
+        <div className="notice">只影响首页「我的书架」显示多少本、按什么顺序。书架页的排序仍由那里的按钮决定</div>
+        <Segmented
+          label="首页显示数量"
+          options={[...HOME_SHELF_COUNTS.map((count) => ({ value: String(count), label: `${count} 本` })), { value: 'all', label: '全部' }]}
+          value={String(settings.homeShelfCount)}
+          onChange={(value) => onPatch({ homeShelfCount: value === 'all' ? 'all' : Number(value) as HomeShelfCount })}
+        />
+        <div className="home-shelf-order">
+          <Segmented
+            label="首页排序"
+            options={SHELF_SORTS}
+            value={settings.homeShelfSort}
+            onChange={(value) => onPatch({ homeShelfSort: value })}
+          />
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup title="默认排序">
+        <div className="notice">书架上的排序按钮会记住最后一次选择，这里设置的是首次打开时的默认值</div>
+        <Segmented
+          label="默认排序"
+          options={SHELF_SORTS}
+          value={settings.shelfSort}
+          onChange={(value) => onPatch({ shelfSort: value })}
+        />
+      </SettingsGroup>
     </>
   );
 }
@@ -127,9 +138,10 @@ export function ShelfSettingsSheet({
   return (
     <Sheet className="shelf-settings" title="书架设置" onClose={onClose}>
       <ShelfSettingsFields settings={settings} onPatch={onPatch} />
-      <SectionTitle>外部阅读器</SectionTitle>
-      <div className="notice">通过 OPDS，让其他阅读器只读访问你的书架</div>
-      <Button onClick={onOpenExternalReader}>连接外部阅读器</Button>
+      <SettingsGroup title="外部阅读器">
+        <div className="notice">通过 OPDS，让其他阅读器只读访问你的书架</div>
+        <Button onClick={onOpenExternalReader}>连接外部阅读器</Button>
+      </SettingsGroup>
     </Sheet>
   );
 }
