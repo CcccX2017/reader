@@ -143,6 +143,7 @@ it('ships standalone launch metadata and a first-paint startup shell', () => {
   expect(manifest.launch_handler.client_mode).toBe('navigate-existing');
   const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
   expect(html).toContain('id="app-startup"');
+  expect(html).toContain('reader 阅读器');
   expect(html).toContain('apple-touch-startup-image');
 });
 

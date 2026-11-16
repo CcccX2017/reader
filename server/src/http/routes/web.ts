@@ -51,13 +51,18 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
     return;
   }
 
-  // Blank or the built-in "reader" keeps the bundle's own "reader 阅读器" splash.
-  const configuredName = (): string | null => {
+  const BUILT_IN_SPLASH = 'reader 阅读器';
+  // Blank or the built-in "reader" keeps "reader 阅读器". A configured name replaces it.
+  // short_name stays the short label in the file: a long one is what blanks the splash.
+  const splashName = (): string | null => {
     try {
       const name = siteDisplayName(ctx.settings?.read('site').name);
-      return name === 'reader' ? null : name;
+      return !name || name === 'reader' ? null : name;
     } catch { return null; }
   };
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char
+  ));
   const sendFile = (filePath: string, reply: FastifyReply, cacheControl: string): FastifyReply => {
     reply.header('content-type', MIME_BY_EXT[extname(filePath).toLowerCase()] ?? 'application/octet-stream');
     reply.header('cache-control', cacheControl);
@@ -69,7 +74,16 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
     return reply.send(createReadStream(filePath));
   };
 
-  app.get('/', async (_request, reply) => sendFile(indexFile, reply, 'no-cache'));
+  const sendIndex = (reply: FastifyReply): FastifyReply => {
+    const name = splashName();
+    if (!name) return sendFile(indexFile, reply, 'no-cache');
+    const html = readFileSync(indexFile, 'utf8').replaceAll(BUILT_IN_SPLASH, escapeHtml(name));
+    reply.header('content-type', MIME_BY_EXT['.html']);
+    reply.header('cache-control', 'no-cache');
+    return reply.send(html);
+  };
+
+  app.get('/', async (_request, reply) => sendIndex(reply));
 
   app.get('/*', async (request, reply) => {
     const raw = (request.params as { '*': string })['*'] ?? '';
@@ -90,13 +104,12 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
       return;
     }
     if (existsSync(candidate) && statSync(candidate).isFile()) {
-      const name = configuredName();
-      // The installed app's welcome screen reads this file before any script runs.
+      const name = splashName();
+      // The installed app's welcome screen reads `name` before any script runs.
       if (name && raw === 'manifest.webmanifest') {
         try {
-          const manifest = JSON.parse(readFileSync(candidate, 'utf8')) as { name?: string; short_name?: string };
+          const manifest = JSON.parse(readFileSync(candidate, 'utf8')) as { name?: string };
           manifest.name = name;
-          manifest.short_name = name;
           reply.header('content-type', MIME_BY_EXT['.webmanifest']);
           reply.header('cache-control', 'no-cache');
           return reply.send(JSON.stringify(manifest));
@@ -114,6 +127,6 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
 
     // SPA fallback: the client routes by hash, but serving index.html for an
     // unknown path is the safer default than a 404 for a deep link.
-    return sendFile(indexFile, reply, 'no-cache');
+    return sendIndex(reply);
   });
 }

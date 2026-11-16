@@ -150,16 +150,47 @@
         height: 100%;
         background: var(--boot-bg, #fdf9f6);
       }
-      .app-startup { position: fixed; inset: 0; display: grid; place-items: center; background: var(--boot-bg, #fdf9f6); z-index: 9999; }
+      .app-startup {
+        position: fixed; inset: 0; z-index: 9999;
+        display: grid; place-items: center;
+        background: var(--boot-bg, #fdf9f6);
+      }
       @media (prefers-color-scheme: dark) {
         html, body, .app-startup { background: var(--boot-bg, #1f1713); }
       }
       .app-startup img { width: 96px; height: 96px; }
+      .app-startup-name {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        margin: 0;
+        padding: 0 24px calc(32px + env(safe-area-inset-bottom, 0px));
+        text-align: center;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-size: 17px; font-weight: 600; line-height: 1.3;
+        color: #2b1810;
+      }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-mode='light']) .app-startup-name { color: #f6efe9; }
+      }
+      html[data-mode='dark'] .app-startup-name { color: #f6efe9; }
     </style>
   </head>
   <body>
     <div id="app"></div>
-    <div id="app-startup" class="app-startup" role="status" aria-label="正在启动 reader"><img src="./icons/icon-192.png" width="96" height="96" alt="" /></div>
+    <div id="app-startup" class="app-startup" role="status">
+      <img src="./icons/icon-192.png" width="96" height="96" alt="" />
+      <p id="app-startup-name" class="app-startup-name">reader 阅读器</p>
+    </div>
+    <script>
+      (function () {
+        try {
+          var saved = JSON.parse(localStorage.getItem('reader.site-brand') || 'null');
+          var name = saved && typeof saved.name === 'string' ? saved.name.trim() : '';
+          if (!name || name === 'reader') return;
+          var el = document.getElementById('app-startup-name');
+          if (el) el.textContent = name;
+        } catch (e) { /* a first visit keeps the built-in name */ }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -20,7 +20,7 @@ let app: FastifyInstance;
 
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'web-'));
-  await writeFile(join(root, 'index.html'), '<!doctype html><title>reader</title>');
+  await writeFile(join(root, 'index.html'), '<!doctype html><title>reader</title><p id="app-startup-name">reader 阅读器</p>');
   await mkdir(join(root, 'assets'));
   await writeFile(join(root, 'assets', 'index-abc123.js'), 'console.log(1)');
   await writeFile(join(root, 'assets', 'client.js'), 'console.log(2)');
@@ -131,7 +131,10 @@ test('an asset is served with its real bytes, not an empty second send', async (
     await branded.ready();
     const manifest = await branded.inject({ method: 'GET', url: '/manifest.webmanifest' });
     assert.equal(manifest.statusCode, 200);
-    assert.deepEqual(JSON.parse(manifest.body), { name: '书房', short_name: '书房' });
+    assert.deepEqual(JSON.parse(manifest.body), { name: '书房' });
+    const page = await branded.inject({ method: 'GET', url: '/' });
+    assert.match(page.body, /书房/);
+    assert.equal(page.body.includes('reader 阅读器'), false);
     await branded.close();
   });
 
