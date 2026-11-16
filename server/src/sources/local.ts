@@ -9,7 +9,7 @@ import { assertSafeRel, resolveInside } from '../lib/paths.ts';
 /** The one resource a local entry has: its cover. */
 const COVER_REF = 'cover';
 
-function entry(book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | 'format'> & { coverUrl?: string | null; shelfState?: 'on' | 'off' }): CatalogEntry {
+function entry(book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | 'format' | 'manualFields'> & { coverUrl?: string | null; shelfState?: 'on' | 'off' }): CatalogEntry {
   return {
     ref: book.id, title: book.title, authors: book.author ? [book.author] : [],
     description: book.description,
