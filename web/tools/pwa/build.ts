@@ -18,9 +18,13 @@ export function pwa() {
       const template = await readFile(new URL('./sw.js', import.meta.url), 'utf8');
       const digest = createHash('sha256').update(template);
       for (const file of files) digest.update(file).update(await readFile(join(directory, file)));
-      const worker = template.replace('__VERSION__', digest.digest('hex').slice(0, 20))
+      const version = digest.digest('hex').slice(0, 20);
+      const worker = template.replace('__VERSION__', version)
         .replace('__PRECACHE__', JSON.stringify(files));
       await writeFile(join(directory, 'sw.js'), worker);
+      const indexPath = join(directory, 'index.html');
+      const html = await readFile(indexPath, 'utf8');
+      await writeFile(indexPath, html.replaceAll('__READER_WEB_BUILD__', version));
     },
   } satisfies Plugin;
 }

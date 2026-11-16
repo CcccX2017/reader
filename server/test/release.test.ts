@@ -42,6 +42,16 @@ test('the event stream sends the open release and the next one', async () => {
   assert.equal(ended, true);
 });
 
+test('a recorded bundle id is the release id, not a hash of the worker', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'reader-release-'));
+  try {
+    await writeFile(join(root, 'sw.js'), 'const cacheName = `${prefix}0123456789abcdef0123`;\n');
+    assert.equal(webBuildId(root), '0123456789abcdef0123');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('replacing the served bundle publishes the new web id', async () => {
   const root = await mkdtemp(join(tmpdir(), 'reader-release-'));
   try {

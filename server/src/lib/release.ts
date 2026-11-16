@@ -51,14 +51,29 @@ export function serverVersion(): string {
   }
 }
 
-/** Identity of the served bundle. `sw.js` already digests every built file. */
+/** The id `tools/pwa/build.ts` writes into `sw.js` and `index.html`. */
+const RECORDED_BUILD = /\$\{prefix\}([a-f0-9]{20})/;
+
+/**
+ * Identity of the served bundle.
+ *
+ * A production worker records the digest of the files it precaches. That same
+ * digest is stamped into the page, so a process that starts already on the new
+ * bundle — a replaced container — still has an id the open page can compare.
+ * Anything else is hashed, which is what tests and a half-written bundle use.
+ */
 export function webBuildId(webDir: string): string {
   if (!webDir) return 'none';
   const sw = join(webDir, 'sw.js');
   const index = join(webDir, 'index.html');
   const file = existsSync(sw) ? sw : existsSync(index) ? index : '';
   if (!file) return 'none';
-  return createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 20);
+  const bytes = readFileSync(file);
+  if (file === sw) {
+    const recorded = bytes.toString('utf8').match(RECORDED_BUILD);
+    if (recorded?.[1]) return recorded[1];
+  }
+  return createHash('sha256').update(bytes).digest('hex').slice(0, 20);
 }
 
 export function currentRelease(webDir: string, server = serverVersion()): Release {

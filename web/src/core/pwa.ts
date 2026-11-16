@@ -143,6 +143,9 @@ export function watchPwaUpdates(
   window.addEventListener('online', check);
   const interval = setInterval(check, 60 * 60 * 1000);
   onUpdateFound();
+  // A visit is a check. Coming back to a frozen phone does not always fire
+  // visibilitychange, and a replaced container has nothing left to publish.
+  check();
   return () => {
     clearTimeout(timeout);
     clearInterval(interval);

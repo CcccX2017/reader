@@ -13,7 +13,7 @@ import { AppProviders } from './app/providers/AppProviders.tsx';
 import { createAppRuntime, inferDefaultUrl } from './app/runtime.ts';
 import { router } from './app/router/router.tsx';
 import { offerReload, registerPwa, requestServiceWorkerUpdate } from './core/pwa.ts';
-import { releaseResponse, subscribeReleases } from './core/release-events.ts';
+import { pageWebBuild, releaseResponse, subscribeReleases } from './core/release-events.ts';
 import { dismissAppStartup } from './app/startup.ts';
 import { applySafariVersion } from './shared/safari-version.ts';
 import { paintStoredTheme } from './shared/theme/theme.ts';
@@ -55,11 +55,15 @@ async function start(): Promise<void> {
   window.__readerFlush = () => runtime.flush();
   createRoot(appRoot).render(<AppProviders runtime={runtime}><RouterProvider router={router} /></AppProviders>);
   registerPwa();
+  // The Android shell serves its own copy of the bundle. The server's web id
+  // belongs to the image, so comparing them would offer an update the shell
+  // cannot apply.
+  const runningWeb = window.ReaderAndroid ? undefined : pageWebBuild();
   subscribeReleases(runtime.api.baseUrl, (change) => {
     const action = releaseResponse(change, !!navigator.serviceWorker?.controller);
     if (action.updateWorker) requestServiceWorkerUpdate();
     if (action.reload) offerReload();
-  });
+  }, runningWeb);
 }
 
 void start().catch((err: unknown) => {

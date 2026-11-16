@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { releaseChange, releaseResponse, subscribeReleases, type Release } from '../src/core/release-events.ts';
+import { pageWebBuild, releaseChange, releaseResponse, subscribeReleases, type Release } from '../src/core/release-events.ts';
 
 class FakeSource extends EventTarget {
   static latest: FakeSource | undefined;
@@ -45,5 +45,23 @@ describe('release events', () => {
     expect(source.closed).toBe(true);
     source.emit({ server: '9', web: 'z' });
     expect(changes).toEqual(['both']);
+  });
+
+  it('treats the snapshot after a restart as an update when this page is older', () => {
+    vi.stubGlobal('EventSource', FakeSource);
+    const changes: string[] = [];
+    const stop = subscribeReleases('http://127.0.0.1:5888', (change) => changes.push(change), 'aaaaaaaaaaaaaaaaaaaa');
+    FakeSource.latest!.emit({ server: '1.0.11', web: 'bbbbbbbbbbbbbbbbbbbb' });
+    FakeSource.latest!.emit({ server: '1.0.11', web: 'bbbbbbbbbbbbbbbbbbbb' });
+    expect(changes).toEqual(['web']);
+    stop();
+  });
+
+  it('reads only a stamped 20-character build id', () => {
+    document.head.innerHTML = '<meta name="reader-web-build" content="__READER_WEB_BUILD__">';
+    expect(pageWebBuild()).toBeUndefined();
+    document.head.innerHTML = '<meta name="reader-web-build" content="0123456789abcdef0123">';
+    expect(pageWebBuild()).toBe('0123456789abcdef0123');
+    document.head.innerHTML = '';
   });
 });

@@ -26,8 +26,24 @@ export function releaseResponse(change: ReleaseChange, swControlled: boolean): {
   };
 }
 
-/** Listens for `release` events. The first one is the version this page opened with. */
-export function subscribeReleases(baseUrl: string, onChange: (change: ReleaseChange) => void): () => void {
+const BUILD_ID = /^[a-f0-9]{20}$/;
+
+/** The build id stamped into this document. Absent in dev, and on a page that predates the stamp. */
+export function pageWebBuild(doc: Document | undefined = typeof document === 'undefined' ? undefined : document): string | undefined {
+  const content = doc?.querySelector('meta[name="reader-web-build"]')?.getAttribute('content')?.trim() ?? '';
+  return BUILD_ID.test(content) ? content : undefined;
+}
+
+/**
+ * Listens for `release` events.
+ *
+ * The first event is the release the server is running now. A replaced
+ * container never emits a second "it changed" event, so that snapshot is
+ * compared with the build id this page was actually served. Later events
+ * are compared with the previous snapshot, which is how a page that stayed
+ * open hears a rebuild without a restart.
+ */
+export function subscribeReleases(baseUrl: string, onChange: (change: ReleaseChange) => void, runningWeb?: string): () => void {
   const root = baseUrl || (typeof location === 'undefined' ? '' : location.origin);
   if (!root || typeof EventSource === 'undefined') return () => undefined;
   const source = new EventSource(new URL('/api/v1/events', root.endsWith('/') ? root : `${root}/`).href);
@@ -37,7 +53,11 @@ export function subscribeReleases(baseUrl: string, onChange: (change: ReleaseCha
     try { next = JSON.parse((event as MessageEvent<string>).data) as Release; }
     catch { return; }
     if (!next || typeof next.server !== 'string' || typeof next.web !== 'string') return;
-    if (!seen) { seen = next; return; }
+    if (!seen) {
+      seen = next;
+      if (runningWeb && runningWeb !== next.web) onChange('web');
+      return;
+    }
     const change = releaseChange(seen, next);
     seen = next;
     if (change !== 'none') onChange(change);
