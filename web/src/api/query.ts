@@ -85,8 +85,9 @@ function affectedByMediaWrite(mutation: string, query: string): boolean {
 
 /** Invalidate only the navigation resources a mutation can change. */
 export function affectedNavigationQuery(mutation: string, query: string): boolean {
-  // A reading position changes 继续阅读 and every shelf list that sorts or
-  // labels by it. The lists live under /books; continue is its own route.
+  // A reading position changes 继续阅读 and every book list that sorts or
+  // labels by it, including one book and the library index. The lists live
+  // under /books; continue is its own route.
   if (/^\/api\/v1\/sync(?:\/|$)/.test(mutation)) {
     return query.startsWith('/api/v1/library/continue') || query.startsWith('/api/v1/books');
   }
