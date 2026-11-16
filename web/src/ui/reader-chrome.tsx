@@ -380,7 +380,7 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
               <dd>{state.chapterLabel || '暂无信息'}</dd>
             </dl>
             <h4>内容简介</h4>
-            <BookBlurb description={state.description ?? ''} manual={!!state.descriptionManual} onSave={handlers.onSaveDescription} onRestore={handlers.onRestoreDescription} />
+            <BookBlurb description={state.description ?? ''} manual={!!state.descriptionManual} {...(handlers.onSaveDescription ? { onSave: handlers.onSaveDescription } : {})} {...(handlers.onRestoreDescription ? { onRestore: handlers.onRestoreDescription } : {})} />
             <ReadingHistory state={state} handlers={handlers} />
           </article>
         </Sheet>

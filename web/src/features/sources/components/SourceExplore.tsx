@@ -214,6 +214,6 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
     {covers.input}
     {covers.ui}
     {metadata.ui}
-    {detail && <SourceBookDetailSheet detail={detail} pending={detailQuery.isPending} error={detailQuery.error} acquiring={acquire.isPending} onAcquire={acquireEntry} onClose={() => setDetail(null)} library={local ? { onEdit: () => metadata.open(libraryBook(detail)), onCover: () => covers.open(libraryBook(detail)) } : undefined} />}
+    {detail && <SourceBookDetailSheet detail={detail} pending={detailQuery.isPending} error={detailQuery.error} acquiring={acquire.isPending} onAcquire={acquireEntry} onClose={() => setDetail(null)} {...(local ? { library: { onEdit: () => metadata.open(libraryBook(detail)), onCover: () => covers.open(libraryBook(detail)) } } : {})} />}
   </>;
 }
