@@ -38,3 +38,31 @@ it('saves a novel author through the manual override API', async () => {
   await act(async () => [...root.querySelectorAll('button')].find(button => button.textContent === '保存')!.click());
   expect(patchBookMetadata).toHaveBeenCalledWith('b1', { author: '金庸' });
 });
+
+it('saves a blurb through the same override API', async () => {
+  const patchBookMetadata = vi.fn(async () => ({
+    book: { id: 'b1', title: '射雕英雄传', author: '', description: '江湖恩仇。', manualFields: ['description'] },
+  }));
+  const runtime = { api: { patchBookMetadata, clearBookMetadataField: vi.fn() } } as any;
+  function Host() {
+    const meta = useBookMetadata(() => undefined);
+    return <>
+      <button type="button" onClick={() => meta.open({ id: 'b1', title: '射雕英雄传', author: '', description: '', manualFields: [] })}>打开</button>
+      {meta.ui}
+    </>;
+  }
+  await act(async () => render(
+    <RuntimeContext.Provider value={runtime}>
+      <QueryClientProvider client={new QueryClient()}><Host /></QueryClientProvider>
+    </RuntimeContext.Provider>,
+    root,
+  ));
+  await act(async () => root.querySelector('button')!.click());
+  await act(async () => {
+    const input = root.querySelector<HTMLTextAreaElement>('[aria-label="简介"]')!;
+    input.value = '江湖恩仇。';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => [...root.querySelectorAll('button')].find(button => button.textContent === '保存')!.click());
+  expect(patchBookMetadata).toHaveBeenCalledWith('b1', { description: '江湖恩仇。' });
+});

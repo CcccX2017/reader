@@ -152,6 +152,26 @@ describe('ReaderChrome', () => {
     expect(onScrubChapter).toHaveBeenCalledWith(7);
   });
 
+  it('edits the blurb from 书籍信息 and can restore a manual one', async () => {
+    const onSaveDescription = vi.fn(async () => undefined);
+    const onRestoreDescription = vi.fn(async () => undefined);
+    const stage = document.createElement('div');
+    render(h(ReaderChrome, {
+      state: chromeState({ bookInfoOpen: true, description: '原简介', descriptionManual: true }),
+      stage,
+      handlers: { ...handlers(), onSaveDescription, onRestoreDescription },
+    }), container);
+    expect(container.textContent).toContain('原简介');
+    await act(async () => { [...container.querySelectorAll('button')].find(button => button.textContent === '编辑简介')!.click(); });
+    const field = container.querySelector<HTMLTextAreaElement>('[aria-label="简介"]')!;
+    expect(field.value).toBe('原简介');
+    await act(async () => { field.value = '新简介'; field.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { [...container.querySelectorAll('button')].find(button => button.textContent === '保存')!.click(); });
+    expect(onSaveDescription).toHaveBeenCalledWith('新简介');
+    await act(async () => { [...container.querySelectorAll('button')].find(button => button.textContent === '恢复原简介')!.click(); });
+    expect(onRestoreDescription).toHaveBeenCalled();
+  });
+
   it('offers AI 总结 only when the server says it can answer', () => {
     expect(paint({}).querySelector('[aria-label="AI 总结"]')).toBeNull();
     expect(paint({ aiSummaryAvailable: false }).querySelector('[aria-label="AI 总结"]')).toBeNull();

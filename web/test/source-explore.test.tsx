@@ -22,15 +22,16 @@ const catalog = vi.fn(async (id: string, request: { ref?: string }) => id === 'l
     { ref: 'off', title: '不在架的书', options: [{ id: 'read', label: '加入书架' }] }] }
   : { title: '发现', items: [{ ref: 'r', title: '远端的书' }] });
 const upload = vi.fn(async () => ({ uploaded: [{}], skipped: [] }));
+const scanLibrary = vi.fn(async () => ({ running: false, startedAt: null, finishedAt: null, scanned: 1, added: 0, updated: 0, unchanged: 1, removed: 0, failed: 0, lastError: null, durationMs: 1 }));
 const runtime = {
-  api: { baseUrl: 'https://reader.example.com', sourceCatalog: catalog, upload, uploadProbe: async () => ({ allowed: true, writable: true }), coverBytes: async () => new Uint8Array() },
+  api: { baseUrl: 'https://reader.example.com', sourceCatalog: catalog, upload, scanLibrary, sourceDetail: async (_id: string, ref: string) => ({ ref, title: ref === 'on' ? '在架的书' : '不在架的书', authors: ref === 'on' ? ['甲'] : [] }), uploadProbe: async () => ({ allowed: true, writable: true }), coverBytes: async () => new Uint8Array() },
   updateSettings: async (patch: object) => useSettingsStore.getState().update(patch),
 } as any;
-const paint = async (url: string) => {
+const paint = async (url: string, refreshRef?: { current: (() => Promise<void>) | null }) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   await act(async () => render(
     <RuntimeContext.Provider value={runtime}><QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[url]}><SourceExplore sources={sources as any} /></MemoryRouter>
+      <MemoryRouter initialEntries={[url]}><SourceExplore sources={sources as any} {...(refreshRef ? { refreshRef } : {})} /></MemoryRouter>
     </QueryClientProvider></RuntimeContext.Provider>, root));
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
 };
@@ -40,7 +41,7 @@ afterEach(() => {
   act(() => render(null, root));
   useAuthStore.setState({ session: null, verifiedUser: null });
   useSettingsStore.getState().replace({ ...DEFAULT_APP_SETTINGS });
-  catalog.mockClear(); upload.mockClear();
+  catalog.mockClear(); upload.mockClear(); scanLibrary.mockClear();
 });
 
 describe('发现', () => {
@@ -59,12 +60,20 @@ describe('发现', () => {
     Object.defineProperty(input, 'files', { value: [new File(['x'], 'a.txt')], configurable: true });
     await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(resolve => setTimeout(resolve, 0)); });
     expect(upload).toHaveBeenCalledWith([expect.any(File)], '科幻', 'rename');
+    // List mode: the cover opens 设置封面. 详情 offers the same choice plus 编辑信息.
+    await act(async () => { root.querySelector<HTMLButtonElement>('.explore-cover-set')!.click(); });
+    expect(document.body.textContent).toContain('选择本地图片');
+    await act(async () => { document.body.querySelector<HTMLButtonElement>('[aria-label="关闭"]')!.click(); });
+    await act(async () => { [...root.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '详情')!.click(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(document.body.textContent).toContain('编辑信息');
+    expect(document.body.textContent).toContain('设置封面');
   });
 
   it('keeps upload and the file manager to the local library, and remembers the layout', async () => {
     await paint('/sources?tab=explore');
     expect(catalog).toHaveBeenLastCalledWith('legado-1', {});
     expect(root.querySelector('.explore-tools label, .explore-tools a')).toBeNull();
+    expect(root.querySelector('.explore-cover-set')).toBeNull();
     expect(root.querySelector('.explore-books')).not.toBeNull();
     const grid = [...root.querySelectorAll<HTMLButtonElement>('.explore-layout button')].find(button => button.textContent === '网格')!;
     await act(async () => { grid.click(); });
@@ -72,5 +81,25 @@ describe('发现', () => {
     expect(root.querySelector('.explore-books')).toBeNull();
     expect(root.querySelector('.explore-grid .explore-card')?.textContent).toContain('远端的书');
     expect(grid.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('reloads the open folder, and rescans when that folder is the local library', async () => {
+    const refreshRef: { current: (() => Promise<void>) | null } = { current: null };
+    useAuthStore.setState({ verifiedUser: { id: 'u', username: 'a', displayName: 'A', role: 'admin', createdAt: 0 } as any });
+    await paint(LIBRARY_PATH, refreshRef);
+    await act(async () => { root.querySelector<HTMLButtonElement>('.explore-link')!.click(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    catalog.mockClear();
+    await act(async () => { await refreshRef.current?.(); });
+    expect(scanLibrary).toHaveBeenCalledOnce();
+    expect(catalog).toHaveBeenCalledWith('lib-7', { ref: '科幻' });
+  });
+
+  it('reloads a remote catalog without scanning the local library', async () => {
+    const refreshRef: { current: (() => Promise<void>) | null } = { current: null };
+    await paint('/sources?tab=explore', refreshRef);
+    catalog.mockClear();
+    await act(async () => { await refreshRef.current?.(); });
+    expect(scanLibrary).toHaveBeenCalledTimes(0);
+    expect(catalog).toHaveBeenCalledWith('legado-1', {});
   });
 });

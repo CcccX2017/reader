@@ -8,13 +8,15 @@ import { FloatingNotice } from '../../../ui/floating-notice.tsx';
  * A source result's detail, shared by the source hub and a single source's catalog:
  * they show the same entry and offer the same 加入书架 choices.
  */
-export function SourceBookDetailSheet({ detail, pending, error, acquiring, onAcquire, onClose }: {
+export function SourceBookDetailSheet({ detail, pending, error, acquiring, onAcquire, onClose, library }: {
   detail: SourceEntry;
   pending: boolean;
   error: Error | null;
   acquiring: boolean;
   onAcquire(entry: SourceEntry, option?: string): void;
   onClose(): void;
+  /** Local library books can be renamed and re-covered from 发现. */
+  library?: { onEdit(): void; onCover(): void };
 }) {
   const options = detail.options ?? [];
   return <Sheet title={detail.title || '书籍详情'} onClose={onClose}
@@ -24,6 +26,7 @@ export function SourceBookDetailSheet({ detail, pending, error, acquiring, onAcq
     <FloatingNotice message={pending ? '正在读取书籍详情…' : ''} busy />
     <div className="book-detail">
       <p className="book-detail-author">{detail.authors?.join('、') || '作者未知'}</p>
+      {library && <div className="explore-detail-edit"><Button onClick={library.onEdit}>编辑信息</Button><Button onClick={library.onCover}>设置封面</Button></div>}
       {error && <p className="notice error" role="alert">{describeError(error)}</p>}
       <p className="book-detail-description">{detail.description || '暂无简介'}</p>
     </div>

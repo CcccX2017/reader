@@ -425,7 +425,7 @@ test('a local book takes a cover from a source as a manual override that survive
   assert.equal(after.coverUrl, null); assert.ok(!after.manualFields.includes('cover'));
 });
 
-test('the local library browses folder by folder with covers, like any source in 发现', async (t) => {
+test('the local library lists every book under a folder, including nested ones, and still offers the folders', async (t) => {
   const h = await harness(); t.after(() => h.close());
   await mkdir(join(h.booksDir, '科幻', '刘慈欣'), { recursive: true }); await mkdir(join(h.booksDir, '科学'));
   await writeFile(join(h.booksDir, '根目录的书.txt'), '第一章\n\n正文一。\n');
@@ -436,17 +436,22 @@ test('the local library browses folder by folder with covers, like any source in
   const browse = async (query = '') => {
     const response = await h.app.inject({ method: 'GET', url: `/api/v1/sources/local/browse${query}`, headers: auth(h.admin) });
     assert.equal(response.statusCode, 200, response.body);
-    return response.json() as { title: string; items: Array<{ ref: string; title: string; coverRef?: string }>; navigation?: Array<{ title: string; ref: string }>; nextCursor?: string };
+    return response.json() as { title: string; total: number; items: Array<{ ref: string; title: string; coverRef?: string }>; navigation?: Array<{ title: string; ref: string }>; nextCursor?: string };
   };
+  const titles = (items: Array<{ title: string }>) => items.map((item) => item.title).sort();
   const root = await browse();
-  assert.deepEqual([root.title, root.items.map((item) => item.title), root.navigation?.map((item) => item.title)], ['本地书库', ['根目录的书'], ['科幻', '科学']]);
+  assert.deepEqual([root.title, root.total, titles(root.items), root.navigation?.map((item) => item.title)], ['本地书库', 4, titles([{ title: '根目录的书' }, { title: '科幻的书' }, { title: '三体' }, { title: '科学的书' }]), ['科幻', '科学']]);
   const folder = await browse(`?ref=${encodeURIComponent('科幻')}`);
-  assert.deepEqual([folder.title, folder.items.map((item) => item.title), folder.navigation?.map((item) => [item.title, item.ref])], ['科幻', ['科幻的书'], [['刘慈欣', '科幻/刘慈欣']]]);
+  assert.deepEqual([folder.title, folder.total, titles(folder.items), folder.navigation?.map((item) => [item.title, item.ref])], ['科幻', 2, titles([{ title: '科幻的书' }, { title: '三体' }]), [['刘慈欣', '科幻/刘慈欣']]]);
   const leaf = await browse(`?ref=${encodeURIComponent('科幻/刘慈欣')}`);
-  assert.deepEqual([leaf.title, leaf.items.map((item) => item.title), leaf.navigation], ['刘慈欣', ['三体'], undefined]);
+  assert.deepEqual([leaf.title, leaf.total, titles(leaf.items), leaf.navigation], ['刘慈欣', 1, ['三体'], undefined]);
   assert.equal((await h.app.inject({ method: 'GET', url: `/api/v1/sources/local/browse?ref=${encodeURIComponent('../etc')}`, headers: auth(h.admin) })).statusCode, 403);
 
   const book = leaf.items[0]!;
+  const edited = await h.app.inject({ method: 'PATCH', url: `/api/v1/books/${book.ref}/metadata`, headers: auth(h.admin), payload: { author: '刘慈欣' } });
+  assert.equal(edited.statusCode, 200, edited.body);
+  assert.equal(edited.json().book.author, '刘慈欣', '发现 can name the author before the book is on a shelf');
+  assert.equal((await h.app.inject({ method: 'DELETE', url: `/api/v1/books/${book.ref}/metadata/author`, headers: auth(h.admin) })).statusCode, 200);
   assert.equal(book.coverRef, undefined, 'a text file has no cover');
   assert.equal((book as { metadata?: { publicationId?: string } }).metadata?.publicationId, undefined, 'a library book is not yet a shelf book');
   const shelved = await h.app.inject({ method: 'GET', url: '/api/v1/books', headers: auth(h.admin) });

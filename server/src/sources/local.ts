@@ -17,7 +17,11 @@ function entry(book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | '
     // `coverRef` is the same picture fetched through the source, which 发现 uses.
     ...(book.coverUrl ? { coverUrl: book.coverUrl, coverRef: COVER_REF } : {}),
     // A book already on the caller's shelf says which one, so a client offers 阅读 rather than 加入书架.
-    options: [{ id: 'read', label: '加入书架', available: true }], metadata: { format: book.format, ...(book.shelfState === 'on' ? { publicationId: book.id } : {}) },
+    options: [{ id: 'read', label: '加入书架', available: true }], metadata: {
+      format: book.format,
+      ...(book.manualFields.length ? { manualFields: book.manualFields } : {}),
+      ...(book.shelfState === 'on' ? { publicationId: book.id } : {}),
+    },
   };
 }
 
@@ -45,13 +49,14 @@ export function createLocalProvider(db: Db, shelf: () => ShelfService, dataDir: 
       }
     },
     /**
-     * The library folder by folder: a page is one folder, its subfolders are the
-     * navigation and its own books the items, so it reads like any other source in 发现.
+     * One library folder, including the books in folders below it. Subfolders stay
+     * in the navigation so 发现 can still step into one, but the list is every novel
+     * under this folder: the configured library root is the whole library.
      */
     async browse(ctx, request) {
       const path = request.ref ? assertSafeRel(request.ref) : '';
       const result = shelf().list(ctx.userId, {
-        scope: 'library', ...(path ? { path } : {}), direct: true, page: page(request.cursor), pageSize: request.limit ?? 40,
+        scope: 'library', ...(path ? { path } : {}), page: page(request.cursor), pageSize: request.limit ?? 40,
       });
       const folders = request.cursor ? [] : shelf().folders(path);
       return {

@@ -436,6 +436,8 @@ export class ReaderScreen {
               this.patch({ bookInfoOpen: open });
               if (open) void this.loadHistory();
             },
+            onSaveDescription: (text) => this.saveDescription(text),
+            onRestoreDescription: () => this.restoreDescription(),
             onRetryHistory: () => void this.loadHistory(),
             onRestoreHistory: (locator) => void this.restoreHistory(locator),
             onAiSummary: () => void this.generateAiSummary(),
@@ -564,6 +566,24 @@ export class ReaderScreen {
     else void this.goToChapterRef(`${note.ref}#${note.fragment}`);
   }
 
+  /** Writes the blurb from 书籍信息 onto the manual override layer. */
+  private async saveDescription(text: string): Promise<void> {
+    if (!this.book) return;
+    const next = text.trim();
+    if (next === this.book.description.trim()) return;
+    const { book } = await this.options.api.patchBookMetadata(this.book.id, { description: next });
+    this.book = book;
+    this.patch({ title: book.title, author: book.author, description: book.description, descriptionManual: book.manualFields.includes('description') });
+  }
+
+  /** Drops a manual blurb so the one from the file shows again. */
+  private async restoreDescription(): Promise<void> {
+    if (!this.book) return;
+    const { book } = await this.options.api.clearBookMetadataField(this.book.id, 'description');
+    this.book = book;
+    this.patch({ description: book.description, descriptionManual: book.manualFields.includes('description') });
+  }
+
   private async generateAiSummary(): Promise<void> {
     if (this.chrome.aiSummary) {
       this.patch({ aiSummary: '' });
@@ -613,6 +633,7 @@ export class ReaderScreen {
       title: book.title,
       author: book.author,
       description: book.description,
+      descriptionManual: book.manualFields.includes('description'),
       bookInfoOpen: false,
       canRefresh: book.format === 'chapters',
       canSwitch: false,

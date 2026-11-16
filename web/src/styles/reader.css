@@ -4056,7 +4056,9 @@ book-content {
 .shelf-scroll[data-pulling='true'],
 .library-browse-screen[data-pulling='true'],
 .library-browse-scroll[data-pulling='true'],
-.manager-body[data-pulling='true'] {
+.manager-body[data-pulling='true'],
+.sources-hub[data-pulling='true'],
+.sources-body[data-pulling='true'] {
   touch-action: none;
 }
 
@@ -4407,6 +4409,19 @@ book-content {
   overflow: auto;
   padding: 0 1rem 2rem;
   flex: 1;
+  overscroll-behavior-y: none;
+}
+.sources-hub > .pull-refresh {
+  flex: none;
+}
+/* Touch: the 发现 list still scrolls; the bar itself stays off the page. */
+@media (pointer: coarse) {
+  .sources-hub .sources-body {
+    scrollbar-width: none;
+  }
+  .sources-hub .sources-body::-webkit-scrollbar {
+    display: none;
+  }
 }
 /* 搜书: chrome stays put; only .source-results scrolls. */
 .sources-hub .sources-body-search {
@@ -4804,6 +4819,11 @@ book-content {
 .explore-book { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:var(--space-2) var(--space-3); padding:var(--space-3) 0; border-top:1px solid var(--reader-line); }
 .explore-book:first-child { border-top:0; padding-top:0; }
 .explore-book .lazy-cover { width:4rem; grid-row:span 2; }
+.explore-cover-set { grid-row:span 2; width:4rem; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; }
+.explore-cover-set .lazy-cover { width:100%; grid-row:auto; }
+.explore-cover-set:focus-visible { outline:var(--focus-ring); outline-offset:2px; }
+.explore-detail-edit { display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-3) 0; }
+.explore-detail-edit .button { min-height:44px; }
 .explore-book-text { min-width:0; }
 .explore-book-text strong { display:block; font-size:var(--text-title); overflow-wrap:anywhere; }
 .explore-book-text small { display:block; margin-top:.2rem; color:var(--reader-muted); font-size:var(--text-meta); overflow-wrap:anywhere; }
@@ -6191,6 +6211,18 @@ svg.icon {
   white-space: pre-wrap;
   line-height: 1.8;
   overflow-wrap: anywhere;
+}
+.book-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+}
+.book-detail-actions .button { min-height: 44px; }
+.book-detail .sheet-field textarea {
+  min-height: 8rem;
+  line-height: 1.6;
+  resize: vertical;
 }
 
 .reader-book-heading {

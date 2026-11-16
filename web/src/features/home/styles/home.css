@@ -1,15 +1,17 @@
-/* 首页: greeting / 继续 / 「我的书架」标题固定；书格在标题下的 .home-shelf-scroll 里滚。
+/* 首页: .select-head-slot 不滚。其余在 .home-body 里滚；「我的书架」顶到
+ * 这块区域的上沿之后，继续滚的是 .home-shelf-scroll。
  * Uses the shared theme tokens only; channel colour comes from --color-ch-*. */
 .media-screen.home-page {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   overscroll-behavior: none;
   /* Nav / mini-player clearance moves onto the scrolling pane. */
   padding-bottom: 0;
 }
 .home-header,
-.home-continue,
 .home-page > .select-head-slot,
 .home-page > .pull-refresh {
   flex: none;
@@ -18,23 +20,36 @@
   padding-block: 0.25rem 0.5rem;
   background: var(--color-bg);
 }
+.home-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  scrollbar-width: thin;
+}
 .home-shelf {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
+  /* One viewport of the body. Taller content stays in .home-shelf-scroll,
+     so 「全部」is the whole shelf and not just the rows that fit under 继续. */
+  height: 100%;
+  margin-top: 16px;
+  box-sizing: border-box;
 }
 .home-shelf > .home-section {
   flex: none;
-  margin-top: 16px;
+  margin-top: 0;
   margin-bottom: 8px;
+  background: var(--color-bg);
 }
 .home-shelf-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  /* none: keep browser chrome from claiming the top-edge pull as its own reload. */
+  /* none: the handoff back to .home-body is done in script, and the browser
+     must not claim the edge as its own reload. */
   overscroll-behavior-y: none;
   padding-bottom: calc(96px + var(--safe-bottom));
   scrollbar-width: thin;
@@ -44,9 +59,11 @@
 }
 /* Touch: hide the shelf scroller chrome; the pane still scrolls. */
 @media (pointer: coarse) {
+  .home-body,
   .home-shelf-scroll {
     scrollbar-width: none;
   }
+  .home-body::-webkit-scrollbar,
   .home-shelf-scroll::-webkit-scrollbar {
     display: none;
   }

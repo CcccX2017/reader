@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import type { Book } from '../../../api/types.ts';
 import type { SourceEntry, SourceInstance, SourcePage } from '../../../api/sources.ts';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
+import { syncLibraryOnce } from '../../../shared/library/sync-library.ts';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
+import { useBookMetadata } from '../../shelf/book-metadata.tsx';
+import { useCustomCover } from '../../shelf/custom-cover.tsx';
 import { LazyCover } from '../../../ui/lazy-cover.tsx';
 import { notify } from '../../../ui/notifications.ts';
 import { SearchableSelect } from '../../../ui/searchable-select.tsx';
@@ -13,6 +17,20 @@ import { SourceBookDetailSheet } from './SourceBookDetailSheet.tsx';
 
 /** One step of the trail: the page a crumb leads back to. */
 interface Crumb { ref?: string; title: string }
+
+/** A local catalog row is the library book, whether or not it is on a shelf yet. */
+function libraryBook(entry: SourceEntry) {
+  const manual = entry.metadata?.manualFields;
+  const format = entry.metadata?.format;
+  return {
+    id: entry.ref,
+    title: entry.title,
+    author: entry.authors?.[0] ?? '',
+    description: entry.description ?? '',
+    ...(typeof format === 'string' ? { format } : {}),
+    manualFields: Array.isArray(manual) ? manual.filter((item): item is string => typeof item === 'string') : [],
+  };
+}
 
 const coverUrl = (sourceId: string, entry: SourceEntry) => entry.coverUrl
   ?? (entry.coverRef
@@ -27,7 +45,13 @@ const coverUrl = (sourceId: string, entry: SourceEntry) => entry.coverUrl
  * breadcrumb, so going back is a tap on where you were rather than a button a
  * source has to supply.
  */
-export function SourceExplore({ sources }: { sources: SourceInstance[] }) {
+export function SourceExplore({ sources, refreshRef, onLocal }: {
+  sources: SourceInstance[];
+  /** 发现's pull-to-refresh calls this. The parent owns the gesture. */
+  refreshRef?: { current: (() => Promise<void>) | null };
+  /** Whether the open source is the local library, so the cue can say 书库. */
+  onLocal?: (local: boolean) => void;
+}) {
   const runtime = useRuntime(), navigate = useNavigate(), queryClient = useQueryClient();
   // The source is part of the address (?source=), so 书库 links land on the local library
   // and a reload stays where it was.
@@ -92,6 +116,47 @@ export function SourceExplore({ sources }: { sources: SourceInstance[] }) {
     if (selectedId) void open([]);
     return () => { ++epoch.current; };
   }, [selectedId]);
+  const trailRef = useRef(trail);
+  trailRef.current = trail;
+  const localRef = useRef(local);
+  localRef.current = local;
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => { onLocal?.(local); }, [local, onLocal]);
+  // Pull reloads the folder on screen. The local library also rescans the mount first,
+  // which is what 首页 and 书架 do; a remote catalog has nothing on disk to scan.
+  useEffect(() => {
+    if (!refreshRef) return;
+    refreshRef.current = async () => {
+      if (localRef.current) await syncLibraryOnce(runtime.api, queryClient);
+      const crumbs = trailRef.current;
+      const here = crumbs.at(-1);
+      await openRef.current(crumbs.slice(0, -1), here?.ref);
+    };
+    return () => { refreshRef.current = null; };
+  }, [refreshRef, runtime.api, queryClient]);
+  const applyBook = (book: Book) => {
+    const patch = (entry: SourceEntry): SourceEntry => {
+      if (entry.ref !== book.id) return entry;
+      const { coverUrl: _previous, ...rest } = entry;
+      return {
+        ...rest, title: book.title, authors: book.author ? [book.author] : [], description: book.description,
+        ...(book.coverUrl ? { coverUrl: book.coverUrl } : {}),
+        metadata: { ...entry.metadata, manualFields: book.manualFields },
+      };
+    };
+    setPage(previous => previous ? { ...previous, items: previous.items.map(patch) } : previous);
+    setDetail(previous => previous?.ref === book.id ? patch(previous) : previous);
+  };
+  const onLibraryChanged = (book?: Book) => {
+    if (book) { applyBook(book); return; }
+    const crumbs = trailRef.current;
+    const here = crumbs.at(-1);
+    void openRef.current(crumbs.slice(0, -1), here?.ref);
+  };
+  const reportEditError = (message: string) => { if (message) notify(message, { kind: 'error' }); };
+  const metadata = useBookMetadata(reportEditError, applyBook);
+  const covers = useCustomCover(reportEditError, onLibraryChanged);
   const detailQuery = useQuery({ queryKey: ['source-detail', runtime.api.baseUrl, selectedId, detail?.ref], queryFn: () => runtime.api.sourceDetail(selectedId, detail!.ref), enabled: !!detail });
   useEffect(() => { if (detail && detailQuery.data) setDetail({ ...detail, ...detailQuery.data }); }, [detailQuery.data]);
   const acquire = useMutation({ mutationFn: ({ ref, option }: { ref: string; option?: string }) => runtime.api.acquireSource(selectedId, ref, option), onError: reason => notify(reason instanceof Error ? reason.message : '加入书架失败', { kind: 'error' }) });
@@ -137,13 +202,18 @@ export function SourceExplore({ sources }: { sources: SourceInstance[] }) {
           {action(entry, true)}
         </article>)}</div>
         : <div className="explore-books">{page.items.map(entry => <article className="explore-book" key={entry.ref}>
-          <LazyCover url={coverUrl(selectedId, entry)} title={entry.title} />
+          {local
+            ? <button type="button" className="explore-cover-set" aria-label={`设置《${entry.title}》的封面`} onClick={() => covers.open(libraryBook(entry))}><LazyCover url={coverUrl(selectedId, entry)} title={entry.title} /></button>
+            : <LazyCover url={coverUrl(selectedId, entry)} title={entry.title} />}
           <div className="explore-book-text"><strong>{entry.title}</strong><small>{entry.authors?.join(' / ') || '作者未知'}{entry.latestChapter ? ` · ${entry.latestChapter}` : ''}</small>{entry.description && <p>{entry.description}</p>}</div>
           <div className="explore-book-actions"><Button onClick={() => setDetail(entry)}>详情</Button>{action(entry)}</div>
         </article>)}</div>)}
       {page && !busy && !links.length && !page.items.length && <div className="catalog-empty"><strong>{local ? '这个文件夹里还没有书' : '这里还没有内容'}</strong><p>{local ? (canUpload ? '用上方的“上传书籍”添加，或把文件放进书库目录后等待扫描。' : '把文件放进书库目录后，扫描完成就会出现在这里。') : '换一个分类或书源试试。'}</p></div>}
       {page?.nextCursor && <div className="catalog-pagination"><button className="button" type="button" disabled={more || busy} onClick={() => void loadMore()}>{more ? '正在加载…' : '加载更多'}</button></div>}
     </section>
-    {detail && <SourceBookDetailSheet detail={detail} pending={detailQuery.isPending} error={detailQuery.error} acquiring={acquire.isPending} onAcquire={acquireEntry} onClose={() => setDetail(null)} />}
+    {covers.input}
+    {covers.ui}
+    {metadata.ui}
+    {detail && <SourceBookDetailSheet detail={detail} pending={detailQuery.isPending} error={detailQuery.error} acquiring={acquire.isPending} onAcquire={acquireEntry} onClose={() => setDetail(null)} library={local ? { onEdit: () => metadata.open(libraryBook(detail)), onCover: () => covers.open(libraryBook(detail)) } : undefined} />}
   </>;
 }

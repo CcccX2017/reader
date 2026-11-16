@@ -574,7 +574,8 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
   app.patch('/api/v1/books/:id/metadata', { preHandler: auth }, async (request) => {
     const user = currentUser(request);
     const { id } = request.params as { id: string };
-    ctx.shelf.get(user.id, id);
+    // Library data, like a custom cover: 发现 can edit a book before it is on a shelf.
+    ctx.shelf.bookById(id);
     const patch = (request.body ?? {}) as Record<string, unknown>;
     const allowed = [
       'title', 'author', 'publisher', 'language', 'isbn', 'description',
@@ -586,16 +587,16 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
     if (Object.keys(filtered).length === 0) throw badRequest('no editable field supplied');
     ctx.shelf.setOverrides(id, filtered, user.id);
-    return { book: ctx.shelf.get(user.id, id) };
+    return { book: ctx.shelf.bookById(id) };
   });
 
   /** Undo a manual field, falling back to the embedded/base value. */
   app.delete('/api/v1/books/:id/metadata/:field', { preHandler: auth }, async (request) => {
     const user = currentUser(request);
     const { id, field } = request.params as { id: string; field: string };
-    ctx.shelf.get(user.id, id);
+    ctx.shelf.bookById(id);
     ctx.shelf.clearOverride(id, field);
-    return { book: ctx.shelf.get(user.id, id) };
+    return { book: ctx.shelf.bookById(id) };
   });
 
   // ---- file manager ----
@@ -944,7 +945,7 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     booksDir: ctx.config.booksDir,
     // Reported so an operator can confirm the mount is where they think it is.
     dataDir: ctx.config.dataDir,
-    version: process.env.npm_package_version ?? '1.0.11',
+    version: process.env.npm_package_version ?? '1.0.12',
     dataDirIsInsideBooks: ctx.config.dataDir.startsWith(join(ctx.config.booksDir, '/')),
   }));
 }

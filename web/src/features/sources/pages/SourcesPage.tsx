@@ -10,7 +10,7 @@ import { Button, Callout, IconTextButton } from '../../../ui/toolkit.tsx';
 import { SourcesHeader } from '../components/SourcesHeader.tsx';
 import { SourceBookDetailSheet } from '../components/SourceBookDetailSheet.tsx';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ExtensionField, SourceEntry, SourcePage } from '../../../api/sources.ts';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
@@ -21,6 +21,8 @@ import { SearchableSelect } from '../../../ui/searchable-select.tsx';
 import { groupSourceResults } from '../../../ui/source-results.ts';
 import { PluginManager } from '../components/PluginManager.tsx';
 import { useMediaQuery } from '../../../shared/ui/use-media-query.ts';
+import { usePullToRefresh } from '../../../shared/ui/use-pull-to-refresh.ts';
+import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
 
 /** Local books already have a library cover URL; chapter sources expose a coverRef. */
 const sourceCoverUrl = (sourceId: string, entry: SourceEntry) => entry.coverUrl
@@ -245,8 +247,14 @@ export function SourcesPage() {
   }, [selectedSourceId]);
   // 发现 appears once a source can be browsed; it is a place of its own, not a mode of 搜书.
   const exploreSources = enabledSources.filter(source => source.descriptor?.capabilities.includes('browse'));
+  const exploreRefresh = useRef<(() => Promise<void>) | null>(null);
+  const onExploreRefresh = useCallback(() => exploreRefresh.current?.() ?? Promise.resolve(), []);
+  const pull = usePullToRefresh(onExploreRefresh);
+  const [exploreLocal, setExploreLocal] = useState(true);
+  const onExploreLocal = useCallback((local: boolean) => setExploreLocal(local), []);
   const tabList = ([['search', '搜书'], ...(exploreSources.length || tab === 'explore' ? [['explore', '发现']] : []), ['sources', '书源管理'], ['updates', '自动追更'], ...(admin ? [['plugins', '插件管理']] : [])] as Array<[SourceTab, string]>);
-  return <div className="sources-screen sources-hub">
+  const exploring = tab === 'explore';
+  return <div ref={exploring ? pull.ref : undefined} className="sources-screen sources-hub">
     <SourcesHeader title="书源与追更" backTo={back} />
     <nav className="sources-tabs" role="tablist" aria-label="书源功能">
       {tabList.map(([id, label], index) => <button key={id} id={`sources-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls="sources-panel" tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={event => {
@@ -260,7 +268,8 @@ export function SourcesPage() {
         document.getElementById(`sources-tab-${next}`)?.focus();
       }}>{label}{id === 'updates' && (subscriptions.data ?? []).some(item => item.newChapters > 0) && <span className="sources-tab-dot" aria-label="有更新" />}</button>)}
     </nav>
-    <main className={'sources-body' + (tab === 'search' ? ' sources-body-search' : '')} role="tabpanel" id="sources-panel" aria-labelledby={`sources-tab-${tab}`}>
+    {exploring && <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} {...(exploreLocal ? {} : { idle: '下拉刷新', release: '松开刷新', busy: '正在刷新…' })} />}
+    <main ref={exploring ? pull.scrollRef : undefined} className={'sources-body' + (tab === 'search' ? ' sources-body-search' : '')} role="tabpanel" id="sources-panel" aria-labelledby={`sources-tab-${tab}`}>
       {tab === 'search' && <>
         <section className="sources-card source-picker">
           {/* The tab already says 搜书; with no source there is nothing to pick, so no disabled picker either. */}
@@ -291,7 +300,7 @@ export function SourcesPage() {
           {acquired && <button className="button" type="button" onClick={() => navigate(`/book/${encodeURIComponent(acquired.id)}`)}>阅读《{acquired.title}》</button>}
         </section>}
       </>}
-      {tab === 'explore' && <SourceExplore sources={exploreSources} />}
+      {tab === 'explore' && <SourceExplore sources={exploreSources} refreshRef={exploreRefresh} onLocal={onExploreLocal} />}
       {tab === 'sources' && <section className="sources-card sources-list">
         <div className="sources-list-heading"><h2>我的来源 <span className="source-count">{sources.data?.length ?? 0}</span></h2>{admin && <Link className="button source-add" to="/sources/manage/new" state={location.state}><Icon name="plus" size={16} />添加来源</Link>}</div>
         {sources.isPending && <FloatingNotice message="正在加载书源…" busy />}{sources.error && <p className="notice error">{describeError(sources.error)}</p>}{!sources.isPending && !sources.data?.length && <p className="muted">还没有配置书源。请添加来源或启用插件。</p>}

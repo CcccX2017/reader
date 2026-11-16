@@ -14,7 +14,7 @@ import { rememberCover } from './cover-cache.ts';
  * downloads, or a cover found on a book source. The file picker still has to
  * open inside the menu/choice click so the browser allows it.
  */
-export function useCustomCover(onError: (message: string) => void) {
+export function useCustomCover(onError: (message: string) => void, onChanged?: (book?: Book) => void) {
   const runtime = useRuntime();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,6 +63,7 @@ export function useCustomCover(onError: (message: string) => void) {
     try {
       const { book } = await runtime.api.setBookCover(id, file);
       show(book, file);
+      onChanged?.(book);
     } catch (error) {
       onError(error instanceof Error ? error.message : '封面更新失败，请稍后重试。');
     } finally {
@@ -79,6 +80,7 @@ export function useCustomCover(onError: (message: string) => void) {
     try {
       const { book } = await runtime.api.setBookCoverFromUrl(id, trimmed);
       show(book);
+      onChanged?.(book);
     } catch (error) {
       onError(error instanceof Error ? error.message : '封面更新失败，请稍后重试。');
     } finally {
@@ -92,6 +94,7 @@ export function useCustomCover(onError: (message: string) => void) {
     try {
       const { book } = await runtime.api.clearBookCover(id);
       show(book);
+      onChanged?.(book);
     } catch (error) {
       onError(error instanceof Error ? error.message : '恢复封面失败，请稍后重试。');
     } finally {
@@ -127,7 +130,7 @@ export function useCustomCover(onError: (message: string) => void) {
     {sourceBook && <ChangeCoverSheet
       book={sourceBook}
       onClose={() => setSourceBook(null)}
-      onChanged={() => { void refresh(); }}
+      onChanged={() => { void refresh(); onChanged?.(); }}
     />}
   </>;
 

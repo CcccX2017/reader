@@ -163,6 +163,12 @@
   font-family: inherit;
 }
 
+.sheet-field textarea {
+  min-height: 8rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
 /* A switch row: label and hint take the width, the switch sits on the trailing edge.
    The row is the 44px hit target (ui.md §3.3); SwitchRow forwards a press on the words. */
 .field.switch-field {

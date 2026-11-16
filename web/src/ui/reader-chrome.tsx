@@ -121,6 +121,8 @@ export interface ChromeState {
   alternativesSearching?: boolean;
   bookInfoOpen?: boolean;
   description?: string;
+  /** True when the blurb on screen is a manual override, so 书籍信息 can restore the original. */
+  descriptionManual?: boolean;
   sourceName?: string;
   chapterUrl?: string;
   aiSummary?: string;
@@ -201,6 +203,10 @@ export interface ChromeHandlers {
   onTocEntry(ref: string): void;
   onChapter(delta: 1 | -1): void;
   onBookInfo?(): void;
+  /** Saves the blurb shown in 书籍信息. Rejects when the write fails. */
+  onSaveDescription?(text: string): Promise<void>;
+  /** Drops a manual blurb so the one from the file shows again. */
+  onRestoreDescription?(): Promise<void>;
   onAiSummary?(): void;
   onRefresh?(): void;
   onRefreshChapter?(): void;
@@ -248,6 +254,47 @@ export interface ReaderChromeProps {
   stage: HTMLElement;
   handlers: ChromeHandlers;
   tools?: ReactNode;
+}
+
+/** The blurb in 书籍信息, with an editor when the screen can save one. */
+function BookBlurb({ description, manual, onSave, onRestore }: {
+  description: string;
+  manual: boolean;
+  onSave?(text: string): Promise<void>;
+  onRestore?(): Promise<void>;
+}): JSX.Element {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(description);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const start = () => { setDraft(description); setError(''); setEditing(true); };
+  const cancel = () => { if (busy) return; setDraft(description); setError(''); setEditing(false); };
+  const save = async () => {
+    if (!onSave || busy) return;
+    setBusy(true); setError('');
+    try { await onSave(draft); setEditing(false); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : '保存失败，请稍后重试。'); }
+    finally { setBusy(false); }
+  };
+  const restore = async () => {
+    if (!onRestore || busy) return;
+    setBusy(true); setError('');
+    try { await onRestore(); setEditing(false); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : '恢复失败，请稍后重试。'); }
+    finally { setBusy(false); }
+  };
+  return <>
+    {editing
+      ? <div className="sheet-field"><textarea aria-label="简介" rows={6} maxLength={8000} disabled={busy} value={draft} onInput={event => setDraft(event.currentTarget.value)} /></div>
+      : <p className="book-detail-description">{description || '暂无简介'}</p>}
+    {error && <p className="notice error" role="alert">{error}</p>}
+    {onSave && <div className="book-detail-actions">
+      {editing
+        ? <><Button disabled={busy} onClick={cancel}>取消</Button><Button className="primary" disabled={busy} onClick={() => void save()}>{busy ? '正在保存…' : '保存'}</Button></>
+        : <Button onClick={start}>编辑简介</Button>}
+      {manual && onRestore && <Button disabled={busy} onClick={() => void restore()}>恢复原简介</Button>}
+    </div>}
+  </>;
 }
 
 export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProps): JSX.Element {
@@ -333,7 +380,7 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
               <dd>{state.chapterLabel || '暂无信息'}</dd>
             </dl>
             <h4>内容简介</h4>
-            <p className="book-detail-description">{state.description || '暂无简介'}</p>
+            <BookBlurb description={state.description ?? ''} manual={!!state.descriptionManual} onSave={handlers.onSaveDescription} onRestore={handlers.onRestoreDescription} />
             <ReadingHistory state={state} handlers={handlers} />
           </article>
         </Sheet>
