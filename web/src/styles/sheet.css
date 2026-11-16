@@ -91,8 +91,15 @@
 
 /* iOS draws the system blue ring on the close button a dialog focuses as it opens.
    A keyboard tab still gets the product ring; a tap or the open itself does not. */
+/* `.media-screen button` is more specific than `.icon-button`. Home is a media
+   screen, so without this the close control grows that page's border and padding. */
 .sheet .sheet-close {
   -webkit-tap-highlight-color: transparent;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  min-height: 2.5rem;
+  border-radius: var(--reader-radius);
 }
 
 .sheet .sheet-close:focus {
@@ -210,7 +217,9 @@
   margin-inline: calc(-1 * var(--space-2));
 }
 
-.sheet-list-item {
+/* `.sheet` is required: home lives in `.media-screen`, whose `button` rule
+   (one class + one element) would otherwise box every row. */
+.sheet .sheet-list-item {
   appearance: none;
   display: flex;
   align-items: center;
