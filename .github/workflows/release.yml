@@ -1,7 +1,8 @@
 # Release the single-container image (server + web) to Docker Hub for amd64 and arm64.
 #
 #   tag 1.0.13        -> ccccx2022/reader:1.0.13, :latest, :sha-<short>
-#   manual run        -> the same three tags; the version comes from server/package.json
+#   manual run        -> :latest and :sha-<short>
+#                        :1.0.13 only when this commit is the git tag 1.0.13
 #
 # A local `docker build` on an amd64 machine only produces that one architecture.
 # This workflow builds each architecture on its own native runner, pushes the two
@@ -98,11 +99,23 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             version="$GITHUB_REF_NAME"
+            publish_version=true
           else
             version="$(jq -r .version server/package.json)"
+            # The version image stays on its git tag. A later commit only moves latest and sha-.
+            tagged="$(git ls-remote origin "refs/tags/${version}^{}" | awk 'NR==1 { print $1 }')"
+            if [[ -z "$tagged" ]]; then
+              tagged="$(git ls-remote origin "refs/tags/${version}" | awk 'NR==1 { print $1 }')"
+            fi
+            if [[ -n "$tagged" && "$tagged" == "$GITHUB_SHA" ]]; then
+              publish_version=true
+            else
+              publish_version=false
+            fi
           fi
           test -n "$version" && [[ "$version" != "null" ]]
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish_version=$publish_version" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           path: ${{ runner.temp }}/digests
@@ -127,11 +140,19 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         run: |
           tags=()
-          while read -r tag; do tags+=(-t "$tag"); done < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          while read -r tag; do
+            if [[ "$PUBLISH_VERSION" != "true" && "$tag" == "$IMAGE:$VERSION" ]]; then
+              continue
+            fi
+            tags+=(-t "$tag")
+          done < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           refs=()
           for digest in *; do refs+=("$IMAGE@sha256:$digest"); done
           docker buildx imagetools create "${tags[@]}" "${refs[@]}"
-      - name: Inspect
-        run: docker buildx imagetools inspect "$IMAGE:$VERSION"
         env:
+          PUBLISH_VERSION: ${{ steps.ver.outputs.publish_version }}
           VERSION: ${{ steps.ver.outputs.version }}
+      - name: Inspect
+        run: docker buildx imagetools inspect "$IMAGE:$TAG"
+        env:
+          TAG: ${{ steps.ver.outputs.publish_version == 'true' && steps.ver.outputs.version || 'latest' }}
