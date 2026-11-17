@@ -7,8 +7,8 @@ import { Icon } from '../../../ui/icon.tsx';
 import '../styles/mine.css';
 
 const REPOS = [
-  { label: 'Current', name: 'CcccX2017/reader', href: 'https://github.com/CcccX2017/reader' },
-  { label: 'Fork', name: 'hectorqin/reader', href: 'https://github.com/hectorqin/reader' },
+  { label: 'Current(CcccX2017)', name: 'CcccX2017/reader', href: 'https://github.com/CcccX2017/reader' },
+  { label: 'Fork(hectorqin)', name: 'hectorqin/reader', href: 'https://github.com/hectorqin/reader' },
 ] as const;
 
 function installedAppVersion(): string | undefined {

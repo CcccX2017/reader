@@ -1,8 +1,9 @@
 # Build and test: server (Node/TypeScript), web client, UI review, Android shell.
 #
-# Runs on pull requests and on pushes to every branch, main included (main is the
-# long-lived development branch). Release tags and manual releases run it through
-# release.yml (workflow_call) before any image is published.
+# Runs on pull requests and on pushes to every branch, main included. This
+# workflow does not build or push a Docker image. main is the long-lived
+# development branch. A release (release.yml) calls this workflow first, and
+# only then builds linux/amd64 and linux/arm64 images.
 name: CI
 
 on:
