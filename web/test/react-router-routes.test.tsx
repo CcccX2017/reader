@@ -22,6 +22,7 @@ describe('React Router route tree', () => {
     ['/me/browse', 'LegacySettingsRedirect'],
     ['/me/account', 'AccountPage'],
     ['/me/opds', 'OpdsPage'],
+    ['/me/about', 'AboutPage'],
     ['/me/admin/users', 'AdminUsersPage'],
     ['/me/admin/registration', 'AdminRegistrationPage'],
     ['/me/admin/services', 'AdminServicesPage'],

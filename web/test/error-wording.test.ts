@@ -37,6 +37,7 @@ describe('pageTitle', () => {
     expect(pageTitle('/media/music/albums')).toBe('音乐 · reader');
     expect(pageTitle('/media/video/player/queue')).toBe('正在播放 · reader');
     expect(pageTitle('/me/admin/users')).toBe('用户管理 · reader');
+    expect(pageTitle('/me/about')).toBe('关于 · reader');
   });
 
   it('falls back to the app name for a route it does not know', () => {

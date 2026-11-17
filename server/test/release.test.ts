@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Fastify from 'fastify';
 import { ReleaseHub, releaseEvents, watchRelease, webBuildId } from '../src/lib/release.ts';
+import { registerEventRoutes } from '../src/http/routes/events.ts';
+import type { AppContext } from '../src/http/context.ts';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -40,6 +43,21 @@ test('the event stream sends the open release and the next one', async () => {
   controller.abort();
   for (let i = 0; i < 20 && !ended; i++) await wait(10);
   assert.equal(ended, true);
+});
+
+test('a check reads the release the event stream would open with', async () => {
+  const app = Fastify();
+  registerEventRoutes(app, { release: new ReleaseHub({ server: '1.0.12', web: 'abc' }) } as AppContext);
+  const found = await app.inject({ method: 'GET', url: '/api/v1/release' });
+  assert.equal(found.statusCode, 200);
+  assert.deepEqual(found.json(), { server: '1.0.12', web: 'abc' });
+  await app.close();
+
+  const missing = Fastify();
+  registerEventRoutes(missing, {} as AppContext);
+  const down = await missing.inject({ method: 'GET', url: '/api/v1/release' });
+  assert.equal(down.statusCode, 503);
+  await missing.close();
 });
 
 test('a recorded bundle id is the release id, not a hash of the worker', async () => {

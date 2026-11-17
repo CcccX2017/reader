@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { render } from '../src/shared/ui/render-root.ts';
 import { MinePage } from '../src/features/account/pages/MinePage.tsx';
+import { AboutPage } from '../src/features/account/pages/AboutPage.tsx';
 import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
 import { saveThemePreference } from '../src/shared/theme/theme.ts';
@@ -53,9 +54,10 @@ describe('我的', () => {
       ['书库', '/sources?tab=explore&source=local'], ['书源', '/sources'], ['时长统计阅读、观影、听书', '/me/stats'],
       ['偏好设置跟随系统', '/me/settings'],
       ['账号与连接', '/me/account'], ['外部阅读器OPDS', '/me/opds'],
+      ['关于', '/me/about'],
     ]);
-    // Only signing out is a button (it asks first); nothing else opens a sheet in place.
-    expect([...root.querySelectorAll('button.mine-row')].map(b => b.textContent)).toEqual(['退出登录']);
+    // Signing out asks first. Checking for an update reports on the row.
+    expect([...root.querySelectorAll('button.mine-row')].map(b => b.textContent)).toEqual(['退出登录', '检查更新']);
     // Members see no administration group.
     expect(root.querySelector('[aria-label="管理"]')).toBeNull();
   });
@@ -73,6 +75,57 @@ describe('我的', () => {
     ]);
     expect(root.textContent).toContain('雾蓝 · 深色');
     expect(root.querySelector('.mine-profile')?.textContent).toContain('管理员');
+  });
+
+  it('offers the site banner when this page is behind the bundle being served', async () => {
+    const meta = document.createElement('meta');
+    meta.name = 'reader-web-build';
+    meta.content = 'aaaaaaaaaaaaaaaaaaaa';
+    document.head.append(meta);
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })));
+    useAuthStore.setState({ verifiedUser: user('member') });
+    paint();
+    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
+    await act(async () => { check.click(); });
+    expect(check.textContent).toContain('发现新版本');
+    expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
+    document.querySelector('.pwa-update')?.remove();
+    meta.remove();
+    vi.unstubAllGlobals();
+  });
+
+  it('reports a development page as having no build to compare', () => {
+    useAuthStore.setState({ verifiedUser: user('member') });
+    paint();
+    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
+    act(() => { check.click(); });
+    expect(check.textContent).toContain('当前是开发页面');
+  });
+
+  it('lists the server version on 关于', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'abcabcabcabcabcabcab' }) })));
+    await act(async () => {
+      render(
+        <RuntimeContext.Provider value={runtime}>
+          <MemoryRouter initialEntries={['/me/about']}>
+            <Routes><Route path="/me/about" element={<AboutPage />} /></Routes>
+          </MemoryRouter>
+        </RuntimeContext.Provider>,
+        root,
+      );
+    });
+    expect(root.querySelector('.media-heading')?.textContent).toContain('关于');
+    expect(root.textContent).toContain('客户端');
+    expect(root.textContent).toContain('1.0.12');
+    expect(root.textContent).toContain('网页构建');
+    expect(root.textContent).toContain('开发构建');
+    const repos = root.querySelector('.about-repos');
+    expect(repos?.querySelectorAll('a')).toHaveLength(2);
+    expect(repos?.querySelector('a[href="https://github.com/CcccX2017/reader"]')?.textContent).toContain('开发');
+    expect(repos?.querySelector('a[href="https://github.com/hectorqin/reader"]')?.textContent).toContain('fork');
+    expect(root.querySelectorAll('a[href^="https://github.com/"] .icon')).toHaveLength(2);
+    expect(root.textContent).not.toContain('镜像');
+    vi.unstubAllGlobals();
   });
 
   it('signs out through the API, after a confirmation', () => {

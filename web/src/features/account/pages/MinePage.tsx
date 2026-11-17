@@ -13,13 +13,15 @@ import { useAvatar } from '../../../shared/ui/use-avatar.ts';
 import '../../home/styles/home.css';
 import '../styles/mine.css';
 import { useMediaEnabled } from '../../../shared/stores/features.ts';
+import { fetchRelease, judgeUpdate, pageWebBuild } from '../../../core/release-events.ts';
+import { offerReload, requestServiceWorkerUpdate } from '../../../core/pwa.ts';
 
 function Row({ icon, label, value, to, state, onClick, danger = false }: { icon: IconName; label: string; value?: string; to?: string; state?: unknown; onClick?: () => void; danger?: boolean }) {
   const body = <>
     <span className="mine-row-icon" aria-hidden="true"><Icon name={icon} size={18} /></span>
     <span className="mine-row-label">{label}</span>
     {value && <span className="mine-row-value">{value}</span>}
-    {!danger && <Icon name="chevron-right" size={16} className="mine-row-chevron" />}
+    {to && <Icon name="chevron-right" size={16} className="mine-row-chevron" />}
   </>;
   const className = danger ? 'mine-row is-danger' : 'mine-row';
   return to
@@ -42,8 +44,10 @@ function serverHost(baseUrl: string): string {
  * - 偏好: one row, 偏好设置 — theme, the shelf, media browsing and playback are
  *   sections of a single page, so there is one place to look for any of them;
  * - 管理: what an administrator changes for everyone, one page per job;
- * - 账号: who you are on this server and which outside readers may see your shelf.
- * Signing out is the one exception: a confirmation, not a place.
+ * - 账号: who you are on this server and which outside readers may see your shelf;
+ * - 关于: the name and versions, and a check against the bundle now being served.
+ * Signing out asks first. Checking for an update reports on the row, then the
+ * existing banner is what applies a newer bundle.
  */
 export function MinePage() {
   const media=useMediaEnabled();
@@ -54,10 +58,28 @@ export function MinePage() {
   const themeName = themeSummary(useThemeState(scope).preference);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [updateLabel, setUpdateLabel] = useState('');
+  const [checking, setChecking] = useState(false);
   const name = user?.displayName || user?.username || '';
   const avatar = useAvatar(runtime.api, user?.avatarUrl);
   // The same sync-engine verdict the sidebar shows; on a phone this page is the only place it appears.
   const connection = connectionLabel(useSyncStore(state => state.status.state));
+  const checkUpdate = () => {
+    if (checking) return;
+    if (window.ReaderAndroid) { setUpdateLabel(judgeUpdate({ server: '', web: '' }, true, undefined).label); return; }
+    const running = pageWebBuild();
+    if (!running) { setUpdateLabel(judgeUpdate({ server: '', web: '' }, false, undefined).label); return; }
+    setChecking(true);
+    setUpdateLabel('正在检查…');
+    void fetchRelease(runtime.api.baseUrl).then((release) => {
+      const verdict = judgeUpdate(release, false, running);
+      setUpdateLabel(verdict.label);
+      if (verdict.state === 'ready') {
+        requestServiceWorkerUpdate();
+        offerReload();
+      }
+    }).catch(() => setUpdateLabel('检查失败')).finally(() => setChecking(false));
+  };
   return <>
     <div className="media-screen media-page mine-page">
       <header className="home-header"><h1>我的</h1></header>
@@ -93,6 +115,10 @@ export function MinePage() {
             <Row icon="account" label="账号与连接" to="/me/account" />
             <Row icon="connect" label="外部阅读器" value="OPDS" to="/me/opds" />
             <Row icon="logout" label="退出登录" danger onClick={() => setSignOutOpen(true)} />
+          </Group>
+          <Group title="关于" order={5}>
+            <Row icon="info" label="关于" to="/me/about" />
+            <Row icon="refresh" label="检查更新" value={checking ? '正在检查…' : updateLabel} onClick={checkUpdate} />
           </Group>
         </div>
       </div>

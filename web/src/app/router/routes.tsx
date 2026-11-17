@@ -11,6 +11,7 @@ import { ShelfPage } from '../../features/shelf/pages/ShelfPage.tsx';
 import { MinePage } from '../../features/account/pages/MinePage.tsx';
 import { LegacySettingsRedirect, SettingsPage } from '../../features/account/pages/SettingsPage.tsx';
 import { AccountPage, OpdsPage } from '../../features/account/pages/AccountPages.tsx';
+import { AboutPage } from '../../features/account/pages/AboutPage.tsx';
 import { HomePage } from '../../features/home/pages/HomePage.tsx';
 import { SearchPage } from '../../features/search/pages/SearchPage.tsx';
 import {
@@ -67,6 +68,7 @@ export const routes = [{
       { path: 'stats', element: <StatsPage /> },
       { path: 'account', element: <AccountPage /> },
       { path: 'opds', element: <OpdsPage /> },
+      { path: 'about', element: <AboutPage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },
       { path: 'admin/registration', element: <AdminRegistrationPage /> },
       { path: 'admin/services', element: <AdminServicesPage /> },

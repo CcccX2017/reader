@@ -33,6 +33,7 @@ const TITLES: Array<[RegExp, string]> = [
   [/^\/me\/stats$/, '时长统计'],
   [/^\/me\/account$/, '账号与连接'],
   [/^\/me\/opds$/, '外部阅读器'],
+  [/^\/me\/about$/, '关于'],
   [/^\/me\/admin\/users$/, '用户管理'],
   [/^\/me\/admin\/registration$/, '注册与邀请'],
   [/^\/me\/admin\/services$/, '服务配置'],

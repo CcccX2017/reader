@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { pageWebBuild, releaseChange, releaseResponse, subscribeReleases, type Release } from '../src/core/release-events.ts';
+import { judgeUpdate, pageWebBuild, releaseChange, releaseResponse, subscribeReleases, type Release } from '../src/core/release-events.ts';
 
 class FakeSource extends EventTarget {
   static latest: FakeSource | undefined;
@@ -21,6 +21,14 @@ afterEach(() => {
 });
 
 describe('release events', () => {
+  it('compares this page with the bundle the server is serving', () => {
+    const release = { server: '1.0.12', web: 'abc' };
+    expect(judgeUpdate(release, false, 'abc')).toEqual({ state: 'current', label: '已是最新' });
+    expect(judgeUpdate(release, false, 'def')).toEqual({ state: 'ready', label: '发现新版本' });
+    expect(judgeUpdate(release, true, 'def').state).toBe('shell');
+    expect(judgeUpdate(release, false, undefined).state).toBe('dev');
+  });
+
   it('tells a controlled page to install a new bundle, and to reload for a server-only change', () => {
     expect(releaseChange({ server: '1', web: 'a' }, { server: '1', web: 'a' })).toBe('none');
     expect(releaseChange({ server: '1', web: 'a' }, { server: '1', web: 'b' })).toBe('web');
