@@ -9,8 +9,11 @@ import { UserService } from '../src/services/users.ts';
 import { BusinessSettings } from '../src/services/business-settings.ts';
 import { registerMediaRoutes } from '../src/http/routes/media.ts';
 import { registerAuthRoutes } from '../src/http/routes/auth.ts';
+import { registerEventRoutes } from '../src/http/routes/events.ts';
+import { registerPreferenceRoutes } from '../src/http/routes/preferences.ts';
 import { registerWebRoutes } from '../src/http/routes/web.ts';
 import { registerErrorHandler } from '../src/http/errors.ts';
+import { ReleaseHub, currentRelease } from '../src/lib/release.ts';
 import type { AppContext } from '../src/http/context.ts';
 import {MetadataHttp,MusicBrainzProvider,TmdbProvider} from '../src/media/metadata-providers.ts';
 import {MediaLibraries} from '../src/media/libraries.ts';
@@ -27,8 +30,9 @@ const users=new UserService(db,config);
 await users.create({username:'reviewer',password:'review-test-pass'});
 let reviewMemberId='';
 if(process.env.MEDIA_REVIEW_MEMBER==='1')reviewMemberId=(await users.create({username:'review-member',password:'review-test-pass',displayName:'林间',role:'member'})).id;
-const ctx={config,db,users,settings:new BusinessSettings(db,config)} as AppContext;
+const ctx={config,db,users,settings:new BusinessSettings(db,config),release:new ReleaseHub(currentRelease(config.webDir))} as AppContext;
 registerErrorHandler(app);registerAuthRoutes(app,ctx);
+registerEventRoutes(app,ctx);registerPreferenceRoutes(app,ctx);
 registerMediaRoutes(app,ctx,{metadataProviders:process.env.MEDIA_REVIEW_LIVE_TMDB==='1'?[new TmdbProvider(new MetadataHttp())]:process.env.MEDIA_REVIEW_LIVE_MUSICBRAINZ==='1'?[new MusicBrainzProvider(new MetadataHttp())]:[{
   id:'tmdb',label:'TMDB（测试响应）',configured:true,kinds:['movie'],
   async search(){return [{externalId:'42',title:'候选电影甲',year:2024},{externalId:'43',title:'候选电影乙',year:2023}];},
