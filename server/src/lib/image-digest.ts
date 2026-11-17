@@ -58,8 +58,8 @@ export function digestForTag(tags: readonly PublishedTag[], name: string, arch: 
 
 /**
  * Which published tag this process is.
- * An explicit version or `sha-` tag is that build. `latest` counts only while Hub's
- * `latest` is still the same digest as the version baked into this process.
+ * An explicit version or `sha-` tag is that build. With no such pin, `latest`
+ * is the label while Hub's `latest` is still the same digest as this version.
  */
 export function resolvePublishedImage(
   tags: readonly PublishedTag[],
@@ -73,7 +73,7 @@ export function resolvePublishedImage(
   }
   const digest = digestForTag(tags, version, arch);
   if (!digest) return null;
-  if (configured === 'latest' && digestForTag(tags, 'latest', arch) === digest) return { digest, tag: 'latest' };
+  if (digestForTag(tags, 'latest', arch) === digest) return { digest, tag: 'latest' };
   return { digest, tag: version };
 }
 

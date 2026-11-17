@@ -36,10 +36,12 @@ test('a deployment tag is latest, a version, or a short commit', () => {
 
 test('latest counts only while it is still this version', () => {
   assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', 'latest'), { digest: '7e64e6f9a27b', tag: 'latest' });
+  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: 'latest' });
+  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', '1.0.13'), { digest: '7e64e6f9a27b', tag: '1.0.13' });
   assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', 'sha-66ee335'), { digest: '7e64e6f9a27b', tag: 'sha-66ee335' });
-  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: '1.0.13' });
   const moved = published.map(tag => tag.name === 'latest'
     ? { name: 'latest', images: [{ os: 'linux', architecture: 'amd64', digest: 'sha256:017daf908bf9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }] }
     : tag);
+  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: '1.0.13' });
   assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', 'latest'), { digest: '7e64e6f9a27b', tag: '1.0.13' });
 });
