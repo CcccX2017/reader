@@ -6746,6 +6746,7 @@ svg.icon {
 .ai-assist-ask .button { min-height: 44px; }
 .ai-assist-status, .ai-assist-hint { margin: 0; color: var(--reader-muted); font-size: var(--text-label); }
 .ai-assist-error { margin: 0; color: var(--color-danger); font-size: var(--text-ui); overflow-wrap: anywhere; }
+.ai-assist-keep { display: flex; justify-content: flex-end; }
 .ai-assist-answer { color: var(--reader-ink); font-size: var(--text-title); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 
 .reading-tools {

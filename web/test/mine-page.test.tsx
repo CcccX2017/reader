@@ -51,7 +51,7 @@ describe('我的', () => {
     expect(root.querySelector('.mine-profile')?.textContent).toContain('成员');
     const links = [...root.querySelectorAll<HTMLAnchorElement>('a.mine-row')].map(a => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
-      ['书库', '/sources?tab=explore&source=local'], ['书源', '/sources'], ['时长统计阅读、观影、听书', '/me/stats'],
+      ['书库', '/sources?tab=explore&source=local'], ['书源', '/sources'], ['读书笔记高亮、批注、书签', '/me/notes'], ['时长统计阅读、观影、听书', '/me/stats'],
       ['偏好设置跟随系统', '/me/settings'],
       ['账号与连接', '/me/account'], ['外部阅读器OPDS', '/me/opds'],
       ['关于', '/me/about'],
@@ -121,8 +121,8 @@ describe('我的', () => {
     expect(root.textContent).toContain('开发构建');
     const repos = root.querySelector('.about-repos');
     expect(repos?.querySelectorAll('a')).toHaveLength(2);
-    expect(repos?.querySelector('a[href="https://github.com/CcccX2017/reader"]')?.textContent).toContain('开发');
-    expect(repos?.querySelector('a[href="https://github.com/hectorqin/reader"]')?.textContent).toContain('fork');
+    expect(repos?.querySelector('a[href="https://github.com/CcccX2017/reader"]')?.textContent).toContain('Current');
+    expect(repos?.querySelector('a[href="https://github.com/hectorqin/reader"]')?.textContent).toContain('Fork');
     expect(root.querySelectorAll('a[href^="https://github.com/"] .icon')).toHaveLength(2);
     expect(root.textContent).not.toContain('镜像');
     vi.unstubAllGlobals();
