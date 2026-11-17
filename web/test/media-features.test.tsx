@@ -18,7 +18,7 @@ const root=document.createElement('div');document.body.append(root);
 const user={id:'reader',username:'reader',displayName:'Reader',role:'admin' as const,createdAt:0,mediaEnabled:false,features:{media:false}};
 let client:QueryClient;
 const runtime={
-  api:{baseUrl:'https://reader.example',currentSession:()=>({user}),listBooks:vi.fn(async()=>({items:[],total:0})),readingStats:vi.fn(async()=>({series:[],works:[]})),readingStatsUsers:vi.fn(async()=>[])},
+  api:{baseUrl:'https://reader.example',currentSession:()=>({user}),instance:async()=>({name:'reader',apiVersion:1,userCount:1,registrationOpen:false}),listBooks:vi.fn(async()=>({items:[],total:0})),readingStats:vi.fn(async()=>({series:[],works:[]})),readingStatsUsers:vi.fn(async()=>[])},
   mediaApi:{preferenceScope:()=> 'features-test',search:vi.fn(),timeStats:vi.fn(),statsUsers:vi.fn()},
 } as any;
 const paint=(element:React.ReactNode,path='/')=>act(async()=>render(<RuntimeContext value={runtime}><QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}>{element}</MemoryRouter></QueryClientProvider></RuntimeContext>,root));

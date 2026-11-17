@@ -13,7 +13,7 @@ const root = document.createElement('div');
 document.body.append(root);
 const listeners = { addEventListener: () => undefined, removeEventListener: () => undefined };
 const runtime = {
-  api: { baseUrl: 'https://reader.example.com' },
+  api: { baseUrl: 'https://reader.example.com', instance: async () => ({ name: 'reader', apiVersion: 1, userCount: 1, registrationOpen: false }) },
   mediaApi: { preferenceScope: () => 'shell-test' },
   player: { ...listeners, setVisible: () => undefined },
   playback: { snapshot: () => ({}) },

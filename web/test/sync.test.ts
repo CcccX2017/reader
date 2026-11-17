@@ -695,7 +695,7 @@ describe('SyncEngine', () => {
         await vi.runOnlyPendingTimersAsync();
       }
       expect(engine.status().state).toBe('error');
-      expect(engine.status().message).toBe('boom');
+      expect(engine.status().message).toBe('服务器出错了，请稍后重试');
       const before = transport.requests.length;
       await vi.advanceTimersByTimeAsync(120_000);
       expect(transport.requests.length).toBe(before);

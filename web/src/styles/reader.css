@@ -1164,7 +1164,6 @@ book-content {
 /* Fixed at the viewport bottom so mounting it does not shove the book pane.
  * On a phone it replaces the tab bar (same bottom edge, higher z-index). */
 .shelf-screen > .shelf-select-bar,
-.library-browse-screen > .shelf-select-bar,
 .home-page > .shelf-select-bar {
   position: fixed;
   z-index: 20;
@@ -1179,7 +1178,6 @@ book-content {
 }
 @media (min-width: 701px) {
   body[data-app-nav] .shelf-screen > .shelf-select-bar,
-  body[data-app-nav] .library-browse-screen > .shelf-select-bar,
   body[data-app-nav] .home-page > .shelf-select-bar {
     left: var(--app-nav-width);
   }
@@ -1212,10 +1210,6 @@ book-content {
   cursor: default;
 }
 
-/* 首页 / 书库 selection chrome: select head overlays the reserved slot. */
-.library-browse-screen .select-head-slot > .shelf-select-head {
-  padding: calc(1.25rem + var(--safe-top)) calc(0.9rem + var(--safe-right)) 0.75rem calc(0.9rem + var(--safe-left));
-}
 .home-page .shelf-select-action,
 .home-page .shelf-select-side {
   border: 0;
@@ -2937,17 +2931,13 @@ book-content {
   .book-card .book-more::before,
   .book-card .book-more-lens::before,
   .home-resume-slot .book-more::before,
-  .home-resume-slot .book-more-lens::before,
-  .book-card .book-shelve::before {
+  .home-resume-slot .book-more-lens::before {
     content: '';
     position: absolute;
     inset: -0.5rem;
   }
   .chip::before {
     inset-inline: -0.15rem;
-  }
-  .book-card .book-shelve::before {
-    inset-block: -0.75rem;
   }
   /* The lens is the painted circle. The extra hit area has to sit on the button,
      which fills the lens, and the lens must not clip it. */
@@ -3752,125 +3742,6 @@ book-content {
   }
 }
 
-/* 书库's subfolders: one scrollable row of chips under the search field, on its gutter. */
-.library-folders {
-  display: flex;
-  flex: none;
-  gap: var(--space-1);
-  overflow-x: auto;
-  padding: 0 var(--shelf-search-inset) var(--space-2);
-  scrollbar-width: none;
-}
-.library-folders .chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: none;
-  white-space: nowrap;
-}
-
-.library-search {
-  flex: none;
-  width: 100%;
-  max-width: none;
-  /*
-   * The same gutter the shelf's field has, and *only* that: the field is as wide as
-   * the page, so there is no measure to subtract and no second inset to add. The
-   * covers below use the same token through their padding (see `.library-browse-grid`),
-   * which is what makes the field and the grid share a column.
-   */
-  padding-inline: var(--shelf-search-inset);
-  box-sizing: border-box;
-  margin: calc(var(--shelf-search-inset) + 0.4rem) 0;
-}
-
-/*
- * …and the panels that hang off the row are placed against the *input*, not the row.
- *
- * The magnifier and the clear button are `position: absolute` against this box, which
- * resolves against its *padding box* — so a row with a 0.75rem gutter would put both of
- * them in the gutter, i.e. the glyph would float in the margin and the clear button
- * would sit on top of the cover beside it. Their own offsets are therefore the field's
- * border plus the row's padding, which is one number rather than a coincidence.
- */
-/*
- * The covers, laid out as a shop rather than as a shelf.
- *
- * The one difference from `.book-grid` that matters: this grid has **no measure
- * cap**. The shelf caps its width because a shelf is the reader's own collection at a
- * density they chose, and eleven covers across a desktop window is a wall rather than
- * a list. The library is the *server's* folder: its size is a fact about the disk, and
- * a reader browsing it on a wide screen wants more of it visible, not more margin. So
- * the columns are `auto-fill` with no maximum, and growing the window shows more books.
- *
- * The padding is the file listing's own gutter plus the search inset, because the
- * field above and the covers below it share the column and have to line up.
- */
-/*
- * The covers' own gutters, and they are *wider* than the field's by the page's own
- * padding: the field is the one control that spans the full content box (it is a
- * single row, and a search box narrower than the list it filters reads as decoration),
- * while the covers keep the page gutter they share with every other grid. The
- * difference is the point of the check below — the field must be inset from the
- * covers, not aligned with them.
- */
-.library-browse-grid {
-  padding: 0.25rem calc(0.9rem + var(--shelf-search-inset)) 0.75rem;
-}
-
-/*
- * …and the covers themselves get the shop's own size ladder.
- *
- * The shelf's ladder is tuned for a *capped* column, and the cap is what keeps it
- * from producing eleven covers a row. With the cap removed (this grid has none — see
- * above) the same minimum would tile a 1600px window with covers 130px wide, which is
- * the failure the ladder exists to prevent and would come back the moment the two
- * grids stop sharing a width rule. So the shop's minimums are the next step up, and
- * they keep climbing with the window: more of the folder on screen, and every cover
- * still big enough to read a title on.
- */
-.library-browse-grid[data-density='compact'] {
-  --shelf-cover-min: 6.5rem;
-}
-
-.library-browse-grid[data-density='comfortable'] {
-  --shelf-cover-min: 11rem;
-}
-
-@media (min-width: 40rem) {
-  .library-browse-grid {
-    --shelf-cover-min: 10.5rem;
-  }
-
-  .library-browse-grid[data-density='compact'] {
-    --shelf-cover-min: 8rem;
-  }
-
-  .library-browse-grid[data-density='comfortable'] {
-    --shelf-cover-min: 13rem;
-  }
-}
-
-@media (min-width: 72rem) {
-  /*
-   * Past the shelf's own measure the shop keeps adding columns instead of margin,
-   * because there is nothing to cap to: the covers are already at a readable size
-   * and the folder is genuinely large. This is the one place in the product where a
-   * wider window shows *more*, and it is the point of an uncapped grid.
-   */
-  .library-browse-grid {
-    --shelf-cover-min: 11.5rem;
-  }
-}
-
-/*
- * The one line above the grid, when there is something to say about it.
- *
- * `:empty` rather than a `hidden` attribute, because the component decides the
- * sentence and an empty one should cost no space at all: a blank 18px row above a
- * grid of covers is a gap the reader reads as a rendering mistake.
- */
-
 /*
  * A preview card: the shelf's card, with a *second* control on it.
  *
@@ -3889,44 +3760,6 @@ book-content {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-}
-
-/*
- * 加入书架, on the cover of a book that is not on the shelf.
- *
- * A pill over the artwork rather than a row under the title: the row under the title
- * is where the author lives, and a control that appears and disappears there would
- * make one card in a row taller than its neighbours — which is the ragged baseline
- * the grid's two-line title exists to prevent. Over the cover it costs nothing, and
- * it is on the artwork the reader is already looking at.
- *
- * It is *absent* rather than disabled for a book that is already shelved: a control
- * that can only be pressed to no effect is a control the reader learns to distrust,
- * and "this one is mine already" is not a state that needs saying on every card.
- */
-.book-card .book-shelve {
-  position: absolute;
-  inset-block-start: 0.3rem;
-  inset-inline-start: 0.3rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  border: 0;
-  border-radius: var(--radius-pill);
-  padding: 0.15rem 0.4rem;
-  background: color-mix(in srgb, var(--reader-fill) 92%, transparent);
-  color: var(--reader-on-fill);
-  font-size: var(--text-micro);
-  font-family: inherit;
-  line-height: 1.5;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.book-card .book-shelve .icon {
-  font-size: var(--text-meta);
 }
 
 .manager-crumbs {
@@ -4046,15 +3879,8 @@ book-content {
   -webkit-overflow-scrolling: touch;
   min-height: 0;
 }
-/* Browse scrolls the book pane instead; keep this after `.manager-body`. */
-.manager-body.library-browse-body {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
 .shelf[data-pulling='true'],
 .shelf-scroll[data-pulling='true'],
-.library-browse-screen[data-pulling='true'],
 .library-browse-scroll[data-pulling='true'],
 .manager-body[data-pulling='true'],
 .sources-hub[data-pulling='true'],
@@ -5653,13 +5479,9 @@ svg.icon {
   font-size: var(--text-title);
   line-height: 1;
 }
-.shelf-screen .shelf-search input,
-.library-search input {
+.shelf-screen .shelf-search input {
   border-radius: var(--radius-lg);
   min-height: 48px;
-}
-.library-browse-screen .library-search {
-  margin-top: 0.35rem;
 }
 /* Inside the collection header so desktop measure/centring matches the title row. */
 .collection-header .library-path {
@@ -5881,15 +5703,10 @@ svg.icon {
     grid-column: 1 / -1;
   }
   .collection-header,
-  .library-browse-body,
-  .library-files-screen .manager-body,
-  .library-browse-screen > .select-head-slot {
+  .library-files-screen .manager-body {
     width: calc(100% - 2 * var(--page-gutter) + 1.8rem);
     max-width: var(--collection-measure);
     margin-inline: auto;
-  }
-  .library-browse-screen .select-head-slot > .shelf-select-head {
-    padding-top: 2rem;
   }
   .library-files-screen .manager-row {
     grid-template-columns: 24px minmax(0, 1fr) minmax(15rem, 22rem) 44px;
