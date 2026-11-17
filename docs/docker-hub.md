@@ -41,6 +41,7 @@ Fork 项目：[hectorqin/reader](https://github.com/hectorqin/reader)。Fork 的
 mkdir -p ./data
 docker run -d --name reader --restart unless-stopped \
   -p 5888:5888 \
+  -e READER_IMAGE=ccccx2022/reader:latest \
   -v /path/to/your/books:/books:ro \
   -v "$(pwd)/data:/data" \
   ccccx2022/reader:latest
@@ -62,6 +63,8 @@ services:
       - '5888:5888'
     environment:
       LOG_LEVEL: 'info'
+      # 与上面的 image 用同一个标签：latest、1.0.13 或 sha-短提交号。
+      READER_IMAGE: ccccx2022/reader:latest
     volumes:
       - /path/to/your/books:/books:ro
       # - /path/to/your/videos:/media/video:ro

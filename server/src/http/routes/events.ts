@@ -10,8 +10,8 @@ export function registerEventRoutes(app: FastifyInstance, ctx: AppContext): void
     const hub = ctx.release;
     if (!hub) return reply.status(503).send({ error: { code: 'RELEASE_UNAVAILABLE', message: '版本通知还没准备好' } });
     const snapshot = hub.snapshot();
-    const image = await publishedImageDigest(snapshot.server);
-    return image ? { ...snapshot, image } : snapshot;
+    const published = await publishedImageDigest(snapshot.server);
+    return published ? { ...snapshot, image: published.digest, imageTag: published.tag } : snapshot;
   });
 
   app.get('/api/v1/events', (request, reply) => {

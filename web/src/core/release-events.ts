@@ -3,6 +3,8 @@ export interface Release {
   web: string;
   /** First 12 hex digits of the published image for this version and CPU. Absent outside that image. */
   image?: string;
+  /** The tag this deployment was started from: `latest`, `1.0.13`, or `sha-` plus the short commit. */
+  imageTag?: string;
 }
 
 export type ReleaseChange = 'web' | 'server' | 'both';
@@ -60,10 +62,11 @@ export async function fetchRelease(baseUrl: string): Promise<Release> {
   if (!response.ok) throw new Error(String(response.status));
   const body: unknown = await response.json();
   if (!body || typeof body !== 'object') throw new Error('版本响应无法读取');
-  const record = body as { server?: unknown; web?: unknown; image?: unknown };
+  const record = body as { server?: unknown; web?: unknown; image?: unknown; imageTag?: unknown };
   if (typeof record.server !== 'string' || typeof record.web !== 'string') throw new Error('版本响应无法读取');
   const image = typeof record.image === 'string' && /^[a-f0-9]{12}$/.test(record.image) ? record.image : undefined;
-  return image ? { server: record.server, web: record.web, image } : { server: record.server, web: record.web };
+  const imageTag = typeof record.imageTag === 'string' && /^(latest|\d+\.\d+\.\d+|sha-[a-f0-9]{4,40})$/.test(record.imageTag) ? record.imageTag : undefined;
+  return image ? { server: record.server, web: record.web, image, ...(imageTag ? { imageTag } : {}) } : { server: record.server, web: record.web };
 }
 
 /** The build id stamped into this document. Absent in dev, and on a page that predates the stamp. */

@@ -6,9 +6,9 @@
 # automatically becomes the instance admin.
 services:
   reader:
-    # Releases (v* tags) publish x.y.z, x.y, latest and sha-* tags to Docker Hub.
-    # Pin READER_IMAGE to a release version for repeatable upgrades.
-    image: ${READER_IMAGE:-hectorqin/reader-pro:latest}
+    # Releases publish the version, latest, and sha-<short> to Docker Hub.
+    # Pin READER_IMAGE to one of those tags. The same value is visible inside the container.
+    image: ${READER_IMAGE:-ccccx2022/reader:latest}
     # To build from source instead of pulling the published image. The context is
     # the repository root because the image bakes in the H5 client built from
     # ./web as well as the server.
@@ -27,6 +27,7 @@ services:
     environment:
       # Business settings are managed in the administrator UI and persisted in /data.
       LOG_LEVEL: "info"
+      READER_IMAGE: ${READER_IMAGE:-ccccx2022/reader:latest}
       # Directory holding the built H5 client, served at `/`. Already set in the
       # image; only override if you build the client separately.
       # WEB_DIR: "/app/web"

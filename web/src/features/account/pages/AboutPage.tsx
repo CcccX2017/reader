@@ -67,7 +67,7 @@ export function AboutPage() {
           {release?.image && (
             <div>
               <dt>镜像</dt>
-              <dd>{release.image}</dd>
+              <dd>{release.imageTag ? `${release.imageTag} · ${release.image}` : release.image}</dd>
             </div>
           )}
           <div className="about-repos">
