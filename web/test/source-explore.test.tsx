@@ -24,8 +24,9 @@ const catalog = vi.fn(async (id: string, request: { ref?: string }) => id === 'l
 const upload = vi.fn(async () => ({ uploaded: [{}], skipped: [] }));
 const scanLibrary = vi.fn(async () => ({ running: false, startedAt: null, finishedAt: null, scanned: 1, added: 0, updated: 0, unchanged: 1, removed: 0, failed: 0, lastError: null, durationMs: 1 }));
 const refreshLibrary = vi.fn(async (scan: boolean) => scan ? { running: false, startedAt: null, finishedAt: null, scanned: 3, added: 2, updated: 0, unchanged: 1, removed: 0, failed: 0, lastError: null, durationMs: 5 } : null);
+const browseBatchShelf = vi.fn(async () => ({ applied: 1, books: ['off'], failed: [] }));
 const runtime = {
-  api: { baseUrl: 'https://reader.example.com', sourceCatalog: catalog, upload, scanLibrary, refreshLibrary, sourceDetail: async (_id: string, ref: string) => ({ ref, title: ref === 'on' ? '在架的书' : '不在架的书', authors: ref === 'on' ? ['甲'] : [] }), uploadProbe: async () => ({ allowed: true, writable: true }), coverBytes: async () => new Uint8Array(), getBook: async (id: string) => ({ book: { id, title: id, author: '', description: '', format: 'epub', manualFields: [] } }) },
+  api: { baseUrl: 'https://reader.example.com', sourceCatalog: catalog, upload, scanLibrary, refreshLibrary, browseBatchShelf, sourceDetail: async (_id: string, ref: string) => ({ ref, title: ref === 'on' ? '在架的书' : '不在架的书', authors: ref === 'on' ? ['甲'] : [] }), uploadProbe: async () => ({ allowed: true, writable: true }), coverBytes: async () => new Uint8Array(), getBook: async (id: string) => ({ book: { id, title: id, author: '', description: '', format: 'epub', manualFields: [] } }) },
   updateSettings: async (patch: object) => useSettingsStore.getState().update(patch),
 } as any;
 const paint = async (url: string, refreshRef?: { current: (() => Promise<void>) | null }) => {
@@ -42,7 +43,7 @@ afterEach(() => {
   act(() => render(null, root));
   useAuthStore.setState({ session: null, verifiedUser: null });
   useSettingsStore.getState().replace({ ...DEFAULT_APP_SETTINGS });
-  catalog.mockClear(); upload.mockClear(); scanLibrary.mockClear(); refreshLibrary.mockClear();
+  catalog.mockClear(); upload.mockClear(); scanLibrary.mockClear(); refreshLibrary.mockClear(); browseBatchShelf.mockClear();
 });
 
 describe('发现', () => {
@@ -124,6 +125,33 @@ describe('发现', () => {
     await paint(LIBRARY_PATH);
     await act(async () => { refresh().click(); await new Promise(resolve => setTimeout(resolve, 0)); });
     expect(refreshLibrary).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('书库 batch shelf', () => {
+  it('adds the chosen books that are not on the shelf yet', async () => {
+    useAuthStore.setState({ verifiedUser: { id: 'u', username: 'a', displayName: 'A', role: 'admin', createdAt: 0 } as any });
+    await paint(LIBRARY_PATH);
+    const choose = root.querySelector<HTMLButtonElement>('.explore-trail .explore-select-toggle')!;
+    expect(choose.getAttribute('aria-label')).toBe('选择');
+    expect(choose.closest('.explore-tools')).toBeNull();
+    await act(async () => { choose.click(); });
+    const boxes = [...root.querySelectorAll<HTMLInputElement>('.explore-pick input')];
+    expect(boxes.map(box => box.getAttribute('aria-label'))).toEqual(['选择《不在架的书》']);
+    const all = root.querySelector<HTMLInputElement>('.explore-select-all input')!;
+    expect(all.getAttribute('aria-label')).toBe('全选');
+    await act(async () => { all.click(); });
+    expect(all.checked).toBe(true);
+    expect(boxes[0]!.checked).toBe(true);
+    await act(async () => { all.click(); });
+    expect(all.checked).toBe(false);
+    expect(boxes[0]!.checked).toBe(false);
+    await act(async () => { boxes[0]!.click(); });
+    const add = [...root.querySelectorAll<HTMLButtonElement>('.explore-select button')].find(button => button.textContent === '加入书架')!;
+    await act(async () => { add.click(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(browseBatchShelf).toHaveBeenCalledWith({ bookIds: ['off'] }, 'add');
+    expect(buttons('.explore-book-actions .button.primary, .explore-book-actions button.primary')).toEqual(['阅读', '阅读']);
+    expect(root.querySelector('.explore-select')).toBeNull();
   });
 });
 

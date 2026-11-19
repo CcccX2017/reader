@@ -11,8 +11,9 @@ import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
 import { useCustomCover } from '../../shelf/custom-cover.tsx';
 import { LazyCover } from '../../../ui/lazy-cover.tsx';
 import { notify } from '../../../ui/notifications.ts';
+import { describeShelfAction } from '../../../ui/shelf-membership.ts';
 import { SearchableSelect } from '../../../ui/searchable-select.tsx';
-import { Button, Callout, Icon } from '../../../ui/toolkit.tsx';
+import { Button, Callout, Icon, IconButton } from '../../../ui/toolkit.tsx';
 import { SourceBookDetailSheet } from './SourceBookDetailSheet.tsx';
 import { BookMetadataSheet } from '../../../ui/book-metadata-sheet.tsx';
 
@@ -84,6 +85,9 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
   const [filter, setFilter] = useState('');
   const [detail, setDetail] = useState<SourceEntry | null>(null);
   const [acquired, setAcquired] = useState<Record<string, string>>({});
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [adding, setAdding] = useState(false);
   const epoch = useRef(0);
   const open = async (crumbs: Crumb[], ref?: string) => {
     if (!selectedId) return;
@@ -146,6 +150,8 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
     if (selectedId) void open([]);
     return () => { ++epoch.current; };
   }, [selectedId]);
+  const place = trail.at(-1)?.ref ?? '';
+  useEffect(() => { setPicking(false); setPicked([]); }, [selectedId, place]);
   const trailRef = useRef(trail);
   trailRef.current = trail;
   const localRef = useRef(local);
@@ -207,13 +213,36 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
   if (!sources.length) return <section className="sources-card"><p className="muted">还没有支持发现的书源。添加并启用带发现规则的书源库后，就能在这里按分类浏览。</p></section>;
   const links = page?.navigation ?? [], shown = links.filter(link => link.title.toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase()));
   const canUpload = local && uploadAccess.data?.allowed === true && uploadAccess.data.writable;
-  // What a book offers: read it if it is (or has just become) a shelf book, else add it.
-  const action = (entry: SourceEntry, quiet = false) => {
-    const option = entry.options?.[0], bookId = acquired[entry.ref] ?? entry.metadata?.publicationId;
-    return bookId
-      ? <Button className={quiet ? '' : 'primary'} onClick={() => navigate(`/book/${encodeURIComponent(bookId)}`)}>阅读</Button>
-      : <Button className={quiet ? '' : 'primary'} disabled={option?.available === false || acquire.isPending} onClick={() => acquireEntry(entry, option?.id)}>{option?.label ?? '加入书架'}</Button>;
+  const shelfId = (entry: SourceEntry) => acquired[entry.ref] ?? entry.metadata?.publicationId;
+  const waiting = (page?.items ?? []).filter(entry => local && !shelfId(entry));
+  const chosen = picked.filter(id => waiting.some(entry => entry.ref === id));
+  const allPicked = waiting.length > 0 && waiting.every(entry => picked.includes(entry.ref));
+  const togglePicked = (ref: string) => setPicked(ids => ids.includes(ref) ? ids.filter(id => id !== ref) : [...ids, ref]);
+  const addChosen = async () => {
+    if (!chosen.length || adding) return;
+    setAdding(true); setError('');
+    try {
+      const result = await runtime.api.browseBatchShelf({ bookIds: chosen }, 'add');
+      setAcquired(previous => {
+        const next = { ...previous };
+        for (const id of result.books) next[id] = id;
+        return next;
+      });
+      notify(describeShelfAction('add', result), { kind: result.applied ? 'success' : 'error' });
+      void queryClient.invalidateQueries({ queryKey: ['shelf'] });
+      setPicking(false); setPicked([]);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : '加入书架失败，请重试'); }
+    finally { setAdding(false); }
   };
+  // What a book offers: read it if it is (or has just become) a shelf book, else add it.
+  // While choosing, the batch bar is the only way onto the shelf.
+  const action = (entry: SourceEntry, quiet = false) => {
+    const option = entry.options?.[0], bookId = shelfId(entry);
+    if (bookId) return <Button className={quiet ? '' : 'primary'} onClick={() => navigate(`/book/${encodeURIComponent(bookId)}`)}>阅读</Button>;
+    if (picking) return null;
+    return <Button className={quiet ? '' : 'primary'} disabled={option?.available === false || acquire.isPending} onClick={() => acquireEntry(entry, option?.id)}>{option?.label ?? '加入书架'}</Button>;
+  };
+  const pickBox = (entry: SourceEntry) => picking && !shelfId(entry) ? <label className="explore-pick"><input type="checkbox" checked={picked.includes(entry.ref)} onChange={() => togglePicked(entry.ref)} aria-label={`选择《${entry.title}》`} /></label> : null;
   return <>
     <section className="sources-card explore" aria-busy={busy}>
       {/* One bar: which source, what the local library adds, and how the books are laid out. */}
@@ -228,7 +257,14 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
         ? <strong key={index} aria-current="page">{crumb.title}</strong>
         : <span key={index}><button type="button" disabled={busy} onClick={() => void open(trail.slice(0, index), crumb.ref)}>{crumb.title}</button><Icon name="chevron-right" size={14} /></span>)}
         {!trail.length && <strong>发现</strong>}
+        {local && (waiting.length > 0 || picking) && <IconButton className="explore-select-toggle" icon="select" label="选择" pressed={picking} disabled={busy || uploading || adding} onClick={() => { if (picking) { setPicking(false); setPicked([]); } else { setPicked([]); setPicking(true); } }} />}
       </nav>
+      {picking && <div className="explore-select" role="toolbar" aria-label="批量加入书架">
+        <label className="explore-select-all"><input type="checkbox" aria-label="全选" checked={allPicked} disabled={!waiting.length || adding} ref={box => { if (box) box.indeterminate = chosen.length > 0 && !allPicked; }} onChange={() => setPicked(allPicked ? [] : waiting.map(entry => entry.ref))} /></label>
+        <span>已选择 {chosen.length} 本</span>
+        <Button className="primary" disabled={!chosen.length || adding} onClick={() => void addChosen()}>{adding ? '正在加入…' : '加入书架'}</Button>
+        <button type="button" disabled={adding} onClick={() => { setPicking(false); setPicked([]); }}>取消</button>
+      </div>}
       {error && <Callout tone="error" onDismiss={() => setError('')}>{error}</Callout>}
       {busy && !page && <p className="muted" role="status">正在加载…</p>}
       {links.length > 16 && <input className="explore-filter" type="search" aria-label="筛选" placeholder={`在 ${links.length} 项中筛选`} value={filter} onChange={event => setFilter(event.currentTarget.value)} />}
@@ -236,6 +272,7 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
         {!shown.length && <p className="muted">没有匹配的项</p>}</div>}
       {page && page.items.length > 0 && (layout === 'grid'
         ? <div className="explore-grid">{page.items.map(entry => <article className="explore-card" key={entry.ref}>
+          {pickBox(entry)}
           <button type="button" className="explore-card-open" aria-label={`${entry.title} 详情`} onClick={() => setDetail(entry)}>
             <LazyCover url={coverUrl(selectedId, entry)} title={entry.title} />
             <strong>{entry.title}</strong><small>{entry.authors?.join(' / ') || '作者未知'}</small>
@@ -243,6 +280,7 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
           {action(entry, true)}
         </article>)}</div>
         : <div className="explore-books">{page.items.map(entry => <article className="explore-book" key={entry.ref}>
+          {pickBox(entry)}
           {local
             ? <button type="button" className="explore-cover-set" aria-label={`设置《${entry.title}》的封面`} onClick={() => covers.open(libraryBook(entry))}><LazyCover url={coverUrl(selectedId, entry)} title={entry.title} /></button>
             : <LazyCover url={coverUrl(selectedId, entry)} title={entry.title} />}

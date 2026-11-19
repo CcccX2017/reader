@@ -4627,6 +4627,8 @@ book-content {
 .catalog-book { padding:1.4rem 0; align-items:flex-start; }
 /* 发现: a trail of where you are, the levels below as chips, then books. */
 .explore-trail { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); margin-bottom:var(--space-3); font-size:var(--text-ui); color:var(--reader-muted); }
+.explore-trail .explore-select-toggle { margin-inline-start:auto; width:44px; height:44px; padding:0; color:var(--reader-ink); }
+.explore-trail .explore-select-toggle[aria-pressed="true"] { color:var(--reader-accent); }
 .explore-trail span { display:inline-flex; align-items:center; gap:var(--space-1); }
 .explore-trail button { min-height:44px; padding:0 var(--space-1); border:0; background:transparent; color:var(--reader-accent); font:inherit; cursor:pointer; }
 .explore-trail button:disabled { opacity:.6; cursor:default; }
@@ -4640,9 +4642,21 @@ book-content {
 @media (hover: hover) and (pointer: fine) {
   .explore-link:hover { border-color:var(--reader-accent); color:var(--reader-accent); }
   .explore-trail button:hover { text-decoration:underline; }
+  .explore-trail .explore-select-toggle:hover { text-decoration:none; }
 }
 .explore-links + .explore-books { margin-top:var(--space-4); }
 .explore-book { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:var(--space-2) var(--space-3); padding:var(--space-3) 0; border-top:1px solid var(--reader-line); }
+.explore-book:has(.explore-pick) { grid-template-columns:auto auto minmax(0, 1fr); }
+.explore-book:has(.explore-pick) .explore-book-actions { grid-column:3; }
+.explore-pick { display:flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; grid-row:span 2; }
+.explore-pick input { width:1.25rem; height:1.25rem; margin:0; }
+.explore-card .explore-pick { position:absolute; top:0; left:0; z-index:1; grid-row:auto; border-radius:var(--radius-sm); background:color-mix(in srgb, var(--reader-paper) 88%, transparent); }
+.explore-select { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); margin-bottom:var(--space-3); }
+.explore-select-all { display:flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; }
+.explore-select-all input { width:1.25rem; height:1.25rem; margin:0; }
+.explore-select > button:not(.button) { min-height:44px; padding:0 var(--space-3); border:0; background:transparent; color:var(--reader-accent); font:inherit; font-size:var(--text-title); cursor:pointer; }
+.explore-select > button:not(.button):disabled { opacity:.5; cursor:default; }
+.explore-select > span { color:var(--reader-muted); font-size:var(--text-ui); }
 .explore-book:first-child { border-top:0; padding-top:0; }
 .explore-book .lazy-cover { width:4rem; grid-row:span 2; }
 .explore-cover-set { grid-row:span 2; width:4rem; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; }
@@ -4679,7 +4693,7 @@ book-content {
 .explore-layout.segmented button:focus-visible { outline:var(--focus-ring); outline-offset:-2px; }
 .explore-links + .explore-grid { margin-top:var(--space-4); }
 .explore-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(5.5rem, 1fr)); gap:var(--space-4) var(--space-3); }
-.explore-card { display:flex; flex-direction:column; gap:var(--space-2); min-width:0; }
+.explore-card { position:relative; display:flex; flex-direction:column; gap:var(--space-2); min-width:0; }
 .explore-card-open { display:flex; flex-direction:column; flex:1 1 auto; gap:.2rem; min-width:0; padding:0; border:0; background:transparent; color:var(--reader-ink); font:inherit; text-align:left; cursor:pointer; }
 .explore-card-open:focus-visible { outline:var(--focus-ring); outline-offset:2px; }
 .explore-card .lazy-cover { width:100%; margin-bottom:.2rem; }

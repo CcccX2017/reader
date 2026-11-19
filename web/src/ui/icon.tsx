@@ -6,7 +6,7 @@ import {
   SunMoon, Palette, Eye, EyeOff, Info, TriangleAlert, CloudOff, Clock, History, Timer,
   TimerOff, Ellipsis, Pencil, ArrowDownUp, LogOut, Type,
   Settings, SlidersVertical, Bookmark, Music, ListMusic, ListVideo, ListPlus,
-  ListOrdered, Layers, Heart, Star, Clapperboard, UserRound, Lock, LockOpen, Gauge,
+  ListOrdered, ListChecks, Layers, Heart, Star, Clapperboard, UserRound, Lock, LockOpen, Gauge,
   Subtitles, AudioLines, MicVocal, Shuffle, Repeat, Repeat1, Maximize, Minimize, Expand,
   Shrink, LocateFixed, LayoutGrid, House, Rss, UsersRound, Ticket, Link2, ServerCog, Github,
   NotebookPen, Tag,
@@ -38,7 +38,7 @@ export const ICONS = {
   notes: NotebookPen, tag: Tag,
   // actions
   search: Search, close: X, plus: Plus, check: Check, upload: Upload, trash: Trash2,
-  download: Download, refresh: RefreshCw, edit: Pencil, sort: ArrowDownUp, more: Ellipsis,
+  download: Download, refresh: RefreshCw, edit: Pencil, sort: ArrowDownUp, more: Ellipsis, select: ListChecks,
   'queue-add': ListPlus, logout: LogOut,
   // playback
   play: Play, 'play-circle': PlayCircle, pause: Pause, stop: Square,
