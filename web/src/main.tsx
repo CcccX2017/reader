@@ -12,8 +12,8 @@ import { RouterProvider } from 'react-router-dom';
 import { AppProviders } from './app/providers/AppProviders.tsx';
 import { createAppRuntime, inferDefaultUrl } from './app/runtime.ts';
 import { router } from './app/router/router.tsx';
-import { offerReload, registerPwa, requestServiceWorkerUpdate } from './core/pwa.ts';
-import { pageWebBuild, releaseResponse, subscribeReleases } from './core/release-events.ts';
+import { beginWebUpdate, offerReload, registerPwa } from './core/pwa.ts';
+import { pageWebBuild, subscribeReleases } from './core/release-events.ts';
 import { dismissAppStartup } from './app/startup.ts';
 import { applySafariVersion } from './shared/safari-version.ts';
 import { paintStoredTheme } from './shared/theme/theme.ts';
@@ -60,9 +60,11 @@ async function start(): Promise<void> {
   // cannot apply.
   const runningWeb = window.ReaderAndroid ? undefined : pageWebBuild();
   subscribeReleases(runtime.api.baseUrl, (change) => {
-    const action = releaseResponse(change, !!navigator.serviceWorker?.controller);
-    if (action.updateWorker) requestServiceWorkerUpdate();
-    if (action.reload) offerReload();
+    // Server-only: the shell is unchanged, so a reload is the whole update.
+    // A new web bundle has to be installed by the worker first. Reloading over
+    // the active worker would keep the previous build id.
+    if (change === 'server') offerReload();
+    else beginWebUpdate();
   }, runningWeb);
 }
 

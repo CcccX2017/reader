@@ -13,8 +13,8 @@ import { useAvatar } from '../../../shared/ui/use-avatar.ts';
 import '../../home/styles/home.css';
 import '../styles/mine.css';
 import { useMediaEnabled } from '../../../shared/stores/features.ts';
-import { fetchRelease, judgeUpdate, pageWebBuild, releaseResponse } from '../../../core/release-events.ts';
-import { offerReload, requestServiceWorkerUpdate } from '../../../core/pwa.ts';
+import { fetchRelease, judgeUpdate, pageWebBuild } from '../../../core/release-events.ts';
+import { beginWebUpdate } from '../../../core/pwa.ts';
 
 function Row({ icon, label, value, to, state, onClick, danger = false }: { icon: IconName; label: string; value?: string; to?: string; state?: unknown; onClick?: () => void; danger?: boolean }) {
   const body = <>
@@ -47,8 +47,10 @@ function serverHost(baseUrl: string): string {
  * - 账号: who you are on this server and which outside readers may see your shelf;
  * - 关于: the name and versions, and a check against the bundle now being served.
  * Signing out asks first. Checking for an update reports on the row, then applies
- * the bundle the same way an open page does: a controlling service worker installs
- * it before the banner reloads, and a page with no worker reloads directly.
+ * the bundle the same way an open page does. An active service worker has to
+ * install the new shell before anything reloads — a reload it still controls
+ * keeps the old build id, so the next check says an update is available again.
+ * A page with no worker reloads directly.
  */
 export function MinePage() {
   const media=useMediaEnabled();
@@ -75,11 +77,7 @@ export function MinePage() {
     void fetchRelease(runtime.api.baseUrl).then((release) => {
       const verdict = judgeUpdate(release, false, running);
       setUpdateLabel(verdict.label);
-      if (verdict.state === 'ready') {
-        const action = releaseResponse('web', !!navigator.serviceWorker?.controller);
-        if (action.updateWorker) requestServiceWorkerUpdate();
-        if (action.reload) offerReload();
-      }
+      if (verdict.state === 'ready') beginWebUpdate();
     }).catch(() => setUpdateLabel('检查失败')).finally(() => setChecking(false));
   };
   return <>

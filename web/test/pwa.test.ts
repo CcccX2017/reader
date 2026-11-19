@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { offerReload, registerPwa, watchPwaUpdates } from '../src/core/pwa.ts';
+import { beginWebUpdate, offerReload, registerPwa, watchPwaUpdates } from '../src/core/pwa.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -77,6 +77,33 @@ it('offers updates that finish downloading after registration', () => {
   expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
 });
 
+it('activates a waiting worker when this page is not controlled yet', async () => {
+  (serviceWorker as unknown as { controller: ServiceWorker | null }).controller = null;
+  const postMessage = pendingUpdate();
+  const reload = vi.fn();
+  dispose = watchPwaUpdates(registration, async () => {}, reload);
+  const button = document.querySelector<HTMLButtonElement>('.pwa-update button');
+  expect(button?.textContent).toBe('立即更新');
+  button!.click();
+  await Promise.resolve();
+  expect(postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+  expect(reload).not.toHaveBeenCalled();
+  serviceWorker.dispatchEvent(new Event('controllerchange'));
+  expect(reload).toHaveBeenCalledTimes(1);
+});
+
+it('downloads a new bundle instead of reloading over an active worker', async () => {
+  const update = vi.fn().mockResolvedValue(undefined);
+  (serviceWorker as unknown as { controller: ServiceWorker | null; getRegistration: () => Promise<unknown> }).controller = null;
+  (serviceWorker as unknown as { getRegistration: () => Promise<unknown> }).getRegistration = () => Promise.resolve({
+    active: {}, waiting: null, update,
+  });
+  beginWebUpdate();
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  expect(update).toHaveBeenCalledTimes(1);
+  expect(document.querySelector('.pwa-update')).toBeNull();
+});
+
 it('does not reload when another tab activates, and saves before manual refresh', async () => {
   pendingUpdate();
   const save = vi.fn().mockResolvedValue(undefined), reload = vi.fn();
@@ -145,6 +172,24 @@ it('ships standalone launch metadata and a first-paint startup shell', () => {
   expect(html).toContain('id="app-startup"');
   expect(html).toContain('reader 阅读器');
   expect(html).toContain('apple-touch-startup-image');
+});
+
+it('activates a waiting worker from the reload banner instead of opening the cached shell', async () => {
+  const postMessage = vi.fn();
+  (serviceWorker as unknown as { getRegistration: () => Promise<unknown> }).getRegistration = () => Promise.resolve({
+    waiting: { postMessage },
+  });
+  window.__readerFlush = vi.fn().mockResolvedValue(undefined);
+  offerReload();
+  const button = document.querySelector<HTMLButtonElement>('.pwa-update button')!;
+  button.click();
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  expect(postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+  // A reload here would be the active worker's old shell. jsdom throws if
+  // location.reload runs, and the banner would switch to 重试更新.
+  expect(button.textContent).toBe('立即更新');
+  expect(document.querySelector('.pwa-update span')?.textContent).toBe('正在更新…');
+  delete window.__readerFlush;
 });
 
 it('shows one reload banner, and a failed save can be retried', async () => {

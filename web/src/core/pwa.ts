@@ -2,9 +2,51 @@ import '../styles/pwa.css';
 
 let registration: ServiceWorkerRegistration | undefined;
 
+/** The registration from this page, or the one the browser already has for this scope. */
+async function resolveRegistration(): Promise<ServiceWorkerRegistration | undefined> {
+  const container = navigator.serviceWorker;
+  if (container && typeof container.getRegistration === 'function') {
+    try {
+      const found = await container.getRegistration();
+      if (found) {
+        registration = found;
+        return found;
+      }
+    } catch { /* fall back to the registration captured at register() */ }
+  }
+  return registration;
+}
+
 /** Asks the installed worker to download a new bundle. The ready banner follows from there. */
 export function requestServiceWorkerUpdate(): void {
-  if (registration) void registration.update().catch(() => undefined);
+  void resolveRegistration().then(reg => { void reg?.update().catch(() => undefined); });
+}
+
+/**
+ * A newer web bundle is published.
+ *
+ * Reloading while a service worker is active opens the shell that worker already
+ * cached, so the build id on the page does not change and the next check still
+ * says an update is available. Download the new worker; its ready banner is what
+ * activates it. A page with no worker reloads, because nothing is holding the old shell.
+ */
+export function beginWebUpdate(): void {
+  const controlled = !!navigator.serviceWorker?.controller;
+  const container = navigator.serviceWorker;
+  if (!container || (typeof container.getRegistration !== 'function' && !container.controller && !registration)) {
+    offerReload();
+    return;
+  }
+  void (async () => {
+    const reg = await resolveRegistration();
+    // `active` covers a page this worker will serve on the next navigation even
+    // when `controller` is still null, which is what kept the old build id.
+    if (controlled || reg?.active || reg?.waiting) {
+      await reg?.update().catch(() => undefined);
+      return;
+    }
+    offerReload();
+  })();
 }
 
 /** A reload is enough when no service worker is holding the previous bundle. */
@@ -20,6 +62,11 @@ export function offerReload(): void {
   button.className = 'button primary';
   button.type = 'button';
   button.textContent = '立即更新';
+  const giveUp = () => {
+    button.disabled = false;
+    button.textContent = '重试更新';
+    message.textContent = '更新未完成，请重试';
+  };
   button.addEventListener('click', () => {
     if (button.disabled) return;
     button.disabled = true;
@@ -27,11 +74,24 @@ export function offerReload(): void {
     void (async () => {
       try {
         await window.__readerFlush?.();
+        const waiting = (await resolveRegistration())?.waiting;
+        // A waiting worker is the new shell. Reloading first is served by the
+        // active worker, and the build id stays on the previous version.
+        if (waiting && navigator.serviceWorker) {
+          message.textContent = '正在更新…';
+          await new Promise<void>((resolve, reject) => {
+            const onChange = () => { clearTimeout(timer); resolve(); };
+            const timer = setTimeout(() => {
+              navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+              reject(new Error('timeout'));
+            }, 15_000);
+            navigator.serviceWorker.addEventListener('controllerchange', onChange);
+            waiting.postMessage({ type: 'SKIP_WAITING' });
+          });
+        }
         location.reload();
       } catch {
-        button.disabled = false;
-        button.textContent = '重试更新';
-        message.textContent = '更新未完成，请重试';
+        giveUp();
       }
     })();
   });
@@ -80,8 +140,17 @@ export function watchPwaUpdates(
   let reloaded = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let installing: ServiceWorker | null = null;
+  // Kept for the click: `registration.waiting` can clear after the reader asks
+  // to save, and reloading then would open the old shell again.
+  let ready: ServiceWorker | null = null;
   const show = () => {
-    if (registration.waiting && navigator.serviceWorker.controller && !banner.isConnected) document.body.append(banner);
+    const worker = registration.waiting;
+    // No controller check. A page that is not controlled yet still has to
+    // activate the waiting worker; a plain reload would be served by the
+    // active one and the build id would not change.
+    if (!worker || banner.isConnected) return;
+    ready = worker;
+    document.body.append(banner);
   };
   const finish = () => {
     if (reloaded) return;
@@ -111,9 +180,10 @@ export function watchPwaUpdates(
         await save();
         updating = true;
         message.textContent = '正在更新…';
-        if (changed || !registration.waiting) { finish(); return; }
+        const worker = registration.waiting ?? ready;
+        if (changed || !worker) { finish(); return; }
         timeout = setTimeout(failed, 15_000);
-        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        worker.postMessage({ type: 'SKIP_WAITING' });
       } catch {
         failed();
       }
@@ -134,7 +204,9 @@ export function watchPwaUpdates(
   // Only changes after initial control represent upgrades of an existing page.
   let controlled = !!navigator.serviceWorker.controller;
   const controllerChange = () => {
-    if (controlled) onControllerChange();
+    // The first claim of a brand-new worker is not an update. A claim while
+    // the reader is applying one, or while the ready banner is up, is.
+    if (controlled || updating || banner.isConnected) onControllerChange();
     controlled = true;
   };
   navigator.serviceWorker.addEventListener('controllerchange', controllerChange);

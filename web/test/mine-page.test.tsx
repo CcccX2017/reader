@@ -94,6 +94,30 @@ describe('我的', () => {
     vi.unstubAllGlobals();
   });
 
+  it('does not reload over an active worker that would keep the previous build', async () => {
+    const meta = document.createElement('meta');
+    meta.name = 'reader-web-build';
+    meta.content = 'aaaaaaaaaaaaaaaaaaaa';
+    document.head.append(meta);
+    const update = vi.fn(async () => undefined);
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })));
+    vi.stubGlobal('navigator', {
+      serviceWorker: {
+        controller: null,
+        getRegistration: async () => ({ active: {}, waiting: null, update }),
+      },
+    });
+    useAuthStore.setState({ verifiedUser: user('member') });
+    paint();
+    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
+    await act(async () => { check.click(); });
+    expect(check.textContent).toContain('发现新版本');
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.pwa-update')).toBeNull();
+    meta.remove();
+    vi.unstubAllGlobals();
+  });
+
   it('lets a controlling service worker install the bundle before reloading', async () => {
     const meta = document.createElement('meta');
     meta.name = 'reader-web-build';
