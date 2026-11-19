@@ -25,6 +25,17 @@
 @media (max-width: 700px) {
   body[data-app-nav] .pwa-update { bottom: calc(var(--app-nav-bar) + var(--safe-bottom) + .75rem); }
 }
+/* The mini player occupies the band above the tab bar (66px on a phone, 80px
+   on a wide window). The update bar has to sit above that band, or its box
+   covers 打开播放控制 and the click never lands. */
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .pwa-update {
+  bottom: calc(80px + var(--safe-bottom) + 6rem);
+}
+@media (max-width: 700px) {
+  body:has(.media-player:not([hidden]):not(.media-player-expanded)) .pwa-update {
+    bottom: calc(66px + var(--safe-bottom) + 6rem);
+  }
+}
 body:has(.reader-screen) .pwa-update { bottom: calc(1.8rem + var(--safe-bottom) + .5rem); }
 body:has(.reader-screen[data-chrome='visible']) .pwa-update { bottom: calc(8.5rem + var(--safe-bottom) + .5rem); }
 @media (min-width: 64rem) {
