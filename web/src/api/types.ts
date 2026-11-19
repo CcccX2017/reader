@@ -359,6 +359,9 @@ export interface UploadResult {
   } | null;
 }
 
+/** The fields 编辑信息 may set: the server's allowlist for `PATCH /books/:id/metadata`. */
+export type BookMetadataField = 'title' | 'author' | 'publisher' | 'language' | 'isbn' | 'description' | 'series' | 'seriesIndex' | 'pubdate' | 'tags';
+
 /** Outcome of `POST /library/scan`. Mirrors the server's `ScanResult`. */
 export interface LibraryScanResult {
   running: boolean;

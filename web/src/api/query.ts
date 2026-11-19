@@ -93,15 +93,20 @@ export function affectedNavigationQuery(mutation: string, query: string): boolea
   }
   if (mutation.startsWith('/api/v1/media/')) return affectedByMediaWrite(mutation, query);
   if (/^\/api\/v1\/(notes|tts|ai|auth)(?:\/|$)/.test(mutation)) return false;
-  // Pull-to-refresh and admin scans rewrite the catalog; without this the
-  // transport cache (5 min staleTime) keeps serving the pre-scan book lists.
+  // A scan rewrites the catalog. 书库 in 发现 lists the same books through the
+  // built-in source, so those pages go stale with the shelf.
   if (mutation === '/api/v1/library/scan') {
     return query.startsWith('/api/v1/books')
       || query.startsWith('/api/v1/library/browse')
       || query.startsWith('/api/v1/library/continue')
-      || query.startsWith('/api/v1/library/facets');
+      || query.startsWith('/api/v1/library/facets')
+      || /^\/api\/v1\/sources\/[^/]+\/(browse|entries)(?:\?|$)/.test(query);
   }
-  if (mutation === '/api/v1/library/upload') return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/browse');
+  if (mutation === '/api/v1/library/upload') {
+    return query.startsWith('/api/v1/books')
+      || query.startsWith('/api/v1/library/browse')
+      || /^\/api\/v1\/sources\/[^/]+\/(browse|entries)(?:\?|$)/.test(query);
+  }
   if (mutation === '/api/v1/library/browse/shelf') return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/continue');
   // Deleting a book removes it from every list, 继续阅读, the file browser and the
   // series/tag facets. The 5 min navigation cache would otherwise keep showing it.
@@ -116,6 +121,11 @@ export function affectedNavigationQuery(mutation: string, query: string): boolea
   // which books 继续阅读 and a status filter show. List URLs do not contain the book id.
   if (/^\/api\/v1\/books\/[^/]+\/reading-status$/.test(mutation)) {
     return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/continue');
+  }
+  // A book's metadata and cover are the library's, drawn by every list it is in: the
+  // shelf, the library index and 书库 in 发现 — not only the book itself.
+  if (/^\/api\/v1\/books\/[^/]+\/(metadata|cover-source)(?:\/|$)/.test(mutation)) {
+    return query.startsWith('/api/v1/books') || query.startsWith('/api/v1/library/continue') || /^\/api\/v1\/sources\/[^/]+\/(browse|entries)(?:\?|$)/.test(query);
   }
   if (/^\/api\/v1\/books\//.test(mutation)) {
     const id = mutation.match(/^\/api\/v1\/books\/([^/]+)/)?.[1];

@@ -131,8 +131,9 @@ export function useBookCommands(finish: () => void) {
   const menuFor = (book: SelectableBook): MenuItems => [
     ...(onShelf(book) ? READING_STATES.filter(state => state !== book.readingState).map(state => ({ label: '标记为' + READING_LABELS[state], onSelect: () => void mark([book], state) })) : []),
     onShelf(book) && book.readingState && { label: '清除标记', onSelect: () => void mark([book], null) },
-    ...metadata.menu(book),
-    ...covers.menu(book),
+    // A local book's metadata and cover are shared, so only an administrator changes
+    // them. A book from a book source stays the reader's.
+    ...(admin || book.format === 'chapters' ? [...metadata.menu(book), ...covers.menu(book)] : []),
     book.shelfState === 'off'
       ? { label: SHELF_ACTION_LABELS.add, onSelect: () => void shelve([book], 'add') }
       : { label: SHELF_ACTION_LABELS.remove, danger: true, onSelect: () => setRemoveTargets([book]) },
@@ -147,8 +148,8 @@ export function useBookCommands(finish: () => void) {
       { label: '在读', icon: 'book', disabled: !present.length, onSelect: () => void mark(present, 'reading') },
       { label: '想读', icon: 'bookmark', disabled: !present.length, onSelect: () => void mark(present, 'want') },
       { label: '已读', icon: 'check', disabled: !present.length, onSelect: () => void mark(present, 'finished') },
-      { label: '编辑信息', icon: 'edit', disabled: !one || metadata.busy, onSelect: () => { if (one) metadata.open(one); } },
-      { label: '设置封面', icon: 'upload', disabled: !one || covers.busy, onSelect: () => { if (one) covers.open(one); } },
+      { label: '编辑信息', icon: 'edit', disabled: !one || (one.format !== 'chapters' && !admin) || metadata.busy, onSelect: () => { if (one) metadata.open(one); } },
+      { label: '设置封面', icon: 'upload', disabled: !one || (one.format !== 'chapters' && !admin) || covers.busy, onSelect: () => { if (one) covers.open(one); } },
       { label: '清除标记', icon: 'close', disabled: !present.length, onSelect: () => void mark(present, null) },
       { label: '恢复封面', icon: 'refresh', disabled: !one || !one.manualFields?.includes('cover') || covers.busy, onSelect: () => { if (one) void covers.clear(one.id); } },
       ...(absent.length ? [{ label: SHELF_ACTION_LABELS.add, icon: 'plus' as const, disabled: false, onSelect: () => void shelve(absent, 'add') }] : []),

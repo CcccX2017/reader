@@ -1,5 +1,5 @@
 import type { Db } from '../db/index.ts';
-import type { ShelfService, BookDto } from '../services/shelf.ts';
+import { type ShelfService, type BookDto } from '../services/shelf.ts';
 import { badRequest, notFound } from '../lib/errors.ts';
 import type { SourceProvider, CatalogEntry, SourceContext } from './types.ts';
 import { readFile } from 'node:fs/promises';
@@ -9,13 +9,20 @@ import { assertSafeRel, resolveInside } from '../lib/paths.ts';
 /** The one resource a local entry has: its cover. */
 const COVER_REF = 'cover';
 
+/** A listed book already carries its versioned cover address; reuse its `v`. */
+const listed = (book: BookDto & { shelfState?: 'on' | 'off' }): CatalogEntry => entry(book);
+
 function entry(book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | 'format' | 'manualFields'> & { coverUrl?: string | null; shelfState?: 'on' | 'off' }): CatalogEntry {
+  // Versioned like the shelf's `coverUrl` (?v=): the cover response is cached for a day,
+  // so a cover changed with 换封面 must arrive under a new address to be seen.
+  const version = book.coverUrl ? (/[?&]v=([^&]+)/.exec(book.coverUrl)?.[1] ?? 'cover') : null;
   return {
     ref: book.id, title: book.title, authors: book.author ? [book.author] : [],
     description: book.description,
     // `coverUrl` is the library cover the search list already knows how to draw.
     // `coverRef` is the same picture fetched through the source, which 发现 uses.
-    ...(book.coverUrl ? { coverUrl: book.coverUrl, coverRef: COVER_REF } : {}),
+    ...(book.coverUrl ? { coverUrl: book.coverUrl } : {}),
+    ...(version ? { coverRef: `${COVER_REF}@${version}` } : {}),
     // A book already on the caller's shelf says which one, so a client offers 阅读 rather than 加入书架.
     options: [{ id: 'read', label: '加入书架', available: true }], metadata: {
       format: book.format,
@@ -60,14 +67,14 @@ export function createLocalProvider(db: Db, shelf: () => ShelfService, dataDir: 
       });
       const folders = request.cursor ? [] : shelf().folders(path);
       return {
-        title: path ? path.split('/').at(-1)! : '本地书库', items: result.items.map(entry), total: result.total,
+        title: path ? path.split('/').at(-1)! : '本地书库', items: result.items.map(listed), total: result.total,
         ...(folders.length ? { navigation: folders.map((name) => ({ title: name, ref: path ? `${path}/${name}` : name, kind: 'catalog' as const })) } : {}),
         ...(result.page * result.pageSize < result.total ? { nextCursor: String(result.page + 1) } : {}),
       };
     },
     /** A local entry's cover, so a browser never needs a second way to load one. */
     async readResource(_ctx, request) {
-      const coverPath = request.ref === COVER_REF ? shelf().coverPath(request.publicationRef) : null;
+      const coverPath = request.ref === COVER_REF || request.ref.startsWith(`${COVER_REF}@`) ? shelf().coverPath(request.publicationRef) : null;
       if (!coverPath) throw notFound('local book has no cover', 'RESOURCE_GONE');
       const ext = extname(coverPath).toLowerCase();
       return { mediaType: ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg',
@@ -78,7 +85,7 @@ export function createLocalProvider(db: Db, shelf: () => ShelfService, dataDir: 
         scope: 'library', search: request.query, page: page(request.cursor), pageSize: request.limit ?? 40,
       });
       return {
-        items: result.items.map(entry), total: result.total,
+        items: result.items.map(listed), total: result.total,
         ...(result.page * result.pageSize < result.total ? { nextCursor: String(result.page + 1) } : {}),
       };
     },

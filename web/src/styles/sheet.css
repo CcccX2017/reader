@@ -46,13 +46,18 @@
   background: var(--color-scrim, rgb(0 0 0 / 0.4));
 }
 
+/* The bar is 2.25rem × 0.25rem as before; the padding is finger room for dragging,
+   kept out of the paint by content-box clipping. */
 .sheet-grip {
   flex: none;
+  box-sizing: content-box;
   width: 2.25rem;
   height: 0.25rem;
-  margin: 0.5rem auto 0;
+  margin: 0 auto;
+  padding: 0.5rem 2rem 0.25rem;
   border-radius: var(--radius-pill);
   background: var(--reader-line);
+  background-clip: content-box;
 }
 
 .sheet-header {
@@ -394,5 +399,54 @@
 
   .sheet-footer {
     padding-bottom: var(--space-2);
+  }
+}
+
+/* 编辑信息: a field's label carries its manual badge and 恢复 on one line. */
+.book-metadata-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.book-metadata-restore {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--reader-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.book-metadata-form small[role="alert"] { color: var(--color-danger); }
+
+/* Dragging (sheet-drag.ts, phones only): the handle takes the gesture from the page,
+   the sheet follows the finger without easing, then eases to where it rests. */
+@media (max-width: 700px) {
+  .sheet-grip,
+  .sheet-header {
+    touch-action: none;
+  }
+
+  .sheet[data-dragging] {
+    user-select: none;
+  }
+
+  .sheet[data-settling] {
+    transition: height var(--motion-duration) var(--motion-ease), transform var(--motion-duration) var(--motion-ease);
+  }
+
+  /* Pulled up: nearly the whole screen, below the status bar. Doubled class to win over
+     the reader's half-screen panel and the PWA layout without depending on file order. */
+  .sheet.sheet[data-expanded]:not([data-size='compact']) {
+    max-height: none;
+    height: calc(100vh - var(--safe-top) - 0.5rem);
+    height: calc(100dvh - var(--safe-top) - 0.5rem);
+  }
+
+  .sheet.sheet[data-host='pwa'][data-expanded]:not([data-size='compact']) {
+    top: calc(var(--safe-top) + 0.5rem);
+    height: auto;
   }
 }

@@ -9,7 +9,9 @@
  * does focus go" slightly differently. The rule is now one rule (docs/ui.md §3.7):
  *
  *  - Phones (≤700px): a bottom sheet with a grip, as tall as its content and never
- *    taller than the screen allows.
+ *    taller than the screen allows. The grip and title bar drag it: down closes it
+ *    (a fourth exit, refused while `busy`), up expands a regular sheet to nearly the
+ *    whole screen (`sheet-drag.ts`).
  *  - Wider windows: a drawer on the right edge; `size="wide"` gives forms that need
  *    it more width. `size="compact"` (confirmations, prompts, short pick lists) is a
  *    centred card — short questions stay in the middle of the window.
@@ -27,6 +29,7 @@
 import { type JSX, type ReactNode, useLayoutEffect, useRef } from 'react';
 import { Button, IconButton } from './toolkit.tsx';
 import { placeNotifications } from './notifications.ts';
+import { startSheetDrag } from './sheet-drag.ts';
 import '../styles/sheet.css';
 
 export type SheetSize = 'regular' | 'compact' | 'wide';
@@ -85,7 +88,13 @@ export function Sheet({
     const focusTarget = initialFocus ? dialog.querySelector<HTMLElement>(initialFocus) : null;
     (focusTarget ?? dialog).focus({ preventScroll: true });
     placeNotifications();
+    // A compact sheet on a wide window opens where the hand is, not at the far edge.
+    const anchor = size === 'compact' ? anchorPoint(previous) : null;
+    const place = () => { if (anchor) placeNear(dialog, anchor); };
+    place();
+    if (anchor) addEventListener('resize', place);
     return () => {
+      if (anchor) removeEventListener('resize', place);
       if (typeof dialog.close === 'function' && dialog.open) dialog.close(); else dialog.removeAttribute('open');
       placeNotifications();
       queueMicrotask(() => { if (previous?.isConnected) previous.focus({ preventScroll: true }); });
@@ -93,6 +102,11 @@ export function Sheet({
   }, []);
 
   const requestClose = () => { if (!state.current.busy) state.current.onClose(); };
+  // On a phone the grip and title bar drag the sheet: down to close, up to expand.
+  const drag = (event: React.PointerEvent) => {
+    if (typeof matchMedia !== 'function' || matchMedia(WIDE).matches) return;
+    startSheetDrag(event.nativeEvent, ref.current!, { expandable: size !== 'compact', busy: () => state.current.busy, close: requestClose });
+  };
   const outside = (event: { clientX: number; clientY: number; target: EventTarget; currentTarget: HTMLDialogElement }) => {
     if (event.target !== event.currentTarget) return false;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -126,8 +140,8 @@ export function Sheet({
         if (event.key === 'Tab') trapTab(event.currentTarget, event);
       }}
     >
-      <div className="sheet-grip" aria-hidden="true" />
-      <header className="sheet-header">
+      <div className="sheet-grip" aria-hidden="true" onPointerDown={drag} />
+      <header className="sheet-header" onPointerDown={drag}>
         <h2>{title}</h2>
         {subtitle ? <span className="sheet-subtitle">{subtitle}</span> : null}
         {actions}
@@ -137,6 +151,44 @@ export function Sheet({
       {footer ? <footer className="sheet-footer">{footer}</footer> : null}
     </dialog>
   );
+}
+
+/** The wide-window breakpoint; below it every sheet is a bottom sheet. */
+const WIDE = '(min-width: 701px)';
+const MARGIN = 16, GAP = 8;
+
+/** The last press, so a compact sheet opened by a tap can appear beside that tap. */
+let lastPress: { x: number; y: number; at: number } | null = null;
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', (event) => { lastPress = { x: event.clientX, y: event.clientY, at: Date.now() }; }, true);
+}
+
+interface Anchor { x: number; top: number; bottom: number }
+
+/**
+ * Where the opener is: the press that opened it, else the focused control (keyboard),
+ * else nothing — and nothing keeps the CSS position (the top-right of the window).
+ */
+function anchorPoint(opener: HTMLElement | null): Anchor | null {
+  if (typeof matchMedia !== 'function' || !matchMedia(WIDE).matches) return null;
+  if (lastPress && Date.now() - lastPress.at < 1500) return { x: lastPress.x, top: lastPress.y, bottom: lastPress.y };
+  if (opener && opener !== document.body && opener.isConnected) {
+    const rect = opener.getBoundingClientRect();
+    if (rect.width || rect.height) return { x: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom };
+  }
+  return null;
+}
+
+/** Below the anchor if it fits, otherwise above it; always inside the window. */
+function placeNear(dialog: HTMLDialogElement, anchor: Anchor): void {
+  if (!matchMedia(WIDE).matches) { dialog.removeAttribute('data-anchored'); dialog.style.removeProperty('left'); dialog.style.removeProperty('top'); return; }
+  dialog.setAttribute('data-anchored', '');
+  const { width, height } = dialog.getBoundingClientRect();
+  const left = Math.min(Math.max(MARGIN, anchor.x - width / 2), innerWidth - width - MARGIN);
+  const below = anchor.bottom + GAP, above = anchor.top - GAP - height;
+  const top = below + height <= innerHeight - MARGIN ? below : above >= MARGIN ? above : Math.max(MARGIN, innerHeight - height - MARGIN);
+  dialog.style.left = `${Math.round(left)}px`;
+  dialog.style.top = `${Math.round(top)}px`;
 }
 
 /** `showModal` makes the page inert but lets Tab leave for the browser chrome; keep it inside. */

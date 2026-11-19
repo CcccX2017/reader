@@ -165,7 +165,9 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
   app.get('/api/v1/books/:id', { preHandler: auth }, async (request) => {
     const user = currentUser(request);
     const { id } = request.params as { id: string };
-    const book = ctx.shelf.get(user.id, id);
+    // A library book is as visible as a shelf one (书库 lists it with the same fields),
+    // and 编辑信息 in 书库 starts from it.
+    const book = ctx.shelf.getVisible(user.id, id);
     const progress = ctx.sync.progressFor(user.id, id);
     return { book, progress };
   });
@@ -574,8 +576,8 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
   app.patch('/api/v1/books/:id/metadata', { preHandler: auth }, async (request) => {
     const user = currentUser(request);
     const { id } = request.params as { id: string };
-    // Library data, like a custom cover: 发现 can edit a book before it is on a shelf.
-    ctx.shelf.bookById(id);
+    // Visible in 书库 even before it is on a shelf; a local book is still admin-only.
+    ctx.shelf.getEditable(user, id);
     const patch = (request.body ?? {}) as Record<string, unknown>;
     const allowed = [
       'title', 'author', 'publisher', 'language', 'isbn', 'description',
@@ -587,16 +589,16 @@ export function registerLibraryRoutes(app: FastifyInstance, ctx: AppContext): vo
     }
     if (Object.keys(filtered).length === 0) throw badRequest('no editable field supplied');
     ctx.shelf.setOverrides(id, filtered, user.id);
-    return { book: ctx.shelf.bookById(id) };
+    return { book: ctx.shelf.getVisible(user.id, id) };
   });
 
   /** Undo a manual field, falling back to the embedded/base value. */
   app.delete('/api/v1/books/:id/metadata/:field', { preHandler: auth }, async (request) => {
     const user = currentUser(request);
     const { id, field } = request.params as { id: string; field: string };
-    ctx.shelf.bookById(id);
+    ctx.shelf.getEditable(user, id);
     ctx.shelf.clearOverride(id, field);
-    return { book: ctx.shelf.bookById(id) };
+    return { book: ctx.shelf.getVisible(user.id, id) };
   });
 
   // ---- file manager ----
