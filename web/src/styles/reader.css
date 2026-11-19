@@ -6702,6 +6702,17 @@ svg.icon {
   flex: none;
   white-space: nowrap;
 }
+/* Phone: the cover has to start in the top third (ui.md, 390px review).
+   The bands above it — title, search, status, sort — otherwise land the first
+   cover just past that line once the platform font is a little taller. */
+@media (max-width: 700px) {
+  .shelf-head { padding-bottom: 0.4rem; }
+  .shelf-subtitle { margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shelf-screen .shelf-search { margin-top: 0.15rem; margin-bottom: 0.45rem; }
+  .shelf-filters { margin-bottom: 0.3rem; }
+  .shelf-toolbar { padding-block: 0.25rem; }
+  .shelf-scroll { padding-top: 0.35rem; }
+}
 .book-card .book-state {
   position: absolute;
   inset-block-start: 0.35rem;
