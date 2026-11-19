@@ -25,7 +25,7 @@ const upload = vi.fn(async () => ({ uploaded: [{}], skipped: [] }));
 const scanLibrary = vi.fn(async () => ({ running: false, startedAt: null, finishedAt: null, scanned: 1, added: 0, updated: 0, unchanged: 1, removed: 0, failed: 0, lastError: null, durationMs: 1 }));
 const refreshLibrary = vi.fn(async (scan: boolean) => scan ? { running: false, startedAt: null, finishedAt: null, scanned: 3, added: 2, updated: 0, unchanged: 1, removed: 0, failed: 0, lastError: null, durationMs: 5 } : null);
 const runtime = {
-  api: { baseUrl: 'https://reader.example.com', sourceCatalog: catalog, upload, scanLibrary, refreshLibrary, sourceDetail: async (_id: string, ref: string) => ({ ref, title: ref === 'on' ? '在架的书' : '不在架的书', authors: ref === 'on' ? ['甲'] : [] }), uploadProbe: async () => ({ allowed: true, writable: true }), coverBytes: async () => new Uint8Array(), getBook: async (id: string) => ({ id, title: id, author: '', description: '', format: 'epub', manualFields: [] }) },
+  api: { baseUrl: 'https://reader.example.com', sourceCatalog: catalog, upload, scanLibrary, refreshLibrary, sourceDetail: async (_id: string, ref: string) => ({ ref, title: ref === 'on' ? '在架的书' : '不在架的书', authors: ref === 'on' ? ['甲'] : [] }), uploadProbe: async () => ({ allowed: true, writable: true }), coverBytes: async () => new Uint8Array(), getBook: async (id: string) => ({ book: { id, title: id, author: '', description: '', format: 'epub', manualFields: [] } }) },
   updateSettings: async (patch: object) => useSettingsStore.getState().update(patch),
 } as any;
 const paint = async (url: string, refreshRef?: { current: (() => Promise<void>) | null }) => {
@@ -137,18 +137,25 @@ describe('describeScan', () => {
 });
 
 describe('书库 detail', () => {
-  it('offers 编辑信息 and 更换封面 to administrators, on the local library’s books only', async () => {
+  it('offers one 编辑信息 and 设置封面 to administrators, on the local library’s books only', async () => {
     useAuthStore.setState({ verifiedUser: { id: 'a', username: 'a', displayName: 'A', role: 'admin', createdAt: 0 } as any });
     const detailOf = async () => {
       const open = [...root.querySelectorAll<HTMLButtonElement>('.explore-book-actions button')].find(button => button.textContent === '详情')!;
       await act(async () => { open.click(); await new Promise(resolve => setTimeout(resolve, 0)); });
-      const labels = [...document.querySelectorAll<HTMLButtonElement>('.book-detail-manage button')].map(button => button.textContent);
+      const labels = [...document.querySelectorAll<HTMLButtonElement>('.explore-detail-edit button')].map(button => button.textContent);
+      const cover = [...document.querySelectorAll<HTMLButtonElement>('.explore-detail-edit button')].find(button => button.textContent === '设置封面');
+      if (cover) {
+        await act(async () => { cover.click(); await new Promise(resolve => setTimeout(resolve, 0)); });
+        expect(document.body.textContent).toContain('从书源选择');
+        expect(document.body.textContent).not.toContain('更换封面');
+        act(() => { [...document.querySelectorAll<HTMLButtonElement>('dialog button')].filter(button => button.getAttribute('aria-label') === '关闭').at(-1)?.click(); });
+      }
       act(() => { [...document.querySelectorAll<HTMLButtonElement>('dialog button')].find(button => button.getAttribute('aria-label') === '关闭')?.click(); });
       return labels;
     };
     runtime.api.sourceDetail = async () => ({});
     await paint(LIBRARY_PATH);
-    expect(await detailOf()).toEqual(['编辑信息', '更换封面']);
+    expect(await detailOf()).toEqual(['编辑信息', '设置封面']);
     act(() => render(null, root));
     await paint('/sources?tab=explore');
     expect(await detailOf()).toEqual([]);

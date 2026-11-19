@@ -8,7 +8,6 @@ import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { syncLibraryOnce } from '../../../shared/library/sync-library.ts';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
-import { useBookMetadata } from '../../shelf/book-metadata.tsx';
 import { useCustomCover } from '../../shelf/custom-cover.tsx';
 import { LazyCover } from '../../../ui/lazy-cover.tsx';
 import { notify } from '../../../ui/notifications.ts';
@@ -16,7 +15,6 @@ import { SearchableSelect } from '../../../ui/searchable-select.tsx';
 import { Button, Callout, Icon } from '../../../ui/toolkit.tsx';
 import { SourceBookDetailSheet } from './SourceBookDetailSheet.tsx';
 import { BookMetadataSheet } from '../../../ui/book-metadata-sheet.tsx';
-import { ChangeCoverSheet, type CoverBook } from '../../../ui/change-cover-sheet.tsx';
 
 /** What a scan found, in the words of ui.md §4: what changed, or that nothing did. */
 export function describeScan(result: LibraryScanResult): string {
@@ -122,17 +120,10 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
     } catch (reason) { setError(reason instanceof Error ? reason.message : '刷新失败，请重试'); }
     finally { setRefreshing(false); }
   };
-  // An administrator edits 书库's books and gives them another cover from here, on the
-  // shelf or not: what is changed is the library's, shown to every reader.
+  // An administrator edits 书库's books from here, on the shelf or not: what is
+  // changed is the library's, shown to every reader. Cover changes go through
+  // 设置封面, which can also take a cover from a book source.
   const [editing, setEditing] = useState<string | null>(null);
-  const [covering, setCovering] = useState<CoverBook | null>(null);
-  const changeCover = async (bookId: string) => {
-    try {
-      // The sheet offers 恢复文件封面 only to a book whose cover was set by hand.
-      const { book } = await runtime.api.getBook(bookId);
-      setDetail(null); setCovering({ id: book.id, title: book.title, format: book.format, manualFields: book.manualFields });
-    } catch (reason) { notify(reason instanceof Error ? reason.message : '读取书籍失败', { kind: 'error' }); }
-  };
   const changed = () => {
     void queryClient.invalidateQueries({ queryKey: ['shelf'] });
     void open(trail.slice(0, -1), current?.ref);
@@ -194,8 +185,18 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
     void openRef.current(crumbs.slice(0, -1), here?.ref);
   };
   const reportEditError = (message: string) => { if (message) notify(message, { kind: 'error' }); };
-  const metadata = useBookMetadata(reportEditError, applyBook);
   const covers = useCustomCover(reportEditError, onLibraryChanged);
+  // 从书源选择 needs the book's format and whether its cover was set by hand.
+  const openCover = async (entry: SourceEntry) => {
+    const fallback = libraryBook(entry);
+    try {
+      const { book } = await runtime.api.getBook(entry.ref);
+      covers.open({ id: book.id, title: book.title, format: book.format, manualFields: book.manualFields });
+    } catch (reason) {
+      notify(reason instanceof Error ? reason.message : '读取书籍失败', { kind: 'error' });
+      covers.open(fallback);
+    }
+  };
   const detailQuery = useQuery({ queryKey: ['source-detail', runtime.api.baseUrl, selectedId, detail?.ref], queryFn: () => runtime.api.sourceDetail(selectedId, detail!.ref), enabled: !!detail });
   useEffect(() => { if (detail && detailQuery.data) setDetail({ ...detail, ...detailQuery.data }); }, [detailQuery.data]);
   const acquire = useMutation({ mutationFn: ({ ref, option }: { ref: string; option?: string }) => runtime.api.acquireSource(selectedId, ref, option), onError: reason => notify(reason instanceof Error ? reason.message : '加入书架失败', { kind: 'error' }) });
@@ -253,11 +254,8 @@ export function SourceExplore({ sources, refreshRef, onLocal }: {
     </section>
     {covers.input}
     {covers.ui}
-    {metadata.ui}
     {detail && <SourceBookDetailSheet detail={detail} pending={detailQuery.isPending} error={detailQuery.error} acquiring={acquire.isPending} onAcquire={acquireEntry} onClose={() => setDetail(null)}
-      {...(local ? { library: { onEdit: () => metadata.open(libraryBook(detail)), onCover: () => covers.open(libraryBook(detail)) } } : {})}
-      {...(local && admin ? { onEdit: () => { setEditing(detail.ref); setDetail(null); }, onChangeCover: () => { void changeCover(detail.ref); } } : {})} />}
+      {...(local && admin ? { onEdit: () => { setEditing(detail.ref); setDetail(null); }, onCover: () => { void openCover(detail); } } : {})} />}
     {editing && <BookMetadataSheet bookId={editing} onClose={() => setEditing(null)} onSaved={changed} />}
-    {covering && <ChangeCoverSheet book={covering} onClose={() => setCovering(null)} onChanged={changed} />}
   </>;
 }

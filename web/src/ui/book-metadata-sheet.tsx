@@ -19,6 +19,7 @@ import type { Book, BookMetadataField } from '../api/types.ts';
 import { describeError } from '../api/errors.ts';
 import { useRuntime } from '../app/providers/runtime-context.tsx';
 import { notify } from './notifications.ts';
+import { Select } from './select.tsx';
 import { Sheet } from './sheet.tsx';
 import { Button, Callout } from './toolkit.tsx';
 
@@ -28,12 +29,65 @@ const FIELDS: Array<{ key: BookMetadataField; label: string; wide?: boolean; hin
   { key: 'series', label: '系列' },
   { key: 'seriesIndex', label: '系列序号', numeric: true },
   { key: 'publisher', label: '出版社' },
-  { key: 'pubdate', label: '出版日期', hint: '例如 2008-01 或 2008' },
+  { key: 'pubdate', label: '出版日期' },
   { key: 'isbn', label: 'ISBN' },
   { key: 'language', label: '语言', hint: '例如 zh、en' },
   { key: 'tags', label: '标签', hint: '用逗号分隔' },
   { key: 'description', label: '简介', wide: true },
 ];
+
+const YEAR_MIN = 1800;
+const pad = (value: number) => String(value).padStart(2, '0');
+const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
+
+/** Year, year-month, or a full day. Anything else is left for the caller to keep as-is. */
+export function parsePubdate(raw: string): { year: string; month: string; day: string } | null {
+  const match = raw.trim().match(/^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?(?:[T\s].*)?$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  if (year < 1 || year > 9999) return null;
+  const month = match[2] ? Number(match[2]) : 0;
+  const day = match[3] ? Number(match[3]) : 0;
+  if (month && (month < 1 || month > 12)) return { year: String(year), month: '', day: '' };
+  if (day && (day < 1 || day > daysInMonth(year, month))) return { year: String(year), month: pad(month), day: '' };
+  return { year: String(year), month: month ? pad(month) : '', day: day ? pad(day) : '' };
+}
+
+export function formatPubdate(parts: { year: string; month: string; day: string }): string {
+  if (!parts.year) return '';
+  if (!parts.month) return parts.year;
+  const max = daysInMonth(Number(parts.year), Number(parts.month));
+  const day = parts.day && Number(parts.day) > max ? pad(max) : parts.day;
+  if (!day) return `${parts.year}-${parts.month}`;
+  return `${parts.year}-${parts.month}-${day}`;
+}
+
+function yearOptions(selected: string): string[] {
+  const max = new Date().getFullYear() + 1;
+  const years = Array.from({ length: max - YEAR_MIN + 1 }, (_, index) => String(max - index));
+  if (selected && !years.includes(selected)) years.push(selected);
+  return years.sort((left, right) => Number(right) - Number(left));
+}
+
+function PubdateControl({ value, disabled, onChange }: { value: string; disabled: boolean; onChange(next: string): void }) {
+  const parsed = parsePubdate(value) ?? { year: '', month: '', day: '' };
+  const dayCount = parsed.year && parsed.month ? daysInMonth(Number(parsed.year), Number(parsed.month)) : 0;
+  const choose = (next: { year: string; month: string; day: string }) => onChange(formatPubdate(next));
+  return <div className="book-metadata-date">
+    <Select aria-label="出版年" value={parsed.year} disabled={disabled} onChange={event => choose({ year: event.currentTarget.value, month: event.currentTarget.value ? parsed.month : '', day: event.currentTarget.value ? parsed.day : '' })}>
+      <option value="">不指定</option>
+      {yearOptions(parsed.year).map(year => <option key={year} value={year}>{year}年</option>)}
+    </Select>
+    <Select aria-label="出版月" value={parsed.month} disabled={disabled || !parsed.year} onChange={event => choose({ year: parsed.year, month: event.currentTarget.value, day: event.currentTarget.value ? parsed.day : '' })}>
+      <option value="">不指定</option>
+      {parsed.year && Array.from({ length: 12 }, (_, index) => pad(index + 1)).map(month => <option key={month} value={month}>{Number(month)}月</option>)}
+    </Select>
+    <Select aria-label="出版日" value={parsed.day} disabled={disabled || !parsed.month} onChange={event => choose({ year: parsed.year, month: parsed.month, day: event.currentTarget.value })}>
+      <option value="">不指定</option>
+      {Array.from({ length: dayCount }, (_, index) => pad(index + 1)).map(day => <option key={day} value={day}>{Number(day)}日</option>)}
+    </Select>
+  </div>;
+}
 
 /** The book's current value of a field, as the text its input shows. */
 export function fieldText(book: Book, key: BookMetadataField): string {
@@ -105,6 +159,14 @@ export function BookMetadataSheet({ bookId, onClose, onSaved }: { bookId: string
         const manual = book.manualFields.includes(key);
         const value = values[key] ?? fieldText(book, key);
         const set = (next: string) => setValues(current => ({ ...current, [key]: next }));
+        if (key === 'pubdate') return <div className="sheet-field" key={key}>
+          <span className="book-metadata-label">{label}{manual && <>
+            <span className="manager-badge">已手动修改</span>
+            <button type="button" className="book-metadata-restore" disabled={busy} onClick={() => void restore(key, label)}>恢复</button>
+          </>}</span>
+          <PubdateControl value={value} disabled={busy} onChange={set} />
+          <small>可只选年份，或再选月份和日期</small>
+        </div>;
         return <label className={'sheet-field' + (wide ? ' is-wide' : '')} key={key}>
           <span className="book-metadata-label">{label}{manual && <>
             <span className="manager-badge">已手动修改</span>
