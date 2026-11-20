@@ -65,7 +65,10 @@ function AuthenticatedShell() {
       const hash = window.location.hash;
       const stillHome = hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/?');
       const id = items[0]?.id;
-      if (stillHome && id) navigate(`/book/${encodeURIComponent(id)}`, { replace: true });
+      // Push, so 返回 and the system back key still have 首页 behind the book.
+      // Replacing that entry left a single history item: navigate(-1) did nothing,
+      // and Android treated Back as leaving the app.
+      if (stillHome && id) navigate(`/book/${encodeURIComponent(id)}`);
     }).catch(() => undefined);
   }, [location.pathname, navigate, resumeReading, runtime]);
   // "/" goes to search from anywhere a keystroke is not already text or a reading/playback command.
