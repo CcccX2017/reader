@@ -18,6 +18,7 @@ import { resolveWork } from '../../media/services/work.ts';
 import { useMediaPreferences } from '../../media/hooks/use-media-preferences.ts';
 import type { SearchItem } from '../../media/api/media-api.ts';
 import type { Book, ContinueReadingItem } from '../../../api/types.ts';
+import type { ChapterSubscription } from '../../../api/sources.ts';
 import { usePullToRefresh } from '../../../shared/ui/use-pull-to-refresh.ts';
 import { syncLibraryOnce } from '../../../shared/library/sync-library.ts';
 import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
@@ -86,6 +87,35 @@ function ResumeCard({
       </span>
     </Link>
   );
+}
+
+const HOME_UPDATE_LIMIT = 5;
+
+/** A subscribed book with chapters the reader has not opened yet. Same card as 继续, without a second progress bar. */
+function UpdateCard({ bookId, title, count, coverUrl }: { bookId: string; title: string; count: number; coverUrl: string | null }) {
+  const runtime = useRuntime();
+  const src = useCover(runtime.api, coverUrl);
+  const name = title || '未命名';
+  return (
+    <Link className="home-resume" data-channel="read" to={`/book/${encodeURIComponent(bookId)}`}>
+      <span className="home-resume-cover" aria-hidden="true">
+        {src ? <img src={src} alt="" draggable={false} /> : <span className="home-resume-placeholder" style={coverTint(name)}>{name}</span>}
+      </span>
+      <span className="home-resume-text">
+        <span className="home-resume-label">追更</span>
+        <strong title={name}>{name}</strong>
+        <small>新增 {count} 章</small>
+      </span>
+      <span className="home-resume-play" aria-hidden="true"><Icon name="play" size={16} filled /></span>
+    </Link>
+  );
+}
+
+function freshSubscriptions(items: ChapterSubscription[] | undefined): ChapterSubscription[] {
+  return (items ?? [])
+    .filter(item => item.newChapters > 0)
+    .sort((a, b) => b.newChapters - a.newChapters || a.title.localeCompare(b.title, 'zh'))
+    .slice(0, HOME_UPDATE_LIMIT);
 }
 
 function ResumeBook({ book, menu, picking }: { book: ContinueReadingItem; menu?: MenuItems; picking?: Picking }) {
@@ -253,6 +283,11 @@ export function HomePage() {
     queryKey: ['home', 'reading', runtime.api.baseUrl, user?.id],
     queryFn: ({ signal }) => runtime.api.continueReading(2, { signal }),
   });
+  const subscriptions = useQuery({
+    queryKey: ['subscriptions', runtime.api.baseUrl, user?.id],
+    queryFn: () => runtime.api.subscriptions(),
+    enabled: Boolean(user),
+  });
   const homeShelfCount = useSettingsStore((state) => state.settings.homeShelfCount);
   const homeShelfSort = useSettingsStore((state) => state.settings.homeShelfSort);
   const shelf = useQuery(homeShelfQuery(runtime, homeShelfSort, homeShelfCount));
@@ -266,6 +301,13 @@ export function HomePage() {
   const videoActivity = media && showContinue ? unfinished(video.data?.items) : undefined,
     audioActivity = media && showContinue ? unfinished(audio.data?.items) : undefined;
   const books = shelf.data?.items ?? [];
+  const fresh = freshSubscriptions(subscriptions.data);
+  const coverById = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const item of books) map.set(item.id, item.coverUrl ?? null);
+    for (const item of readingBooks) if (item.coverUrl) map.set(item.id, item.coverUrl);
+    return map;
+  }, [books, readingBooks]);
   const name = user?.displayName || user?.username || '';
   const avatar = useAvatar(runtime.api, user?.avatarUrl);
   const coarse = useCoarsePointer();
@@ -417,6 +459,22 @@ export function HomePage() {
             )
           ))}
       </div>
+      {fresh.length > 0 && (
+        <section className="home-updates" aria-label="有更新">
+          <div className="home-section">
+            <h2>有更新</h2>
+            <Link to="/sources?tab=updates">
+              追更
+              <Icon name="chevron-right" size={16} />
+            </Link>
+          </div>
+          <div className="home-continue">
+            {fresh.map(item => (
+              <UpdateCard key={item.bookId} bookId={item.bookId} title={item.title} count={item.newChapters} coverUrl={coverById.get(item.bookId) ?? null} />
+            ))}
+          </div>
+        </section>
+      )}
       <section className="home-shelf" aria-label="我的书架">
         {books.length > 0 && (
           <div className="home-section" ref={sectionRef}>

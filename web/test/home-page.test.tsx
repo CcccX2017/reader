@@ -44,12 +44,14 @@ function mount({
   shelf = [book],
   listBooks,
   coverBytes,
-}: { reading?: object[]; video?: object[]; audio?: object[]; discover?: { items: object[]; total: number }; shelf?: object[]; listBooks?: ReturnType<typeof vi.fn>; coverBytes?: ReturnType<typeof vi.fn> } = {}) {
+  subscriptions = [],
+}: { reading?: object[]; video?: object[]; audio?: object[]; discover?: { items: object[]; total: number }; shelf?: object[]; listBooks?: ReturnType<typeof vi.fn>; coverBytes?: ReturnType<typeof vi.fn>; subscriptions?: object[] } = {}) {
   const runtime = {
     api: {
       baseUrl: 'https://reader.example.com',
       currentSession: () => ({ user }),
       continueReading: vi.fn().mockResolvedValue(reading),
+      subscriptions: vi.fn().mockResolvedValue(subscriptions),
       listBooks: listBooks ?? vi.fn().mockResolvedValue({ items: shelf, total: shelf.length }),
       coverBytes: coverBytes ?? vi.fn().mockRejectedValue(new Error('none')),
     },
@@ -201,6 +203,29 @@ describe('首页', () => {
     act(() => section().querySelector<HTMLButtonElement>('.home-shuffle')!.click());
     await settle();
     expect(browses().filter((path: string) => path.includes('sort=random')).length).toBe(2);
+  });
+
+  it('shows subscribed books with new chapters under continue reading', async () => {
+    useAuthStore.setState({ verifiedUser: user as any });
+    mount({
+      shelf: [{ ...book, coverUrl: '/covers/b1' }],
+      subscriptions: [
+        { bookId: 'b1', title: '夜航船', enabled: true, intervalMinutes: 60, nextCheckAt: 0, lastCheckAt: null, lastSuccessAt: 2, lastError: null, newChapters: 3 },
+        { bookId: 'b0', title: '没有更新', enabled: true, intervalMinutes: 60, nextCheckAt: 0, lastCheckAt: null, lastSuccessAt: 1, lastError: null, newChapters: 0 },
+        { bookId: 'b2', title: '另一本', enabled: true, intervalMinutes: 60, nextCheckAt: 0, lastCheckAt: null, lastSuccessAt: 1, lastError: null, newChapters: 1 },
+      ],
+    });
+    await until(() => root.querySelector('.home-updates strong')?.textContent === '夜航船');
+    const updates = root.querySelector('.home-updates')!;
+    const cards = [...updates.querySelectorAll<HTMLAnchorElement>('a.home-resume')];
+    expect(cards.map(card => card.getAttribute('href'))).toEqual(['/book/b1', '/book/b2']);
+    expect(cards[0]?.textContent).toContain('新增 3 章');
+    expect(updates.textContent).not.toContain('没有更新');
+    expect(updates.querySelector('a[href="/sources?tab=updates"]')?.textContent).toContain('追更');
+    const body = root.querySelector('.home-body')!;
+    const order = [...body.children].map(node => node.className);
+    expect(order.indexOf('home-continue')).toBeLessThan(order.indexOf('home-updates'));
+    expect(order.indexOf('home-updates')).toBeLessThan(order.indexOf('home-shelf'));
   });
 
   it('lists up to two books in progress among the media, by recency', async () => {

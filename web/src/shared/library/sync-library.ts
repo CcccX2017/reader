@@ -18,6 +18,7 @@ export async function syncLibraryOnce(api: ReaderApi, queryClient: QueryClient):
       queryClient.invalidateQueries({ queryKey: ['library-browse'] }),
       queryClient.invalidateQueries({ queryKey: ['library-files'] }),
       queryClient.invalidateQueries({ queryKey: ['home'] }),
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
     ]);
     const parts = [
       result.added ? `新增 ${result.added} 本` : '',
