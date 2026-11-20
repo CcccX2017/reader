@@ -70,29 +70,17 @@ export function requestServiceWorkerUpdate(): void {
  *
  * Reloading while a service worker is active opens the shell that worker already
  * cached, so the build id on the page does not change and the next check still
- * says an update is available. The check shows 立即更新 at once. The click downloads
- * the new worker, shows that progress, and only then reloads. A page with no worker
- * reloads directly, because nothing is holding the old shell.
+ * says an update is available. The check shows 立即更新 before the worker script
+ * check returns — that check can sit until the browser finishes it, and the button
+ * never appeared. The click downloads the new worker, shows that progress, and only
+ * then reloads. A page with no worker reloads directly.
  */
 export function beginWebUpdate(): void {
-  const controlled = !!navigator.serviceWorker?.controller;
-  const container = navigator.serviceWorker;
-  if (!container || (typeof container.getRegistration !== 'function' && !container.controller && !registration)) {
-    offerReload();
-    return;
-  }
-  void (async () => {
-    const reg = await resolveRegistration();
-    // `active` covers a page this worker will serve on the next navigation even
-    // when `controller` is still null, which is what kept the old build id.
-    if (controlled || reg?.active || reg?.waiting) {
-      await reg?.update()?.catch(() => undefined);
-      if (promptUpdate) promptUpdate();
-      else offerReload();
-      return;
-    }
-    offerReload();
-  })();
+  if (promptUpdate) promptUpdate();
+  else offerReload();
+  void resolveRegistration().then((reg) => {
+    void reg?.update()?.catch(() => undefined);
+  });
 }
 
 /** A reload is enough when no service worker is holding the previous bundle. */
