@@ -2,9 +2,9 @@
 
 把书籍、电影、剧集、音乐和有声书，放进自己的阅读与影音空间。支持浏览器与 Android 的自部署书库和媒体库，提供 EPUB 与 Kindle（MOBI/AZW3）排版、漫画阅读、影音播放和多用户进度同步。
 
-本项目：[CcccX2017/reader](https://github.com/CcccX2017/reader)。镜像 `ccccx2022/reader`，当前版本 **1.0.13**，提供 amd64 与 arm64。
+本项目：[CcccX2017/reader](https://github.com/CcccX2017/reader)。镜像 `ccccx2022/reader`，当前版本 **1.0.14**，提供 amd64 与 arm64。
 
-Fork 项目：[hectorqin/reader](https://github.com/hectorqin/reader)。Fork 的镜像是 `hectorqin/reader-pro`。本仓库包含 Fork 的全部功能，版本号为 1.0.13（上游为 0.1.0）。
+Fork 项目：[hectorqin/reader](https://github.com/hectorqin/reader)。Fork 的镜像是 `hectorqin/reader-pro`。本仓库包含 Fork 的全部功能，版本号为 1.0.14（上游为 0.1.0）。
 
 首个注册账号成为管理员。打开 `http://<主机>:5888`。
 
@@ -63,7 +63,7 @@ services:
       - '5888:5888'
     environment:
       LOG_LEVEL: 'info'
-      # 与上面的 image 用同一个标签：latest、1.0.13 或 sha-短提交号。
+      # 与上面的 image 用同一个标签：latest、1.0.14 或 sha-短提交号。
       READER_IMAGE: ccccx2022/reader:latest
     volumes:
       - /path/to/your/books:/books:ro

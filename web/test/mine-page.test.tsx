@@ -159,7 +159,7 @@ describe('我的', () => {
     });
     expect(root.querySelector('.media-heading')?.textContent).toContain('关于');
     expect(root.textContent).toContain('客户端');
-    expect(root.textContent).toContain('1.0.13');
+    expect(root.textContent).toContain('1.0.14');
     expect(root.textContent).toContain('网页构建');
     expect(root.textContent).toContain('开发构建');
     const repos = root.querySelector('.about-repos');
