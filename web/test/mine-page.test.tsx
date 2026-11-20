@@ -113,7 +113,8 @@ describe('我的', () => {
     await act(async () => { check.click(); });
     expect(check.textContent).toContain('发现新版本');
     expect(update).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('.pwa-update')).toBeNull();
+    expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
+    document.querySelector('.pwa-update')?.remove();
     meta.remove();
     vi.unstubAllGlobals();
   });
@@ -130,7 +131,8 @@ describe('我的', () => {
     const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
     await act(async () => { check.click(); });
     expect(check.textContent).toContain('发现新版本');
-    expect(document.querySelector('.pwa-update')).toBeNull();
+    expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
+    document.querySelector('.pwa-update')?.remove();
     meta.remove();
     vi.unstubAllGlobals();
   });

@@ -46,11 +46,11 @@ function serverHost(baseUrl: string): string {
  * - 管理: what an administrator changes for everyone, one page per job;
  * - 账号: who you are on this server and which outside readers may see your shelf;
  * - 关于: the name and versions, and a check against the bundle now being served.
- * Signing out asks first. Checking for an update reports on the row, then applies
- * the bundle the same way an open page does. An active service worker has to
- * install the new shell before anything reloads — a reload it still controls
- * keeps the old build id, so the next check says an update is available again.
- * A page with no worker reloads directly.
+ * Signing out asks first. Checking for an update reports on the row and shows
+ * 立即更新 at once. The click shows download and switch progress, and an active
+ * service worker installs the new shell before the page reloads. A reload it
+ * still controls keeps the old build id, so the next check would say an update
+ * is available again. A page with no worker reloads directly.
  */
 export function MinePage() {
   const media=useMediaEnabled();

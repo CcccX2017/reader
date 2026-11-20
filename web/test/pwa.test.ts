@@ -101,7 +101,32 @@ it('downloads a new bundle instead of reloading over an active worker', async ()
   beginWebUpdate();
   for (let i = 0; i < 5; i++) await Promise.resolve();
   expect(update).toHaveBeenCalledTimes(1);
-  expect(document.querySelector('.pwa-update')).toBeNull();
+  expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
+  expect(document.querySelector<HTMLElement>('.pwa-update-progress')?.hidden).toBe(true);
+});
+
+it('shows download progress after 立即更新, then activates the worker that finishes installing', async () => {
+  const reload = vi.fn();
+  dispose = watchPwaUpdates(registration, async () => {}, reload);
+  beginWebUpdate();
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  const button = document.querySelector<HTMLButtonElement>('.pwa-update button')!;
+  expect(button.textContent).toBe('立即更新');
+  button.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(reload).not.toHaveBeenCalled();
+  expect(document.querySelector<HTMLElement>('.pwa-update-progress')?.hidden).toBe(false);
+  expect(document.querySelector('.pwa-update [role="status"]')?.textContent).toBe('正在下载新版本…');
+  const postMessage = vi.fn();
+  const worker = new EventTarget();
+  Object.defineProperty(registration, 'installing', { value: worker, configurable: true });
+  registration.dispatchEvent(new Event('updatefound'));
+  Object.defineProperty(registration, 'waiting', { value: { postMessage }, configurable: true });
+  worker.dispatchEvent(new Event('statechange'));
+  await Promise.resolve();
+  expect(postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+  expect(reload).not.toHaveBeenCalled();
 });
 
 it('does not reload when another tab activates, and saves before manual refresh', async () => {
@@ -188,7 +213,8 @@ it('activates a waiting worker from the reload banner instead of opening the cac
   // A reload here would be the active worker's old shell. jsdom throws if
   // location.reload runs, and the banner would switch to 重试更新.
   expect(button.textContent).toBe('立即更新');
-  expect(document.querySelector('.pwa-update span')?.textContent).toBe('正在更新…');
+  expect(document.querySelector('.pwa-update [role="status"]')?.textContent).toBe('正在切换到新版本…');
+  expect(document.querySelector<HTMLElement>('.pwa-update-progress')?.hidden).toBe(false);
   delete window.__readerFlush;
 });
 
