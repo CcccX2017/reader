@@ -34,7 +34,7 @@ test('a deployment tag is latest, a version, or a short commit', () => {
   assert.equal(imageTagFromRef('ccccx2022/reader'), null);
 });
 
-test('latest counts only while it is still this version', () => {
+test('latest is the pulled tag even after it moves past the package version', () => {
   assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', 'latest'), { digest: '7e64e6f9a27b', tag: 'latest' });
   assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: 'latest' });
   assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', '1.0.13'), { digest: '7e64e6f9a27b', tag: '1.0.13' });
@@ -43,5 +43,5 @@ test('latest counts only while it is still this version', () => {
     ? { name: 'latest', images: [{ os: 'linux', architecture: 'amd64', digest: 'sha256:017daf908bf9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }] }
     : tag);
   assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: '1.0.13' });
-  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', 'latest'), { digest: '7e64e6f9a27b', tag: '1.0.13' });
+  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', 'latest'), { digest: '017daf908bf9', tag: 'latest' });
 });

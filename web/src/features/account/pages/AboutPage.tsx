@@ -66,7 +66,7 @@ export function AboutPage() {
           </div>
           {release?.image && (
             <div>
-              <dt>镜像</dt>
+              <dt>Docker镜像</dt>
               <dd>{release.imageTag ? `${release.imageTag} · ${release.image}` : release.image}</dd>
             </div>
           )}

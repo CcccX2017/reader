@@ -58,8 +58,12 @@ export function digestForTag(tags: readonly PublishedTag[], name: string, arch: 
 
 /**
  * Which published tag this process is.
- * An explicit version or `sha-` tag is that build. With no such pin, `latest`
- * is the label while Hub's `latest` is still the same digest as this version.
+ *
+ * An explicit version or `sha-` tag is that build. An explicit `latest` is Hub's
+ * `latest` even after it has moved past the package version: the package version
+ * stays on the version fields, and the image line follows the tag that was pulled.
+ * With no pin, `latest` is the label only while it is still the same digest as
+ * this version. A newer `latest` on Hub does not rename an unpinned older container.
  */
 export function resolvePublishedImage(
   tags: readonly PublishedTag[],
@@ -70,6 +74,10 @@ export function resolvePublishedImage(
   if (configured && configured !== 'latest') {
     const pinned = digestForTag(tags, configured, arch);
     if (pinned) return { digest: pinned, tag: configured };
+  }
+  if (configured === 'latest') {
+    const latest = digestForTag(tags, 'latest', arch);
+    if (latest) return { digest: latest, tag: 'latest' };
   }
   const digest = digestForTag(tags, version, arch);
   if (!digest) return null;
