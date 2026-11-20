@@ -24,12 +24,12 @@
 
 ## 上传一致性备份到 WebDAV
 
-管理员可从「我的 → 服务配置 → WebDAV 备份」或 CLI 上传已完成的备份目录；不直接同步运行中的 DATA_DIR，也不是 Legado 进度互通。先按 [备份指南](backup.zh-CN.md) 停止全部相关服务进程、创建并验证备份。上传阶段可重新启动 Reader，备份目录保持不变。
+管理员可从「我的 → 服务配置 → 备份」或 CLI 上传已完成的备份目录；这个上传不直接同步运行中的 DATA_DIR，也不是 Legado 进度互通。先按 [备份指南](backup.zh-CN.md) 停止全部相关服务进程、创建并验证备份。上传阶段可重新启动 Reader，备份目录保持不变。同一页的「立即备份」是另一条路径，可以在服务运行时做快照。
 
 在编译后的服务端目录运行：
 
 ```sh
-# 先在「我的 → 服务配置 → WebDAV 备份」中保存 WebDAV 目标、账号和密码；DATA_DIR 指向运行实例的数据目录
+# 先在「我的 → 服务配置 → 备份」中保存 WebDAV 目标、账号和密码；DATA_DIR 指向运行实例的数据目录
 node dist/maintenance/webdav-cli.js /backups/reader-20260924 reader-20260924.zip
 ```
 

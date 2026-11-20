@@ -9,6 +9,7 @@ import {SITE_ICON_MAX_BYTES} from '../../services/site-icon.ts';
 import {TtsService} from '../../services/tts.ts';
 import {MetadataHttp,TmdbProvider,MusicBrainzProvider} from '../../media/metadata-providers.ts';
 import {uploadBackup} from '../../maintenance/webdav.ts';
+import {createRunningBackup,listRunningBackups} from '../../maintenance/backup.ts';
 import {imageContentType} from '../../indexer/formats/image-types.ts';
 import {assertSafeRel,resolveInside} from '../../lib/paths.ts';
 
@@ -94,6 +95,25 @@ export function registerBusinessSettingsRoutes(app:FastifyInstance,ctx:AppContex
     // Cache cleanup also works when HTTP speech has been disabled.
     const value=settings.read('tts');new TtsService(ctx.config,{...value,enabled:true,url:value.url||'http://localhost'}).clearCache();
     return {ok:true};
+  });
+  app.get('/api/v1/admin/settings/backups',{preHandler:guard},async()=>({backups:await listRunningBackups(ctx.config.dataDir)}));
+  app.post('/api/v1/admin/settings/backups',{preHandler:guard},async()=>{
+    if(active.has('backup'))throw new AppError(409,'BACKUP_BUSY','已有备份或恢复正在进行');
+    active.add('backup');
+    try{return await createRunningBackup(ctx.config.dataDir);}
+    catch(error){if(error instanceof AppError)throw error;throw badRequest(error instanceof Error?error.message:'备份失败');}
+    finally{active.delete('backup');}
+  });
+  app.post<{Params:{id:string}}>('/api/v1/admin/settings/backups/:id/restore',{preHandler:guard},async request=>{
+    if(active.has('backup'))throw new AppError(409,'BACKUP_BUSY','已有备份或恢复正在进行');
+    if(!ctx.applyBackup)throw new AppError(503,'BACKUP_UNAVAILABLE','当前进程不能恢复数据');
+    active.add('backup');
+    try{
+      await ctx.applyBackup(request.params.id);
+      ctx.exitAfterBackup?.();
+      return {ok:true,restarting:true};
+    }catch(error){if(error instanceof AppError)throw error;throw badRequest(error instanceof Error?error.message:'恢复失败');}
+    finally{active.delete('backup');}
   });
   app.post('/api/v1/admin/settings/webdav/upload',{preHandler:guard},async request=>{
     const body=request.body as {directory?:unknown;name?:unknown};

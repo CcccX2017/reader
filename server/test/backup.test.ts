@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Db } from '../src/db/index.ts';
 import {DatabaseSync} from 'node:sqlite';
 import {migrateMediaDatabase,activateMediaDatabase} from '../src/media/migrate-database.ts';
-import { createBackup, restoreBackup, verifyBackup } from '../src/maintenance/backup.ts';
+import { createBackup, createRunningBackup, listRunningBackups, replaceDataDir, restoreBackup, verifyBackup } from '../src/maintenance/backup.ts';
 
 async function fixture(t: import('node:test').TestContext) {
   const root = await mkdtemp(join(tmpdir(), 'reader-backup-test-'));
@@ -89,6 +90,48 @@ test('rejects manifest path injection instead of writing outside the destination
   manifest.entries[0]!.path = '../outside';
   await writeFile(join(f.backup, 'reader-backup.json'), JSON.stringify(manifest));
   await assert.rejects(restoreBackup(f.backup, f.restored), /校验失败/);
+});
+
+test('running backup snapshots committed data and replace puts that snapshot back', async t => {
+  const f = await fixture(t);
+  const prep = new Db(join(f.data, 'reader.db'));
+  prep.run('CREATE TABLE media_sample(id TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),position REAL)');
+  prep.run("INSERT INTO media_sample VALUES('part','u',1)");
+  prep.close();
+  activateMediaDatabase(join(f.data, 'reader.db'), join(f.data, 'media.db'));
+  const live = new Db(join(f.data, 'reader.db'));
+  live.run("UPDATE reading_progress SET locator = 'chapter:20' WHERE book_id = 'b'");
+  const media = new DatabaseSync(join(f.data, 'media.db'));
+  media.exec('UPDATE media_sample SET position = 7');
+  const made = await createRunningBackup(f.data);
+  live.run("UPDATE reading_progress SET locator = 'chapter:30' WHERE book_id = 'b'");
+  media.exec('UPDATE media_sample SET position = 9');
+  const snap = new DatabaseSync(join(f.data, 'backups', made.id, 'reader.db'), { readOnly: true });
+  const snapMedia = new DatabaseSync(join(f.data, 'backups', made.id, 'media.db'), { readOnly: true });
+  try {
+    assert.equal(snap.prepare('SELECT locator FROM reading_progress').get()!.locator, 'chapter:20');
+    assert.equal(snapMedia.prepare('SELECT position FROM media_sample').get()!.position, 7);
+  } finally { snap.close(); snapMedia.close(); }
+  await verifyBackup(join(f.data, 'backups', made.id));
+  const second = await createRunningBackup(f.data);
+  const nested = JSON.parse(await readFile(join(f.data, 'backups', second.id, 'reader-backup.json'), 'utf8')).entries as Array<{ path: string }>;
+  assert.equal(nested.some(entry => entry.path === 'backups' || entry.path.startsWith('backups/')), false);
+  live.close();
+  media.close();
+  await replaceDataDir(f.data, made.id);
+  const restored = new Db(join(f.data, 'reader.db'));
+  const restoredMedia = new DatabaseSync(join(f.data, 'media.db'), { readOnly: true });
+  try {
+    assert.equal(restored.get<{ locator: string }>('SELECT locator FROM reading_progress')?.locator, 'chapter:20');
+    assert.equal(restoredMedia.prepare('SELECT position FROM media_sample').get()!.position, 7);
+  } finally { restored.close(); restoredMedia.close(); }
+  assert.equal(await readFile(join(f.data, 'token.secret'), 'utf8'), 'test-secret');
+  assert.equal(existsSync(join(f.data, 'reader-backup.json')), false);
+  const listed = await listRunningBackups(f.data);
+  assert.ok(listed.some(item => item.id === made.id));
+  assert.equal(listed[0]?.id, second.id);
+  await assert.rejects(replaceDataDir(f.data, 'reader-20260101T000000Z-aaaaaa'), /未知备份/);
+  await assert.rejects(replaceDataDir(f.data, '../reader-20260101T000000Z-aaaaaa'), /未知备份/);
 });
 
 test('preserves internal plugin symlinks and rejects external links', { skip: process.platform === 'win32' }, async t => {

@@ -25,6 +25,7 @@ export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true
   const [models,setModels]=useState<string[]>([]);
   const [confirmMedia,setConfirmMedia]=useState(false),[confirmSiteDefaults,setConfirmSiteDefaults]=useState(false);
   const [directory,setDirectory]=useState(''),[name,setName]=useState('reader-backup.zip'),[clear,setClear]=useState(false);
+  const [backups,setBackups]=useState<Array<{id:string;createdAt:string;bytes:number}>>([]),[restoreId,setRestoreId]=useState('');
   const iconInput=useRef<HTMLInputElement>(null);
   const keepForm=useRef(false);
   useEffect(()=>{
@@ -48,6 +49,12 @@ export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true
     setValues(next);setVoices([]);setVoice('');setAudio('');setModels([]);
   },[current]);
   useEffect(()=>()=>{if(audio)URL.revokeObjectURL(audio);},[audio]);
+  useEffect(()=>{
+    if(selected!=='webdav')return;
+    const controller=new AbortController();
+    void api.businessSettingsRequest<{backups:Array<{id:string;createdAt:string;bytes:number}>}>('backups','GET',undefined,controller.signal).then(result=>{if(!controller.signal.aborted)setBackups(result.backups);}).catch(()=>undefined);
+    return ()=>controller.abort();
+  },[api,selected]);
   async function work(action:()=>Promise<void>){if(busy)return;setBusy(true);setError('');setMessage('');try{await action();}catch(error){setError(error instanceof Error?error.message:'操作失败');}finally{setBusy(false);}}
   const replaceSite=(result:SettingsView)=>{keepForm.current=true;setGroups(items=>items.map(item=>item.group==='site'?result:item));};
   const uploadIcon=(file:File)=>void work(async()=>{
@@ -115,6 +122,12 @@ export function BusinessSettings({api,group,onSaved,selectControl,showMedia=true
         <button className="button" disabled={busy} onClick={()=>setClear(true)}>清理音频缓存</button>
       </div>}
       {clear&&<ConfirmSheet danger text="清理服务器音频缓存？下次朗读将重新合成。" onCancel={()=>setClear(false)} onConfirm={()=>{setClear(false);void work(async()=>{await api.businessSettingsRequest('tts/clear-cache','POST');setMessage('音频缓存已清理');});}}/>}
+      {selected==='webdav'&&<section className="user-manager-form" aria-label="数据备份">
+        <p>立即备份会在服务运行时保存账号、书架、进度、笔记、影音库和密钥。原书和媒体文件不包含在内。备份写在数据目录的 backups 下，重建容器后还在。</p>
+        <button type="button" className="button" disabled={busy} onClick={()=>void work(async()=>{await api.businessSettingsRequest('backups','POST',{});setBackups((await api.businessSettingsRequest<{backups:Array<{id:string;createdAt:string;bytes:number}>}>('backups')).backups);setMessage('备份已完成');})}>立即备份</button>
+        {backups.length===0?<p className="muted">还没有备份。</p>:backups.map(item=><div className="business-backup-row" key={item.id}><span><strong>{new Date(item.createdAt).toLocaleString()}</strong><small>{item.bytes<1048576?`${Math.max(1,Math.round(item.bytes/1024))} KB`:`${(item.bytes/1048576).toFixed(1)} MB`}</small></span><button type="button" className="button" disabled={busy} onClick={()=>setRestoreId(item.id)}>恢复</button></div>)}
+      </section>}
+      {restoreId&&<ConfirmSheet danger title="用这份备份恢复？" text="当前账号、书架、进度、笔记和影音库会被替换。原书文件不动。恢复前的数据留在 backups 里。完成后服务会重新启动，请稍后重新打开页面。" confirmText="恢复" onCancel={()=>setRestoreId('')} onConfirm={()=>{const id=restoreId;setRestoreId('');void work(async()=>{try{await api.businessSettingsRequest(`backups/${id}/restore`,'POST',{});}catch(error){const text=error instanceof Error?error.message:'';if(/fetch|network|Failed|ECONNRESET/i.test(text))throw new Error('服务正在重新启动，请稍后重新打开页面');throw error;}setMessage('正在重新启动服务，请稍后重新打开页面');});}}/>}
       {selected==='webdav'&&<details><summary>上传已验证的离线备份</summary><p>先停服制作完整备份，再启动服务上传。这里不会在线复制运行中的数据库。目录须能从服务器内访问；上传使用已保存的 WebDAV 配置。</p>
         <form className="user-manager-form" onSubmit={event=>{event.preventDefault();void work(async()=>{await api.businessSettingsRequest('webdav/upload','POST',{directory,name});setMessage('备份已上传并验证');});}}>
           <label>服务器上的备份目录<input required value={directory} onInput={event=>setDirectory(event.currentTarget.value)}/></label>

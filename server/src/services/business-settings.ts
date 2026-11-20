@@ -81,7 +81,7 @@ export const SETTINGS_SCHEMA:Record<SettingsGroup,{label:string;fields:Field[]}>
     {key:'accessTokenTtl',label:'访问令牌有效期（秒）',type:'number',default:604800,min:300,max:31536000},
     {key:'refreshTokenTtl',label:'登录续期有效期（秒）',type:'number',default:31536000,min:3600,max:157680000},
   ]},
-  webdav:{label:'WebDAV 备份',fields:[
+  webdav:{label:'备份',fields:[
     {key:'url',label:'备份目录地址',type:'url',default:'',help:'使用 HTTPS；仅本机调试允许 HTTP'},
     {key:'username',label:'账号',type:'text',default:''},
     {key:'password',label:'密码',type:'password',default:''},

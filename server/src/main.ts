@@ -12,6 +12,7 @@ import { setLogger } from './lib/log.ts';
 import type { AppContext } from './http/context.ts';
 import {createMediaService} from './media/start-runtime.ts';
 import { watchRelease } from './lib/release.ts';
+import { replaceDataDir } from './maintenance/backup.ts';
 
 interface Schedulers {
   scanTimer: NodeJS.Timeout | undefined;
@@ -63,6 +64,24 @@ async function main(): Promise<void> {
 
   let scheduler = startSchedulers(ctx, app.log);
   const stopReleaseWatch = ctx.release ? watchRelease(ctx.release, config.webDir) : () => undefined;
+  ctx.applyBackup=async id=>{
+    stopReleaseWatch();
+    if(scheduler.scanTimer)clearInterval(scheduler.scanTimer);
+    if(scheduler.watchTimer)clearInterval(scheduler.watchTimer);
+    let released=false;
+    try{
+      await mediaRuntime.close();
+      db.close();
+      released=true;
+      await replaceDataDir(config.dataDir,id);
+    }catch(error){
+      // The files are either restored or rolled back, but this process has already
+      // dropped the databases. Exiting lets the supervisor open them again.
+      if(released)setTimeout(()=>process.exit(1),800);
+      throw error;
+    }
+  };
+  ctx.exitAfterBackup=()=>{setTimeout(()=>process.exit(0),800);};
   ctx.settingsChanged=group=>{
     if(group==='modules'){void mediaRuntime.setEnabled(ctx.settings!.read('modules').mediaEnabled);return;}
     if(group!=='scanning')return;

@@ -45,6 +45,13 @@ export interface AppContext {
   sources?: SourceHost;
   /** Publishes the running server version and the web bundle being served. */
   release?: ReleaseHub;
+  /**
+   * Close database handles and replace DATA_DIR with one admin snapshot.
+   * Present only in the long-running process. Tests call the file operation directly.
+   */
+  applyBackup?: (id: string) => Promise<void>;
+  /** Leave the process after a restore so the supervisor starts on the replaced files. */
+  exitAfterBackup?: () => void;
   log: FastifyBaseLogger;
 }
 
