@@ -126,6 +126,13 @@ export interface AppSettings extends ViewSettings {
    * system's own timeout.
    */
   keepAwake: boolean;
+  /**
+   * Open the last-read novel when the app itself opens on the home page.
+   *
+   * Off unless the reader asks. A link that already names a page is left alone,
+   * and coming back to the home page later in the same visit does not jump again.
+   */
+  resumeReading: boolean;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -167,6 +174,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   shelfShowAuthor: true,
   shelfShowProgress: true,
   keepAwake: false,
+  resumeReading: false,
 };
 
 /** Fills gaps and folds old stored values forward. A bad value becomes the default. */
@@ -195,6 +203,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   settings.tapZones = normalizeTapZones(parsed.tapZones, parsed.tapZone);
   if (typeof settings.paperFollowsDark !== 'boolean') settings.paperFollowsDark = true;
   if (typeof settings.keepAwake !== 'boolean') settings.keepAwake = false;
+  if (typeof settings.resumeReading !== 'boolean') settings.resumeReading = false;
   if (typeof settings.focus !== 'boolean') settings.focus = false;
   if (!['list', 'grid'].includes(settings.exploreLayout)) settings.exploreLayout = DEFAULT_APP_SETTINGS.exploreLayout;
   if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort)) settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;

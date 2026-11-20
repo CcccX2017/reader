@@ -72,6 +72,10 @@ describe('偏好设置', () => {
     expect(awake?.getAttribute('aria-pressed')).toBe('false');
     act(() => { awake?.click(); });
     expect(updateSettings).toHaveBeenCalledWith({ keepAwake: true });
+    const resume = root.querySelector<HTMLButtonElement>('[aria-label="打开应用继续阅读"]');
+    expect(resume?.getAttribute('aria-pressed')).toBe('false');
+    act(() => { resume?.click(); });
+    expect(updateSettings).toHaveBeenCalledWith({ resumeReading: true });
   });
 
   it('records a switch from local storage to the account', () => {

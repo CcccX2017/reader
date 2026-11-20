@@ -70,6 +70,7 @@ export function MediaThemeSettings({ scope, onReaderSettings }: { scope: string;
   const paper = useSettingsStore(state => state.settings.paper);
   const paperFollowsDark = useSettingsStore(state => state.settings.paperFollowsDark);
   const keepAwake = useSettingsStore(state => state.settings.keepAwake);
+  const resumeReading = useSettingsStore(state => state.settings.resumeReading);
   // One notice for the panel: a run of taps updates it in place instead of stacking (ui.md §3.6).
   const notice = useRef(Symbol('theme-notice'));
   const report = (message: string, kind: 'success' | 'error') => notify(message, { kind }, notice.current);
@@ -126,6 +127,16 @@ export function MediaThemeSettings({ scope, onReaderSettings }: { scope: string;
           </button>
         </div>
         <p className="theme-settings-note">离开阅读页后恢复系统的自动锁屏。阅读页的阅读设置里也有这个开关。</p>
+      </section>
+      <section className="settings-group">
+        <h2>继续阅读</h2>
+        <div className="theme-settings-card">
+          <button type="button" className="theme-follow" aria-label="打开应用继续阅读" aria-pressed={resumeReading} onClick={() => onReaderSettings({ resumeReading: !resumeReading })}>
+            <span className="theme-follow-text"><strong>打开应用继续阅读</strong><small>自动打开上次阅读的小说</small></span>
+            <span className="theme-switch" aria-hidden="true" />
+          </button>
+        </div>
+        <p className="theme-settings-note">只在打开应用、并且停在首页时进入。从书架或链接打开其他页面时不会跳转。</p>
       </section>
     </>}
   </section>;

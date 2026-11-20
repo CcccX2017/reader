@@ -3,6 +3,7 @@ import { applySiteBrand } from './site-branding.ts';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, UNSAFE_LocationContext, useLocation, useNavigate, useNavigationType, useOutlet } from 'react-router-dom';
 import { useAuthStore } from '../shared/stores/auth.store.ts';
+import { useSettingsStore } from '../shared/stores/settings.store.ts';
 import { useRuntime } from './providers/runtime-context.tsx';
 import { LoginPage } from '../features/auth/pages/LoginPage.tsx';
 import { AppNav, navMode } from './AppNav.tsx';
@@ -14,6 +15,9 @@ import { dismissAppStartup } from './startup.ts';
 export function AppShell() {
   return <AuthBoundary><AuthenticatedShell /></AuthBoundary>;
 }
+
+/** One decision per visit. A later return to 首页 must not open the book again. */
+let resumeAttempted = false;
 
 function AuthenticatedShell() {
   const runtime = useRuntime();
@@ -50,6 +54,20 @@ function AuthenticatedShell() {
   }, [runtime]);
   // A book sets its own title. Updating the site name must not replace that.
   useEffect(() => { if (!location.pathname.startsWith('/book/')) document.title = pageTitle(location.pathname); }, [location.pathname, brand]);
+  // Once per visit, and only when the app opened on the home page. A later
+  // return to 首页 must not pull the reader back into the last book.
+  const resumeReading = useSettingsStore(state => state.settings.resumeReading);
+  useEffect(() => {
+    if (resumeAttempted) return;
+    resumeAttempted = true;
+    if (location.pathname !== '/' || !resumeReading) return;
+    void runtime.api.continueReading(1).then((items) => {
+      const hash = window.location.hash;
+      const stillHome = hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/?');
+      const id = items[0]?.id;
+      if (stillHome && id) navigate(`/book/${encodeURIComponent(id)}`, { replace: true });
+    }).catch(() => undefined);
+  }, [location.pathname, navigate, resumeReading, runtime]);
   // "/" goes to search from anywhere a keystroke is not already text or a reading/playback command.
   // The reader covers the page, so the shortcut stays with the page underneath.
   useEffect(() => {

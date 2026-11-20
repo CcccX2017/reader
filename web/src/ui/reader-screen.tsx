@@ -2870,6 +2870,7 @@ function emptyChromeSettings(): Partial<ChromeState> {
       paper: 'theme',
       paperFollowsDark: true,
       keepAwake: false,
+      resumeReading: false,
       ttsRate: 1,
       ttsPitch: 1,
       ttsVolume: 1,
