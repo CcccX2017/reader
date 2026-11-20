@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { digestForPlatform, imageTagFromRef, resolvePublishedImage, shortDigest, type PublishedTag } from '../src/lib/image-digest.ts';
+import { digestForPlatform, imageTagFromRef, resolvePublishedImage, shortDigest, shortGitSha, type PublishedTag } from '../src/lib/image-digest.ts';
 
 const images = [
   { os: 'linux', architecture: 'amd64', digest: 'sha256:017daf908bf9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
@@ -44,4 +44,18 @@ test('latest is the pulled tag even after it moves past the package version', ()
     : tag);
   assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: '1.0.13' });
   assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', 'latest'), { digest: '017daf908bf9', tag: 'latest' });
+});
+
+test('the commit baked into the image is latest while Hub latest still points at it', () => {
+  assert.equal(shortGitSha('66ee335c0ffee'), '66ee335');
+  assert.equal(shortGitSha('not-a-sha'), null);
+  const newer = 'sha256:017daf908bf9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const moved: PublishedTag[] = [
+    { name: '1.0.13', images: current },
+    { name: 'latest', images: [{ os: 'linux', architecture: 'amd64', digest: newer }] },
+    { name: 'sha-66ee335', images: current },
+    { name: 'sha-017daf9', images: [{ os: 'linux', architecture: 'amd64', digest: newer }] },
+  ];
+  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null, '017daf9aaaaaa'), { digest: '017daf908bf9', tag: 'latest' });
+  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null, '66ee335c0ffee'), { digest: '7e64e6f9a27b', tag: '1.0.13' });
 });

@@ -7,11 +7,15 @@ const VERSION_TAG = /^\d+\.\d+\.\d+$/;
 const SHA_TAG = /^sha-[a-f0-9]{4,40}$/;
 
 /**
- * A container cannot see the digest of the image it was started from: that
- * digest is computed when the image is pushed. A deployment of the published
- * image is identified by its version and CPU, which is enough to read the
- * digest Docker Hub lists for that tag.
+ * A container cannot see the tag it was started from. The release bakes the git
+ * commit into `READER_GIT_SHA`, and that commit's `sha-` tag on Hub is this image.
  */
+export function shortGitSha(value: string | undefined): string | null {
+  const hex = value?.trim().toLowerCase() ?? '';
+  if (!/^[a-f0-9]{7,40}$/.test(hex)) return null;
+  return hex.slice(0, 7);
+}
+
 export function runningInContainer(): boolean {
   return existsSync('/.dockerenv') || existsSync('/run/.containerenv');
 }
@@ -59,17 +63,19 @@ export function digestForTag(tags: readonly PublishedTag[], name: string, arch: 
 /**
  * Which published tag this process is.
  *
- * An explicit version or `sha-` tag is that build. An explicit `latest` is Hub's
- * `latest` even after it has moved past the package version: the package version
- * stays on the version fields, and the image line follows the tag that was pulled.
- * With no pin, `latest` is the label only while it is still the same digest as
- * this version. A newer `latest` on Hub does not rename an unpinned older container.
+ * An explicit version or `sha-` pin is that tag. An explicit `latest` pin is Hub's
+ * current `latest`. Otherwise the commit baked into the image is matched to its
+ * `sha-` tag: the label is `latest` while that digest is still Hub `latest`, and
+ * the package version when that digest is still the version tag. The package
+ * version stays on the version fields either way. An image built without a commit
+ * falls back to the version tag, and names it `latest` only while the two digests match.
  */
 export function resolvePublishedImage(
   tags: readonly PublishedTag[],
   version: string,
   arch: string,
   configured: string | null,
+  builtSha: string | null = null,
 ): { digest: string; tag: string } | null {
   if (configured && configured !== 'latest') {
     const pinned = digestForTag(tags, configured, arch);
@@ -78,6 +84,15 @@ export function resolvePublishedImage(
   if (configured === 'latest') {
     const latest = digestForTag(tags, 'latest', arch);
     if (latest) return { digest: latest, tag: 'latest' };
+  }
+  const sha = shortGitSha(builtSha ?? undefined);
+  if (sha) {
+    const built = digestForTag(tags, `sha-${sha}`, arch);
+    if (built) {
+      if (digestForTag(tags, 'latest', arch) === built) return { digest: built, tag: 'latest' };
+      if (digestForTag(tags, version, arch) === built) return { digest: built, tag: version };
+      return { digest: built, tag: `sha-${sha}` };
+    }
   }
   const digest = digestForTag(tags, version, arch);
   if (!digest) return null;
@@ -104,7 +119,13 @@ async function lookupPublishedDigest(version: string, arch: string): Promise<{ d
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) return null;
     const body = await response.json() as { results?: PublishedTag[] };
-    return resolvePublishedImage(body.results ?? [], version, arch, imageTagFromRef(process.env.READER_IMAGE));
+    return resolvePublishedImage(
+      body.results ?? [],
+      version,
+      arch,
+      imageTagFromRef(process.env.READER_IMAGE),
+      process.env.READER_GIT_SHA,
+    );
   } catch {
     return null;
   } finally {

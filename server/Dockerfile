@@ -42,12 +42,18 @@ RUN npm prune --omit=dev
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
 
+# The commit this image was built from. Release passes the full git sha; the
+# server matches its first 7 digits to the published sha- tag, then calls the
+# image latest when that tag and Hub latest are the same digest. A local build
+# leaves this empty.
+ARG GIT_SHA=
 ENV NODE_ENV=production \
     BOOKS_DIR=/books \
     DATA_DIR=/data \
     PORT=5888 \
     WEB_DIR=/app/web \
-    MEDIA_FFPROBE_PATH=/usr/bin/ffprobe
+    MEDIA_FFPROBE_PATH=/usr/bin/ffprobe \
+    READER_GIT_SHA=${GIT_SHA}
 
 # Run as an unprivileged user. The library mount is read-only, so this user only
 # ever needs write access to /data.
