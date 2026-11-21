@@ -20,7 +20,10 @@ let app: FastifyInstance;
 
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'web-'));
-  await writeFile(join(root, 'index.html'), '<!doctype html><title>reader</title><p id="app-startup-name">reader 阅读器</p>');
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><title>reader</title><p id="app-startup-name">reader 阅读器</p>',
+  );
   await mkdir(join(root, 'assets'));
   await writeFile(join(root, 'assets', 'index-abc123.js'), 'console.log(1)');
   await writeFile(join(root, 'assets', 'client.js'), 'console.log(2)');

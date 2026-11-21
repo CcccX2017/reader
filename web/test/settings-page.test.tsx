@@ -18,24 +18,42 @@ const runtime = {
   player: { active: false },
   updateSettings,
 } as any;
-function Where() { const location = useLocation(); return <p data-where={location.pathname + location.search} />; }
-const paint = (entry: string) => act(() => render(
-  <RuntimeContext.Provider value={runtime}>
-    <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/me/settings" element={<><SettingsPage /><Where /></>} />
-        <Route path="/me/account" element={<Where />} />
-        <Route path="/me" element={<Where />} />
-        <Route path="/me/:panel" element={<LegacySettingsRedirect />} />
-        <Route path="/media/:channel/settings/:panel?" element={<LegacySettingsRedirect />} />
-      </Routes>
-    </MemoryRouter>
-  </RuntimeContext.Provider>,
-  root,
-));
+function Where() {
+  const location = useLocation();
+  return <p data-where={location.pathname + location.search} />;
+}
+const paint = (entry: string) =>
+  act(() =>
+    render(
+      <RuntimeContext.Provider value={runtime}>
+        <MemoryRouter initialEntries={[entry]}>
+          <Routes>
+            <Route
+              path="/me/settings"
+              element={
+                <>
+                  <SettingsPage />
+                  <Where />
+                </>
+              }
+            />
+            <Route path="/me/account" element={<Where />} />
+            <Route path="/me" element={<Where />} />
+            <Route path="/me/:panel" element={<LegacySettingsRedirect />} />
+            <Route path="/media/:channel/settings/:panel?" element={<LegacySettingsRedirect />} />
+          </Routes>
+        </MemoryRouter>
+      </RuntimeContext.Provider>,
+      root,
+    ),
+  );
 const where = () => root.querySelector('[data-where]')?.getAttribute('data-where');
 
-beforeEach(()=>useAuthStore.setState({verifiedUser:{id:'settings-user',username:'reader',displayName:'Reader',role:'member',createdAt:0}}));
+beforeEach(() =>
+  useAuthStore.setState({
+    verifiedUser: { id: 'settings-user', username: 'reader', displayName: 'Reader', role: 'member', createdAt: 0 },
+  }),
+);
 afterEach(() => {
   act(() => render(null, root));
   useAuthStore.setState({ session: null, verifiedUser: null });
@@ -47,56 +65,92 @@ afterEach(() => {
 
 describe('偏好设置', () => {
   const tabs = () => [...root.querySelectorAll<HTMLButtonElement>('[role=tab]')];
-  const selected = () => tabs().filter(tab => tab.getAttribute('aria-selected') === 'true').map(tab => tab.textContent);
+  const selected = () =>
+    tabs()
+      .filter((tab) => tab.getAttribute('aria-selected') === 'true')
+      .map((tab) => tab.textContent);
 
-  it('pure reading hides media tabs and rejects an old playback tab selection',()=>{
-    useAuthStore.setState({verifiedUser:{id:'reader',username:'reader',displayName:'Reader',role:'admin',createdAt:0,features:{media:false}}});
+  it('pure reading hides media tabs and rejects an old playback tab selection', () => {
+    useAuthStore.setState({
+      verifiedUser: {
+        id: 'reader',
+        username: 'reader',
+        displayName: 'Reader',
+        role: 'admin',
+        createdAt: 0,
+        features: { media: false },
+      },
+    });
     paint('/me/settings?section=playback');
-    expect(tabs().map(tab=>tab.textContent)).toEqual(['外观与主题','书架']);
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['外观与主题', '书架']);
     expect(selected()).toEqual(['外观与主题']);
     expect(root.querySelector('.playback-settings')).toBeNull();
   });
 
   it('shows the four kinds of preference as tabs, one panel at a time', () => {
     paint('/me/settings');
-    expect(tabs().map(tab => tab.textContent)).toEqual(['外观与主题', '书架', '影音浏览', '播放']);
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['外观与主题', '书架', '影音浏览', '播放']);
     expect(selected()).toEqual(['外观与主题']);
     expect(root.querySelectorAll('[role=tabpanel]')).toHaveLength(1);
     expect(root.querySelector('.theme-settings')).not.toBeNull();
     expect(root.querySelector('select[aria-label="封面密度"]')).toBeNull();
     // No save button anywhere: every control applies as it changes.
-    expect([...root.querySelectorAll('button')].some(b => /保存/.test(b.textContent ?? ''))).toBe(false);
-    const place = (label: string) => [...root.querySelectorAll<HTMLButtonElement>('[aria-label="保存位置"] button')].find(button => button.textContent === label);
+    expect([...root.querySelectorAll('button')].some((b) => /保存/.test(b.textContent ?? ''))).toBe(false);
+    const place = (label: string) =>
+      [...root.querySelectorAll<HTMLButtonElement>('[aria-label="保存位置"] button')].find(
+        (button) => button.textContent === label,
+      );
     expect(place('本地存储')?.getAttribute('aria-pressed')).toBe('true');
     const awake = root.querySelector<HTMLButtonElement>('[aria-label="屏幕常亮"]');
     expect(awake?.getAttribute('aria-pressed')).toBe('false');
-    act(() => { awake?.click(); });
+    act(() => {
+      awake?.click();
+    });
     expect(updateSettings).toHaveBeenCalledWith({ keepAwake: true });
     const resume = root.querySelector<HTMLButtonElement>('[aria-label="打开应用继续阅读"]');
     expect(resume?.getAttribute('aria-pressed')).toBe('false');
-    act(() => { resume?.click(); });
+    act(() => {
+      resume?.click();
+    });
     expect(updateSettings).toHaveBeenCalledWith({ resumeReading: true });
   });
 
   it('records a switch from local storage to the account', () => {
     const chosen: string[] = [];
-    bindPreferencePlace(async (place) => { chosen.push(place); });
+    bindPreferencePlace(async (place) => {
+      chosen.push(place);
+    });
     paint('/me/settings');
-    const account = [...root.querySelectorAll<HTMLButtonElement>('[aria-label="保存位置"] button')].find(button => button.textContent === '持久化存储')!;
-    act(() => { account.click(); });
+    const account = [...root.querySelectorAll<HTMLButtonElement>('[aria-label="保存位置"] button')].find(
+      (button) => button.textContent === '持久化存储',
+    )!;
+    act(() => {
+      account.click();
+    });
     expect(chosen).toEqual(['account']);
   });
 
   it('switches panels by tab, keeps the choice in the address, and applies changes at once', () => {
     paint('/me/settings');
-    act(() => { tabs().find(tab => tab.textContent === '书架')!.click(); });
+    act(() => {
+      tabs()
+        .find((tab) => tab.textContent === '书架')!
+        .click();
+    });
     expect(where()).toBe('/me/settings?section=shelf');
     expect(root.querySelector('.theme-settings')).toBeNull();
-    act(() => { [...root.querySelectorAll<HTMLButtonElement>('.shelf-settings button')].find(b => b.textContent === '宽松')!.click(); });
-    expect(updateSettings).toHaveBeenCalledWith({ shelfDensity: 'comfortable' });
-    const press = (group: string, label: string) => act(() => {
-      [...root.querySelectorAll<HTMLButtonElement>(`[aria-label="${group}"] button`)].find(button => button.textContent === label)!.click();
+    act(() => {
+      [...root.querySelectorAll<HTMLButtonElement>('.shelf-settings button')]
+        .find((b) => b.textContent === '宽松')!
+        .click();
     });
+    expect(updateSettings).toHaveBeenCalledWith({ shelfDensity: 'comfortable' });
+    const press = (group: string, label: string) =>
+      act(() => {
+        [...root.querySelectorAll<HTMLButtonElement>(`[aria-label="${group}"] button`)]
+          .find((button) => button.textContent === label)!
+          .click();
+      });
     press('首页显示数量', '12 本');
     expect(updateSettings).toHaveBeenCalledWith({ homeShelfCount: 12 });
     press('首页显示数量', '全部');
@@ -104,18 +158,34 @@ describe('偏好设置', () => {
     press('首页排序', '书名');
     expect(updateSettings).toHaveBeenCalledWith({ homeShelfSort: 'title' });
     expect(root.querySelector('a.settings-link')?.getAttribute('href')).toBe('/me/opds');
-    act(() => { tabs().find(tab => tab.textContent === '影音浏览')!.click(); });
+    act(() => {
+      tabs()
+        .find((tab) => tab.textContent === '影音浏览')!
+        .click();
+    });
     const density = root.querySelector<HTMLSelectElement>('select[aria-label="封面密度"]')!;
-    act(() => { density.value = 'comfortable'; density.dispatchEvent(new Event('change', { bubbles: true })); });
+    act(() => {
+      density.value = 'comfortable';
+      density.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     expect(readMediaPreferences('settings-test').density).toBe('comfortable');
-    act(() => { tabs().find(tab => tab.textContent === '外观与主题')!.click(); });
+    act(() => {
+      tabs()
+        .find((tab) => tab.textContent === '外观与主题')!
+        .click();
+    });
     expect(where()).toBe('/me/settings');
   });
 
   it('opens on the tab the address names, and moves between tabs with the arrow keys', () => {
     paint('/me/settings?section=playback');
     expect(selected()).toEqual(['播放']);
-    const key = (name: string) => act(() => { root.querySelector<HTMLButtonElement>('[role=tab][aria-selected=true]')!.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true })); });
+    const key = (name: string) =>
+      act(() => {
+        root
+          .querySelector<HTMLButtonElement>('[role=tab][aria-selected=true]')!
+          .dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true }));
+      });
     key('ArrowRight');
     expect(selected()).toEqual(['外观与主题']);
     expect(document.activeElement?.textContent).toBe('外观与主题');

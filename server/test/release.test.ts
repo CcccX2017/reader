@@ -34,7 +34,9 @@ test('the event stream sends the open release and the next one', async () => {
   assert.match(first, /"web":"a"/);
   hub.publish({ server: '1', web: 'b' });
   let ended = false;
-  stream.on('end', () => { ended = true; });
+  stream.on('end', () => {
+    ended = true;
+  });
   const second = await new Promise<string>((resolve, reject) => {
     stream.once('data', (chunk: Buffer) => resolve(String(chunk)));
     stream.once('error', reject);

@@ -131,7 +131,7 @@
 
 /* A compact sheet is as tall as its content: a zero basis would collapse its body to
    the padding and clip the prompt. It still shrinks and scrolls past the height cap. */
-.sheet[data-size='compact'] > .sheet-body {
+.sheet[data-size="compact"] > .sheet-body {
   flex-basis: auto;
 }
 
@@ -267,7 +267,7 @@
   line-height: 1.4;
 }
 
-.sheet-list-item[aria-checked='true'] {
+.sheet-list-item[aria-checked="true"] {
   color: var(--reader-accent);
   font-weight: 600;
 }
@@ -303,18 +303,34 @@
 }
 
 @keyframes sheet-rise {
-  from { transform: translateY(100%); }
-  to { transform: none; }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
 }
 
 @keyframes sheet-pop {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
-  to { opacity: 1; transform: translate(-50%, -50%); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
 
 @keyframes sheet-slide {
-  from { opacity: 0; transform: translateX(1rem); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 700px) {
@@ -322,7 +338,7 @@
      WebViews keep the native dialog at its intrinsic content height and the
      body's overflow area never becomes a scroll container. Compact prompts
      remain content-sized. */
-  .sheet:not([data-size='compact']) {
+  .sheet:not([data-size="compact"]) {
     height: min(80vh, calc(100vh - var(--safe-top) - 1.5rem));
     height: min(80dvh, calc(100dvh - var(--safe-top) - 1.5rem));
   }
@@ -337,7 +353,7 @@
    viewport height, leaving only a thin strip of the body visible. Use explicit
    regions there; desktop Chrome keeps the normal flex layout above. */
 @media (max-width: 700px) {
-  .sheet[data-host='pwa']:not([data-size='compact']) {
+  .sheet[data-host="pwa"]:not([data-size="compact"]) {
     inset: 20vh 0 0;
     height: auto;
     max-height: none;
@@ -345,7 +361,7 @@
     flex-direction: column;
   }
 
-  .sheet[data-host='pwa']:not([data-size='compact']) > .sheet-body {
+  .sheet[data-host="pwa"]:not([data-size="compact"]) > .sheet-body {
     flex: 1 1 0%;
     height: auto;
     min-height: 0;
@@ -368,7 +384,7 @@
   }
 
   /* Confirmations, prompts and short picks: a centred card, not a side drawer. */
-  .sheet[data-size='compact'] {
+  .sheet[data-size="compact"] {
     inset: 50% auto auto 50%;
     right: auto;
     bottom: auto;
@@ -377,11 +393,11 @@
     box-shadow: 0 12px 40px color-mix(in srgb, #000 18%, transparent);
   }
 
-  .sheet[data-size='compact'][open] {
+  .sheet[data-size="compact"][open] {
     animation-name: sheet-pop;
   }
 
-  .sheet[data-size='wide'] {
+  .sheet[data-size="wide"] {
     width: min(42rem, calc(100vw - 2rem));
   }
 
@@ -419,7 +435,9 @@
   font: inherit;
   cursor: pointer;
 }
-.book-metadata-form small[role="alert"] { color: var(--color-danger); }
+.book-metadata-form small[role="alert"] {
+  color: var(--color-danger);
+}
 .book-metadata-date {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -439,18 +457,20 @@
   }
 
   .sheet[data-settling] {
-    transition: height var(--motion-duration) var(--motion-ease), transform var(--motion-duration) var(--motion-ease);
+    transition:
+      height var(--motion-duration) var(--motion-ease),
+      transform var(--motion-duration) var(--motion-ease);
   }
 
   /* Pulled up: nearly the whole screen, below the status bar. Doubled class to win over
      the reader's half-screen panel and the PWA layout without depending on file order. */
-  .sheet.sheet[data-expanded]:not([data-size='compact']) {
+  .sheet.sheet[data-expanded]:not([data-size="compact"]) {
     max-height: none;
     height: calc(100vh - var(--safe-top) - 0.5rem);
     height: calc(100dvh - var(--safe-top) - 0.5rem);
   }
 
-  .sheet.sheet[data-host='pwa'][data-expanded]:not([data-size='compact']) {
+  .sheet.sheet[data-host="pwa"][data-expanded]:not([data-size="compact"]) {
     top: calc(var(--safe-top) + 0.5rem);
     height: auto;
   }

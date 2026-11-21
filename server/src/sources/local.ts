@@ -12,19 +12,27 @@ const COVER_REF = 'cover';
 /** A listed book already carries its versioned cover address; reuse its `v`. */
 const listed = (book: BookDto & { shelfState?: 'on' | 'off' }): CatalogEntry => entry(book);
 
-function entry(book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | 'format' | 'manualFields'> & { coverUrl?: string | null; shelfState?: 'on' | 'off' }): CatalogEntry {
+function entry(
+  book: Pick<BookDto, 'id' | 'title' | 'author' | 'description' | 'format' | 'manualFields'> & {
+    coverUrl?: string | null;
+    shelfState?: 'on' | 'off';
+  },
+): CatalogEntry {
   // Versioned like the shelf's `coverUrl` (?v=): the cover response is cached for a day,
   // so a cover changed with 换封面 must arrive under a new address to be seen.
   const version = book.coverUrl ? (/[?&]v=([^&]+)/.exec(book.coverUrl)?.[1] ?? 'cover') : null;
   return {
-    ref: book.id, title: book.title, authors: book.author ? [book.author] : [],
+    ref: book.id,
+    title: book.title,
+    authors: book.author ? [book.author] : [],
     description: book.description,
     // `coverUrl` is the library cover the search list already knows how to draw.
     // `coverRef` is the same picture fetched through the source, which 发现 uses.
     ...(book.coverUrl ? { coverUrl: book.coverUrl } : {}),
     ...(version ? { coverRef: `${COVER_REF}@${version}` } : {}),
     // A book already on the caller's shelf says which one, so a client offers 阅读 rather than 加入书架.
-    options: [{ id: 'read', label: '加入书架', available: true }], metadata: {
+    options: [{ id: 'read', label: '加入书架', available: true }],
+    metadata: {
       format: book.format,
       ...(book.manualFields.length ? { manualFields: book.manualFields } : {}),
       ...(book.shelfState === 'on' ? { publicationId: book.id } : {}),
@@ -36,11 +44,14 @@ export function createLocalProvider(db: Db, shelf: () => ShelfService, dataDir: 
   const detail = async (ctx: SourceContext, ref: string): Promise<CatalogEntry> => {
     const row = db.get<{ id: string }>(
       `SELECT b.id FROM books b
-       WHERE b.id = ? AND EXISTS (SELECT 1 FROM book_files f WHERE f.book_id = b.id AND f.missing = 0)`, ref,
+       WHERE b.id = ? AND EXISTS (SELECT 1 FROM book_files f WHERE f.book_id = b.id AND f.missing = 0)`,
+      ref,
     );
     if (!row) throw notFound('local book not found', 'ENTRY_NOT_FOUND');
     const onShelf = db.get<{ n: number }>(
-      'SELECT 1 AS n FROM user_books WHERE user_id = ? AND book_id = ? AND hidden = 0', ctx.userId, ref,
+      'SELECT 1 AS n FROM user_books WHERE user_id = ? AND book_id = ? AND hidden = 0',
+      ctx.userId,
+      ref,
     );
     return entry({ ...shelf().bookById(ref), shelfState: onShelf ? 'on' : 'off' });
   };
@@ -63,29 +74,60 @@ export function createLocalProvider(db: Db, shelf: () => ShelfService, dataDir: 
     async browse(ctx, request) {
       const path = request.ref ? assertSafeRel(request.ref) : '';
       const result = shelf().list(ctx.userId, {
-        scope: 'library', ...(path ? { path } : {}), page: page(request.cursor), pageSize: request.limit ?? 40,
+        scope: 'library',
+        ...(path ? { path } : {}),
+        page: page(request.cursor),
+        pageSize: request.limit ?? 40,
       });
       const folders = request.cursor ? [] : shelf().folders(path);
       return {
-        title: path ? path.split('/').at(-1)! : '本地书库', items: result.items.map(listed), total: result.total,
-        ...(folders.length ? { navigation: folders.map((name) => ({ title: name, ref: path ? `${path}/${name}` : name, kind: 'catalog' as const })) } : {}),
+        title: path ? path.split('/').at(-1)! : '本地书库',
+        items: result.items.map(listed),
+        total: result.total,
+        ...(folders.length
+          ? {
+              navigation: folders.map((name) => ({
+                title: name,
+                ref: path ? `${path}/${name}` : name,
+                kind: 'catalog' as const,
+              })),
+            }
+          : {}),
         ...(result.page * result.pageSize < result.total ? { nextCursor: String(result.page + 1) } : {}),
       };
     },
     /** A local entry's cover, so a browser never needs a second way to load one. */
     async readResource(_ctx, request) {
-      const coverPath = request.ref === COVER_REF || request.ref.startsWith(`${COVER_REF}@`) ? shelf().coverPath(request.publicationRef) : null;
+      const coverPath =
+        request.ref === COVER_REF || request.ref.startsWith(`${COVER_REF}@`)
+          ? shelf().coverPath(request.publicationRef)
+          : null;
       if (!coverPath) throw notFound('local book has no cover', 'RESOURCE_GONE');
       const ext = extname(coverPath).toLowerCase();
-      return { mediaType: ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg',
-        data: await readFile(resolveInside(dataDir, assertSafeRel(coverPath))) };
+      return {
+        mediaType:
+          ext === '.png'
+            ? 'image/png'
+            : ext === '.gif'
+              ? 'image/gif'
+              : ext === '.webp'
+                ? 'image/webp'
+                : ext === '.svg'
+                  ? 'image/svg+xml'
+                  : 'image/jpeg',
+        data: await readFile(resolveInside(dataDir, assertSafeRel(coverPath))),
+      };
     },
     async search(ctx, request) {
       const result = shelf().list(ctx.userId, {
-        scope: 'library', search: request.query, page: page(request.cursor), pageSize: request.limit ?? 40,
+        scope: 'library',
+        search: request.query,
+        page: page(request.cursor),
+        pageSize: request.limit ?? 40,
       });
       return {
-        items: result.items.map(listed), total: result.total,
+        items: result.items.map(listed),
+        total: result.total,
         ...(result.page * result.pageSize < result.total ? { nextCursor: String(result.page + 1) } : {}),
       };
     },

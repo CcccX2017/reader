@@ -7,15 +7,24 @@ import { requestPreferencePlace } from '../store/preference-writes.ts';
  * One control, because the two screens are the same settings.
  */
 export function PreferencePlaceControl() {
-  const place = usePreferencePlaceStore(state => state.place);
-  return <div className="preference-place">
-    <SectionTitle>保存位置</SectionTitle>
-    <Segmented<PreferencePlace>
-      label="保存位置"
-      options={[{ value: 'local', label: '本地存储' }, { value: 'account', label: '持久化存储' }]}
-      value={place}
-      onChange={value => { void requestPreferencePlace(value); }}
-    />
-    <p className="muted">本地只留在这台设备。持久化写入当前账号，换一台登录后仍在。阅读页的设置、外观和偏好设置都按这个选择保存。</p>
-  </div>;
+  const place = usePreferencePlaceStore((state) => state.place);
+  return (
+    <div className="preference-place">
+      <SectionTitle>保存位置</SectionTitle>
+      <Segmented<PreferencePlace>
+        label="保存位置"
+        options={[
+          { value: 'local', label: '本地存储' },
+          { value: 'account', label: '持久化存储' },
+        ]}
+        value={place}
+        onChange={(value) => {
+          void requestPreferencePlace(value);
+        }}
+      />
+      <p className="muted">
+        本地只留在这台设备。持久化写入当前账号，换一台登录后仍在。阅读页的设置、外观和偏好设置都按这个选择保存。
+      </p>
+    </div>
+  );
 }

@@ -15,7 +15,9 @@ let onPlace: ((place: PreferencePlace) => Promise<void>) | null = null;
 
 export function silencePreferenceWrites(): () => void {
   silenced += 1;
-  return () => { silenced -= 1; };
+  return () => {
+    silenced -= 1;
+  };
 }
 
 export function notePreferenceWrite(): void {

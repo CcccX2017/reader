@@ -21,9 +21,9 @@ export async function writeAvatar(dataDir: string, userId: string, buf: Buffer, 
   await mkdir(dirname(abs), { recursive: true });
   await writeFile(abs, buf);
   await Promise.all(
-    AVATAR_EXTENSIONS
-      .filter((other) => other !== ext)
-      .map((other) => rm(join(dataDir, avatarRel(userId, other)), { force: true })),
+    AVATAR_EXTENSIONS.filter((other) => other !== ext).map((other) =>
+      rm(join(dataDir, avatarRel(userId, other)), { force: true }),
+    ),
   );
   return rel;
 }

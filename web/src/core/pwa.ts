@@ -32,7 +32,9 @@ function waitForWaiting(worker: ServiceWorkerRegistration, ms: number): Promise<
       installing?.removeEventListener('statechange', onState);
       resolve(ok);
     };
-    const onState = () => { if (worker.waiting) finish(true); };
+    const onState = () => {
+      if (worker.waiting) finish(true);
+    };
     const onFound = () => {
       installing?.removeEventListener('statechange', onState);
       installing = worker.installing;
@@ -55,14 +57,18 @@ async function resolveRegistration(): Promise<ServiceWorkerRegistration | undefi
         registration = found;
         return found;
       }
-    } catch { /* fall back to the registration captured at register() */ }
+    } catch {
+      /* fall back to the registration captured at register() */
+    }
   }
   return registration;
 }
 
 /** Asks the installed worker to download a new bundle. The ready banner follows from there. */
 export function requestServiceWorkerUpdate(): void {
-  void resolveRegistration().then(reg => { void reg?.update().catch(() => undefined); });
+  void resolveRegistration().then((reg) => {
+    void reg?.update().catch(() => undefined);
+  });
 }
 
 /**
@@ -103,15 +109,19 @@ export function offerReload(): void {
     button.textContent = '重试更新';
     message.textContent = '更新未完成，请重试';
   };
-  const activate = (waiting: ServiceWorker) => new Promise<void>((resolve, reject) => {
-    const onChange = () => { clearTimeout(timer); resolve(); };
-    const timer = setTimeout(() => {
-      navigator.serviceWorker.removeEventListener('controllerchange', onChange);
-      reject(new Error('timeout'));
-    }, 15_000);
-    navigator.serviceWorker.addEventListener('controllerchange', onChange);
-    waiting.postMessage({ type: 'SKIP_WAITING' });
-  });
+  const activate = (waiting: ServiceWorker) =>
+    new Promise<void>((resolve, reject) => {
+      const onChange = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+        reject(new Error('timeout'));
+      }, 15_000);
+      navigator.serviceWorker.addEventListener('controllerchange', onChange);
+      waiting.postMessage({ type: 'SKIP_WAITING' });
+    });
   button.addEventListener('click', () => {
     if (button.disabled) return;
     button.disabled = true;
@@ -126,7 +136,10 @@ export function offerReload(): void {
         if (!waiting && reg && (reg.active || navigator.serviceWorker?.controller)) {
           showProgress(progress, message, '正在下载新版本…');
           await reg.update().catch(() => undefined);
-          if (!await waitForWaiting(reg, 15_000)) { giveUp(); return; }
+          if (!(await waitForWaiting(reg, 15_000))) {
+            giveUp();
+            return;
+          }
           waiting = reg.waiting ?? null;
         }
         if (waiting && navigator.serviceWorker) {
@@ -145,18 +158,30 @@ export function offerReload(): void {
 
 /** Native shells and development builds keep their existing loading lifecycle. */
 export function registerPwa(): void {
-  if (!import.meta.env.PROD || window.ReaderAndroid || !window.isSecureContext
-    || !['http:', 'https:'].includes(location.protocol) || !('serviceWorker' in navigator)) return;
+  if (
+    !import.meta.env.PROD ||
+    window.ReaderAndroid ||
+    !window.isSecureContext ||
+    !['http:', 'https:'].includes(location.protocol) ||
+    !('serviceWorker' in navigator)
+  )
+    return;
 
   const register = () => {
     const base = new URL(import.meta.env.BASE_URL, document.baseURI);
-    void navigator.serviceWorker.register(new URL('sw.js', base), {
-      scope: base.pathname,
-      updateViaCache: 'none',
-    }).then((worker) => { registration = worker; watchPwaUpdates(worker); }).catch((error: unknown) => {
-      // PWA availability must not prevent ordinary online reading.
-      console.warn('离线应用缓存注册失败', error);
-    });
+    void navigator.serviceWorker
+      .register(new URL('sw.js', base), {
+        scope: base.pathname,
+        updateViaCache: 'none',
+      })
+      .then((worker) => {
+        registration = worker;
+        watchPwaUpdates(worker);
+      })
+      .catch((error: unknown) => {
+        // PWA availability must not prevent ordinary online reading.
+        console.warn('离线应用缓存注册失败', error);
+      });
   };
   if (document.readyState === 'complete') register();
   else window.addEventListener('load', register, { once: true });
@@ -165,7 +190,9 @@ export function registerPwa(): void {
 /** Keep activation opt-in, including when another tab activates the new worker. */
 export function watchPwaUpdates(
   registration: ServiceWorkerRegistration,
-    save: () => Promise<void> = async () => { await window.__readerFlush?.(); },
+  save: () => Promise<void> = async () => {
+    await window.__readerFlush?.();
+  },
   reload: () => void = () => location.reload(),
 ): () => void {
   const banner = document.createElement('aside');
@@ -232,16 +259,25 @@ export function watchPwaUpdates(
       try {
         await save();
         updating = true;
-        if (changed) { finish(); return; }
+        if (changed) {
+          finish();
+          return;
+        }
         let worker = registration.waiting ?? ready;
         if (!worker) {
           showProgress(progress, message, '正在下载新版本…');
           void registration.update().catch(() => undefined);
-          if (!await waitForWaiting(registration, 15_000)) { failed(); return; }
+          if (!(await waitForWaiting(registration, 15_000))) {
+            failed();
+            return;
+          }
           worker = registration.waiting;
           ready = worker;
         }
-        if (!worker) { failed(); return; }
+        if (!worker) {
+          failed();
+          return;
+        }
         showProgress(progress, message, '正在切换到新版本…');
         timeout = setTimeout(failed, 15_000);
         worker.postMessage({ type: 'SKIP_WAITING' });
@@ -260,7 +296,9 @@ export function watchPwaUpdates(
   const check = () => {
     if (document.visibilityState !== 'visible') return;
     show();
-    void registration.update().catch(() => { /* Offline: try again on return. */ });
+    void registration.update().catch(() => {
+      /* Offline: try again on return. */
+    });
   };
   // Only changes after initial control represent upgrades of an existing page.
   let controlled = !!navigator.serviceWorker.controller;

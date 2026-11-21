@@ -158,7 +158,11 @@ export class OfflineStore {
 
   async removeBooks(ids: string[]): Promise<void> {
     const drop = new Set(ids);
-    const droppedNotes = new Set(Object.entries(this.snapshot.notes).filter(([, note]) => drop.has(note.bookId)).map(([id]) => id));
+    const droppedNotes = new Set(
+      Object.entries(this.snapshot.notes)
+        .filter(([, note]) => drop.has(note.bookId))
+        .map(([id]) => id),
+    );
     for (const id of ids) {
       delete this.snapshot.books[id];
       delete this.snapshot.progress[id];

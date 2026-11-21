@@ -38,7 +38,10 @@ export class PreferenceSync {
   private uploadLocal = false;
   private scopeSeen = '';
 
-  constructor(private readonly deps: PreferenceSyncDeps, private readonly debounceMs = 600) {}
+  constructor(
+    private readonly deps: PreferenceSyncDeps,
+    private readonly debounceMs = 600,
+  ) {}
 
   /** Loads the device's choice and, when it is the account, catches up. */
   async ready(): Promise<void> {
@@ -198,7 +201,10 @@ export class PreferenceSync {
 
   private async send(): Promise<void> {
     if (!this.deps.signedIn()) return;
-    if (this.pushing) { this.again = true; return; }
+    if (this.pushing) {
+      this.again = true;
+      return;
+    }
     this.pushing = true;
     try {
       do {
@@ -222,7 +228,10 @@ export class PreferenceSync {
     this.updatedAt = snapshot.updatedAt;
     await this.deps.kv.set(stampKey(this.deps.scope()), String(snapshot.updatedAt));
     const release = silencePreferenceWrites();
-    try { await this.deps.write(snapshot); }
-    finally { release(); }
+    try {
+      await this.deps.write(snapshot);
+    } finally {
+      release();
+    }
   }
 }

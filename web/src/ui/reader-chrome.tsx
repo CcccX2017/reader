@@ -44,7 +44,14 @@ import { Fragment, type ReactNode, type JSX, useState } from 'react';
 import { Button, IconButton, SectionTitle, SwitchRow } from './toolkit.tsx';
 import { Icon, type IconName } from './icon.tsx';
 import { ActionMenu } from './action-menu.tsx';
-import { TAP_ACTIONS, isLastMenuCell, normalizeTapZones, tapActionLabel, tapZonePreset, type TapZoneGrid } from './tap-zones.ts';
+import {
+  TAP_ACTIONS,
+  isLastMenuCell,
+  normalizeTapZones,
+  tapActionLabel,
+  tapZonePreset,
+  type TapZoneGrid,
+} from './tap-zones.ts';
 
 /**
  * A table-of-contents row.
@@ -257,7 +264,12 @@ export interface ReaderChromeProps {
 }
 
 /** The blurb in 书籍信息, with an editor when the screen can save one. */
-function BookBlurb({ description, manual, onSave, onRestore }: {
+function BookBlurb({
+  description,
+  manual,
+  onSave,
+  onRestore,
+}: {
   description: string;
   manual: boolean;
   onSave?(text: string): Promise<void>;
@@ -267,34 +279,87 @@ function BookBlurb({ description, manual, onSave, onRestore }: {
   const [draft, setDraft] = useState(description);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const start = () => { setDraft(description); setError(''); setEditing(true); };
-  const cancel = () => { if (busy) return; setDraft(description); setError(''); setEditing(false); };
+  const start = () => {
+    setDraft(description);
+    setError('');
+    setEditing(true);
+  };
+  const cancel = () => {
+    if (busy) return;
+    setDraft(description);
+    setError('');
+    setEditing(false);
+  };
   const save = async () => {
     if (!onSave || busy) return;
-    setBusy(true); setError('');
-    try { await onSave(draft); setEditing(false); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : '保存失败，请稍后重试。'); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError('');
+    try {
+      await onSave(draft);
+      setEditing(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '保存失败，请稍后重试。');
+    } finally {
+      setBusy(false);
+    }
   };
   const restore = async () => {
     if (!onRestore || busy) return;
-    setBusy(true); setError('');
-    try { await onRestore(); setEditing(false); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : '恢复失败，请稍后重试。'); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError('');
+    try {
+      await onRestore();
+      setEditing(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '恢复失败，请稍后重试。');
+    } finally {
+      setBusy(false);
+    }
   };
-  return <>
-    {editing
-      ? <div className="sheet-field"><textarea aria-label="简介" rows={6} maxLength={8000} disabled={busy} value={draft} onInput={event => setDraft(event.currentTarget.value)} /></div>
-      : <p className="book-detail-description">{description || '暂无简介'}</p>}
-    {error && <p className="notice error" role="alert">{error}</p>}
-    {onSave && <div className="book-detail-actions">
-      {editing
-        ? <><Button disabled={busy} onClick={cancel}>取消</Button><Button className="primary" disabled={busy} onClick={() => void save()}>{busy ? '正在保存…' : '保存'}</Button></>
-        : <Button onClick={start}>编辑简介</Button>}
-      {manual && onRestore && <Button disabled={busy} onClick={() => void restore()}>恢复原简介</Button>}
-    </div>}
-  </>;
+  return (
+    <>
+      {editing ? (
+        <div className="sheet-field">
+          <textarea
+            aria-label="简介"
+            rows={6}
+            maxLength={8000}
+            disabled={busy}
+            value={draft}
+            onInput={(event) => setDraft(event.currentTarget.value)}
+          />
+        </div>
+      ) : (
+        <p className="book-detail-description">{description || '暂无简介'}</p>
+      )}
+      {error && (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      )}
+      {onSave && (
+        <div className="book-detail-actions">
+          {editing ? (
+            <>
+              <Button disabled={busy} onClick={cancel}>
+                取消
+              </Button>
+              <Button className="primary" disabled={busy} onClick={() => void save()}>
+                {busy ? '正在保存…' : '保存'}
+              </Button>
+            </>
+          ) : (
+            <Button onClick={start}>编辑简介</Button>
+          )}
+          {manual && onRestore && (
+            <Button disabled={busy} onClick={() => void restore()}>
+              恢复原简介
+            </Button>
+          )}
+        </div>
+      )}
+    </>
+  );
 }
 
 export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProps): JSX.Element {
@@ -325,7 +390,12 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
       {tools}
       <div className="topbar" hidden={!state.chromeVisible}>
         <IconButton label="返回" icon="arrow-left" onClick={handlers.onBack} />
-        <button type="button" className="reader-heading reader-book-heading" aria-label="书籍信息" onClick={handlers.onBookInfo}>
+        <button
+          type="button"
+          className="reader-heading reader-book-heading"
+          aria-label="书籍信息"
+          onClick={handlers.onBookInfo}
+        >
           <strong>{state.title}</strong>
           <span>{state.chapterLabel}</span>
         </button>
@@ -355,7 +425,14 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
               onClick={handlers.onToggleBookmark}
             />
           )}
-          {state.aiSummaryAvailable && <IconButton label="AI 总结" icon="file-text" disabled={state.aiSummaryBusy || state.navigating} onClick={() => handlers.onAiSummary?.()} />}
+          {state.aiSummaryAvailable && (
+            <IconButton
+              label="AI 总结"
+              icon="file-text"
+              disabled={state.aiSummaryBusy || state.navigating}
+              onClick={() => handlers.onAiSummary?.()}
+            />
+          )}
         </div>
         {(state.sourceName || state.chapterUrl) && (
           <div className="reader-source-info">
@@ -380,7 +457,12 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
               <dd>{state.chapterLabel || '暂无信息'}</dd>
             </dl>
             <h4>内容简介</h4>
-            <BookBlurb description={state.description ?? ''} manual={!!state.descriptionManual} {...(handlers.onSaveDescription ? { onSave: handlers.onSaveDescription } : {})} {...(handlers.onRestoreDescription ? { onRestore: handlers.onRestoreDescription } : {})} />
+            <BookBlurb
+              description={state.description ?? ''}
+              manual={!!state.descriptionManual}
+              {...(handlers.onSaveDescription ? { onSave: handlers.onSaveDescription } : {})}
+              {...(handlers.onRestoreDescription ? { onRestore: handlers.onRestoreDescription } : {})}
+            />
             <ReadingHistory state={state} handlers={handlers} />
           </article>
         </Sheet>
@@ -415,11 +497,22 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
       </div>
       <div className="footer" hidden={!state.chromeVisible}>
         <div className="progress-row">
-          <button type="button" className="nav-chapter" disabled={state.navigating || state.chapterIndex <= 1} onClick={() => handlers.onChapter(-1)}>
+          <button
+            type="button"
+            className="nav-chapter"
+            disabled={state.navigating || state.chapterIndex <= 1}
+            onClick={() => handlers.onChapter(-1)}
+          >
             {fixed ? '上一页' : '上一章'}
           </button>
           {fixed && totalPages <= 1 && handlers.onScrubChapter ? (
-            <PageScrubber key={state.chapterIndex} page={state.chapterIndex} count={state.chapterCount} disabled={state.navigating} onCommit={handlers.onScrubChapter} />
+            <PageScrubber
+              key={state.chapterIndex}
+              page={state.chapterIndex}
+              count={state.chapterCount}
+              disabled={state.navigating}
+              onCommit={handlers.onScrubChapter}
+            />
           ) : (
             <div className="reader-scrub">
               <input
@@ -437,7 +530,12 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
               <span className="progress-page">{pageLabel}</span>
             </div>
           )}
-          <button type="button" className="nav-chapter" disabled={state.navigating || state.chapterIndex >= state.chapterCount} onClick={() => handlers.onChapter(1)}>
+          <button
+            type="button"
+            className="nav-chapter"
+            disabled={state.navigating || state.chapterIndex >= state.chapterCount}
+            onClick={() => handlers.onChapter(1)}
+          >
             {fixed ? '下一页' : '下一章'}
           </button>
         </div>
@@ -445,7 +543,12 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
           {handlers.onTools && <TopButton icon="search" label="工具" onClick={handlers.onTools} />}
           <TopButton icon="menu" label="目录" onClick={handlers.toggleToc} />
           {/* 朗读 keeps going with its panel closed (ui.md §3.11), so the button says it is on. */}
-          <TopButton icon="read-aloud" label={state.tts.active ? '朗读中' : '朗读'} pressed={state.tts.active} onClick={() => handlers.toggleSettings('speech')} />
+          <TopButton
+            icon="read-aloud"
+            label={state.tts.active ? '朗读中' : '朗读'}
+            pressed={state.tts.active}
+            onClick={() => handlers.toggleSettings('speech')}
+          />
           <TopButton icon="text-size" label="外观" onClick={() => handlers.toggleSettings('appearance')} />
           <TopButton icon="settings" label="设置" onClick={() => handlers.toggleSettings('behavior')} />
         </div>
@@ -457,7 +560,12 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
           onClose={handlers.toggleToc}
           actions={
             state.canRefresh ? (
-              <IconButton icon="refresh" label="刷新目录" disabled={state.refreshing || state.refreshingChapter || state.navigating} onClick={() => handlers.onRefresh?.()} />
+              <IconButton
+                icon="refresh"
+                label="刷新目录"
+                disabled={state.refreshing || state.refreshingChapter || state.navigating}
+                onClick={() => handlers.onRefresh?.()}
+              />
             ) : null
           }
         >
@@ -477,38 +585,47 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
                 if (hasChildren && collapsed.has(entry.id)) hiddenDepth = entry.depth;
                 const reachable = entry.spine !== undefined && entry.spine >= 0;
                 const heading = entry.volume && entry.volume !== state.toc[index - 1]?.volume ? entry.volume : '';
-                return (<Fragment key={entry.id + index}>
-                  {heading && <li className="toc-volume" role="presentation">{heading}</li>}
-                  <li data-section={entry.id}>
-                    {hasChildren && (
-                      <button
-                        className="toc-collapse"
-                        aria-label={entry.label + (collapsed.has(entry.id) ? ' 展开' : ' 折叠')}
-                        aria-expanded={!collapsed.has(entry.id)}
-                        onClick={() => {
-                          const next = new Set(collapsed);
-                          if (next.has(entry.id)) next.delete(entry.id);
-                          else next.add(entry.id);
-                          setCollapsed(next);
-                        }}
-                      >
-                        <Icon name={collapsed.has(entry.id) ? 'chevron-right' : 'chevron-down'} size={16} />
-                      </button>
+                return (
+                  <Fragment key={entry.id + index}>
+                    {heading && (
+                      <li className="toc-volume" role="presentation">
+                        {heading}
+                      </li>
                     )}
-                    <button
-                      type="button"
-                      aria-current={entry.id.split('#')[0] === state.currentSectionId}
-                      data-unreachable={reachable ? undefined : 'true'}
-                      disabled={!reachable}
-                      title={reachable ? undefined : '这一章不在当前窗口中'}
-                      style={entry.depth > 0 ? { paddingInlineStart: `${0.6 + entry.depth * 0.9}rem` } : undefined}
-                      onClick={() => handlers.onTocEntry(entry.id)}
-                    >
-                      <span className="toc-index">{index + 1}</span>
-                      <span className="toc-label">{entry.label}{entry.note && <small className="toc-note">{entry.note}</small>}</span>
-                    </button>
-                  </li>
-                </Fragment>);
+                    <li data-section={entry.id}>
+                      {hasChildren && (
+                        <button
+                          className="toc-collapse"
+                          aria-label={entry.label + (collapsed.has(entry.id) ? ' 展开' : ' 折叠')}
+                          aria-expanded={!collapsed.has(entry.id)}
+                          onClick={() => {
+                            const next = new Set(collapsed);
+                            if (next.has(entry.id)) next.delete(entry.id);
+                            else next.add(entry.id);
+                            setCollapsed(next);
+                          }}
+                        >
+                          <Icon name={collapsed.has(entry.id) ? 'chevron-right' : 'chevron-down'} size={16} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        aria-current={entry.id.split('#')[0] === state.currentSectionId}
+                        data-unreachable={reachable ? undefined : 'true'}
+                        disabled={!reachable}
+                        title={reachable ? undefined : '这一章不在当前窗口中'}
+                        style={entry.depth > 0 ? { paddingInlineStart: `${0.6 + entry.depth * 0.9}rem` } : undefined}
+                        onClick={() => handlers.onTocEntry(entry.id)}
+                      >
+                        <span className="toc-index">{index + 1}</span>
+                        <span className="toc-label">
+                          {entry.label}
+                          {entry.note && <small className="toc-note">{entry.note}</small>}
+                        </span>
+                      </button>
+                    </li>
+                  </Fragment>
+                );
               })}
             </ul>
           )}
@@ -523,11 +640,17 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
               <span>{state.alternativesSearching ? '正在寻找可用书源' : '书源搜索完成'}</span>
               <strong>{state.alternatives.items.length} 个可选</strong>
               {state.alternativesSearching && state.alternatives.batch && (
-                <progress aria-label="换源搜索进度" max={Math.max(1, state.alternatives.batch.total)} value={state.alternatives.batch.completed} />
+                <progress
+                  aria-label="换源搜索进度"
+                  max={Math.max(1, state.alternatives.batch.total)}
+                  value={state.alternatives.batch.completed}
+                />
               )}
             </div>
             <p className="source-switch-hint">已按书名和作者匹配，选择书源后确认章节。</p>
-            {!state.alternatives.items.length && !state.alternativesSearching && <p className="catalog-empty">没有找到书名、作者匹配的其它书源。</p>}
+            {!state.alternatives.items.length && !state.alternativesSearching && (
+              <p className="catalog-empty">没有找到书名、作者匹配的其它书源。</p>
+            )}
             <div className="source-switch-list">
               {state.alternatives.items.map((entry) => (
                 <button
@@ -561,9 +684,16 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
                 </button>
               ))}
             </div>
-            {!!state.alternatives.errors?.length && <CatalogFeedback page={state.alternatives} merged compact searching={!!state.alternativesSearching} />}
+            {!!state.alternatives.errors?.length && (
+              <CatalogFeedback page={state.alternatives} merged compact searching={!!state.alternativesSearching} />
+            )}
             {state.alternativeChapters && (
-              <Sheet title="选择阅读章节" size="compact" busy={!!state.switching} onClose={() => handlers.onCancelAlternative?.()}>
+              <Sheet
+                title="选择阅读章节"
+                size="compact"
+                busy={!!state.switching}
+                onClose={() => handlers.onCancelAlternative?.()}
+              >
                 <div className="alternative-preview">
                   <h4>{state.alternativeTitle}</h4>
                   <label>
@@ -584,21 +714,29 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
                     </Select>
                   </label>
                   {state.alternativeLatest && <p>最新章节：{state.alternativeLatest}</p>}
-                  <Button disabled={state.switching || state.alternativeQualityBusy || !state.alternativeChapter} onClick={() => handlers.onCheckAlternative?.()}>
+                  <Button
+                    disabled={state.switching || state.alternativeQualityBusy || !state.alternativeChapter}
+                    onClick={() => handlers.onCheckAlternative?.()}
+                  >
                     {state.alternativeQualityBusy ? '正在检测正文…' : '检测所选章节 / 重试'}
                   </Button>
                   {state.alternativeQuality && (
                     <div role="status" className="chapter-quality">
                       <strong>正文检测通过</strong>
                       <p>
-                        {state.alternativeQuality.characters} 字符 · {state.alternativeQuality.images} 张图片 · {(state.alternativeQuality.bytes / 1024).toFixed(1)} KiB ·{' '}
-                        {state.alternativeQuality.elapsedMs} ms
+                        {state.alternativeQuality.characters} 字符 · {state.alternativeQuality.images} 张图片 ·{' '}
+                        {(state.alternativeQuality.bytes / 1024).toFixed(1)} KiB · {state.alternativeQuality.elapsedMs}{' '}
+                        ms
                       </p>
                       <p>检测仅说明本次内容可读，不保证章节完整或与原书一致。</p>
                     </div>
                   )}
                   {state.alternativeQualityError && <p role="alert">{state.alternativeQualityError}</p>}
-                  <Button type="button" disabled={state.switching || state.alternativeQualityBusy || !state.alternativeChapter} onClick={() => handlers.onSwitchSource?.()}>
+                  <Button
+                    type="button"
+                    disabled={state.switching || state.alternativeQualityBusy || !state.alternativeChapter}
+                    onClick={() => handlers.onSwitchSource?.()}
+                  >
                     确认换源并阅读
                   </Button>
                 </div>
@@ -609,7 +747,10 @@ export function ReaderChrome({ state, stage, handlers, tools }: ReaderChromeProp
       )}
 
       {state.settingsOpen ? (
-        <Sheet title={tab === 'appearance' ? '外观' : tab === 'speech' ? '朗读' : '阅读设置'} onClose={() => handlers.toggleSettings(tab)}>
+        <Sheet
+          title={tab === 'appearance' ? '外观' : tab === 'speech' ? '朗读' : '阅读设置'}
+          onClose={() => handlers.toggleSettings(tab)}
+        >
           {tab === 'speech' ? (
             <>
               {state.tts.active ? <SpeechBar state={state.tts} handlers={handlers} /> : null}
@@ -661,10 +802,16 @@ function ReadingHistory({ state, handlers }: { state: ChromeState; handlers: Chr
               const current = entry.locator === state.historyCurrent;
               return (
                 <li key={`${entry.updatedAt}-${index}`}>
-                  <button type="button" disabled={current} aria-current={current ? 'location' : undefined} onClick={() => handlers.onRestoreHistory?.(entry.locator)}>
+                  <button
+                    type="button"
+                    disabled={current}
+                    aria-current={current ? 'location' : undefined}
+                    onClick={() => handlers.onRestoreHistory?.(entry.locator)}
+                  >
                     <strong>{entry.chapterTitle || '未命名章节'}</strong>
                     <small>
-                      {Math.round(Math.max(0, Math.min(1, entry.percentage)) * 100)}% · {entry.device || '未知设备'} · {formatDate(entry.updatedAt)}
+                      {Math.round(Math.max(0, Math.min(1, entry.percentage)) * 100)}% · {entry.device || '未知设备'} ·{' '}
+                      {formatDate(entry.updatedAt)}
                     </small>
                     {current && <span className="reading-history-current">当前</span>}
                   </button>
@@ -713,7 +860,11 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
           {/* Most-used first. Size, spacing, theme and brightness are what a reader opens
           this sheet to change, so they fill its first screen; the rows that are set once
           and left alone are folded underneath instead of pushing these below the fold. */}
-          <PaperRow state={state} surface={handlers.theme().surface} onChange={(paper) => handlers.onSetting({ paper })} />
+          <PaperRow
+            state={state}
+            surface={handlers.theme().surface}
+            onChange={(paper) => handlers.onSetting({ paper })}
+          />
           {state.paper !== 'theme' && state.paper !== 'night' && state.paper !== undefined ? (
             <SwitchRow
               label="跟随系统深色模式"
@@ -744,7 +895,11 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
               />
             </>
           ) : null}
-          <ReadingThemeRow label="主题" state={handlers.theme()} onChange={(reading) => handlers.onTheme({ reading })} />
+          <ReadingThemeRow
+            label="主题"
+            state={handlers.theme()}
+            onChange={(reading) => handlers.onTheme({ reading })}
+          />
           <SegmentedRow
             label="明暗"
             options={MODE_OPTIONS}
@@ -932,8 +1087,17 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
             />
           </FoldSection>
           <FoldSection title="电纸书预设" hint="黑白灰、分页、无动画">
-            <Button onClick={() => { handlers.onSetting({ pageAnimation: 'none', mode: 'paged' }); handlers.onTheme({ reading: 'gray', mode: 'light', theme: handlers.theme().app.theme }); }}>应用电纸书预设</Button>
-            <p className="muted">黑白灰浅色、分页、无翻页动画；仅保存到当前设备，可继续单独调整。屏幕刷新由设备控制。</p>
+            <Button
+              onClick={() => {
+                handlers.onSetting({ pageAnimation: 'none', mode: 'paged' });
+                handlers.onTheme({ reading: 'gray', mode: 'light', theme: handlers.theme().app.theme });
+              }}
+            >
+              应用电纸书预设
+            </Button>
+            <p className="muted">
+              黑白灰浅色、分页、无翻页动画；仅保存到当前设备，可继续单独调整。屏幕刷新由设备控制。
+            </p>
           </FoldSection>
           <PreferencePlaceControl />
         </>
@@ -958,7 +1122,12 @@ function tapZonesAreDefault(state: ChromeState): boolean {
  */
 function SpeechSettings({ state, handlers }: { state: ChromeState; handlers: ChromeHandlers }): JSX.Element {
   if (state.speechUnavailable) {
-    return <div className="notice">当前环境没有可用的朗读引擎。请管理员在「我的 → 系统设置 → 服务配置 → HTTP 朗读」配置语音服务，或启用设备的系统语音。</div>;
+    return (
+      <div className="notice">
+        当前环境没有可用的朗读引擎。请管理员在「我的 → 系统设置 → 服务配置 → HTTP
+        朗读」配置语音服务，或启用设备的系统语音。
+      </div>
+    );
   }
   const RATE_PRESETS = [0.8, 1, 1.2, 1.5, 2];
   return (
@@ -970,7 +1139,12 @@ function SpeechSettings({ state, handlers }: { state: ChromeState; handlers: Chr
       {/* The engine picker only appears when there is a choice to make. One
           engine is not a setting. */}
       {state.showEngineRow ? (
-        <SelectRow label="朗读引擎" options={state.engineOptions} value={state.ttsEngine} onChange={(value) => handlers.onSwitchEngine(value as AppSettings['ttsEngine'])} />
+        <SelectRow
+          label="朗读引擎"
+          options={state.engineOptions}
+          value={state.ttsEngine}
+          onChange={(value) => handlers.onSwitchEngine(value as AppSettings['ttsEngine'])}
+        />
       ) : null}
       <SliderRow
         label="语速"
@@ -987,7 +1161,9 @@ function SpeechSettings({ state, handlers }: { state: ChromeState; handlers: Chr
         value={String(RATE_PRESETS.find((value) => Math.abs(value - state.ttsRate) < 0.05) ?? '')}
         onChange={(value) => handlers.onSpeechSetting({ ttsRate: Number(value) })}
       />
-      {state.showVoiceRow ? <SelectRow label="语音" options={state.voices} value={state.ttsVoice} onChange={handlers.onVoice} /> : null}
+      {state.showVoiceRow ? (
+        <SelectRow label="语音" options={state.voices} value={state.ttsVoice} onChange={handlers.onVoice} />
+      ) : null}
       <SegmentedRow
         label="章节播完"
         options={[
@@ -1078,7 +1254,13 @@ function SpeechBar({ state, handlers }: { state: SpeechBarState; handlers: Chrom
           onClick={handlers.onSpeechToggle}
         />
         <IconButton label="下一句" icon="step-forward" onClick={handlers.onSpeechNext} />
-        <button type="button" className="tts-chip" aria-label={`${state.chip}，从当前页重新朗读`} title="从当前页重新朗读" onClick={handlers.onSpeakFromHere}>
+        <button
+          type="button"
+          className="tts-chip"
+          aria-label={`${state.chip}，从当前页重新朗读`}
+          title="从当前页重新朗读"
+          onClick={handlers.onSpeakFromHere}
+        >
           {state.chip}
         </button>
         {/* Stop is last and it is the one destructive control, so it is separated
@@ -1109,7 +1291,12 @@ function SegmentedRow({
       <label>{label}</label>
       <div className="segmented" role="group" aria-label={label}>
         {options.map((option) => (
-          <button type="button" key={option.value} aria-pressed={option.value === value} onClick={() => onChange(option.value)}>
+          <button
+            type="button"
+            key={option.value}
+            aria-pressed={option.value === value}
+            onClick={() => onChange(option.value)}
+          >
             {option.label}
           </button>
         ))}
@@ -1130,20 +1317,45 @@ export interface ReaderThemeState {
  * The reading paper (阅读纸色), drawn in each paper's own colours: 跟随主题 is the
  * reading theme's page, then 白纸, 暖黄, 浅绿, 灰调, 夜间. A reader setting, per device.
  */
-function PaperRow({ state, surface, onChange }: { state: ChromeState; surface: ReaderSurface; onChange(paper: ReaderPaper): void }): JSX.Element {
+function PaperRow({
+  state,
+  surface,
+  onChange,
+}: {
+  state: ChromeState;
+  surface: ReaderSurface;
+  onChange(paper: ReaderPaper): void;
+}): JSX.Element {
   const current = state.paper ?? 'theme';
-  const themed = themes[surface.theme][surface.paper ? (readerPapers[surface.paper].dark ? 'dark' : 'light') : surface.mode];
+  const themed =
+    themes[surface.theme][surface.paper ? (readerPapers[surface.paper].dark ? 'dark' : 'light') : surface.mode];
   const options: Array<{ value: ReaderPaper; label: string; bg: string; ink: string; line: string }> = [
     { value: 'theme', label: '跟随主题', bg: themed.bg, ink: themed.ink, line: themed.line },
-    ...paperIds.map((id) => ({ value: id, label: readerPapers[id].name, bg: readerPapers[id].bg, ink: readerPapers[id].ink, line: readerPapers[id].line })),
+    ...paperIds.map((id) => ({
+      value: id,
+      label: readerPapers[id].name,
+      bg: readerPapers[id].bg,
+      ink: readerPapers[id].ink,
+      line: readerPapers[id].line,
+    })),
   ];
   return (
     <div className="field is-stacked">
       <label>纸色</label>
       <div className="theme-swatches paper-swatches" role="group" aria-label="纸色">
         {options.map((option) => (
-          <button type="button" key={option.value} className="theme-swatch" aria-pressed={current === option.value} onClick={() => onChange(option.value)}>
-            <span className="theme-swatch-chip" aria-hidden="true" style={{ background: option.bg, color: option.ink, '--chip-line': option.line } as CSSProperties}>
+          <button
+            type="button"
+            key={option.value}
+            className="theme-swatch"
+            aria-pressed={current === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            <span
+              className="theme-swatch-chip"
+              aria-hidden="true"
+              style={{ background: option.bg, color: option.ink, '--chip-line': option.line } as CSSProperties}
+            >
               Aa
             </span>
             <span className="theme-swatch-label">{option.label}</span>
@@ -1165,7 +1377,15 @@ const MODE_OPTIONS = [
  * current light/dark mode, so the choice is seen, not decoded from a name: 跟随应用 wears the app
  * theme, 黑白灰 is the reading-only theme. The app theme itself is chosen in 外观与主题.
  */
-function ReadingThemeRow({ label, state, onChange }: { label: string; state: ReaderThemeState; onChange(reading: ThemePreference['reading']): void }): JSX.Element {
+function ReadingThemeRow({
+  label,
+  state,
+  onChange,
+}: {
+  label: string;
+  state: ReaderThemeState;
+  onChange(reading: ThemePreference['reading']): void;
+}): JSX.Element {
   const options = [
     { value: 'app' as const, label: '跟随应用', id: state.app.theme },
     { value: 'gray' as const, label: themes.gray.name, id: 'gray' as const },
@@ -1177,8 +1397,18 @@ function ReadingThemeRow({ label, state, onChange }: { label: string; state: Rea
         {options.map((option) => {
           const current = themes[option.id][state.reading.mode];
           return (
-            <button type="button" key={option.value} className="theme-swatch" aria-pressed={state.preference.reading === option.value} onClick={() => onChange(option.value)}>
-              <span className="theme-swatch-chip" aria-hidden="true" style={{ background: current.bg, color: current.ink, '--chip-line': current.line } as CSSProperties}>
+            <button
+              type="button"
+              key={option.value}
+              className="theme-swatch"
+              aria-pressed={state.preference.reading === option.value}
+              onClick={() => onChange(option.value)}
+            >
+              <span
+                className="theme-swatch-chip"
+                aria-hidden="true"
+                style={{ background: current.bg, color: current.ink, '--chip-line': current.line } as CSSProperties}
+              >
                 Aa
               </span>
               <span className="theme-swatch-label">{option.label}</span>
@@ -1214,8 +1444,12 @@ function TapZoneEditor({ grid, onChange }: { grid: TapZoneGrid; onChange(grid: T
     <section className="tap-zones" aria-label="点击区域设置">
       <div className="tap-zones-head">
         <span className="tap-zones-title">每格的动作</span>
-        <Button className="tap-zones-action" onClick={() => onChange(mirrored)}>左右互换</Button>
-        <Button className="tap-zones-action" disabled={isDefault} onClick={() => onChange(tapZonePreset('standard'))}>恢复默认</Button>
+        <Button className="tap-zones-action" onClick={() => onChange(mirrored)}>
+          左右互换
+        </Button>
+        <Button className="tap-zones-action" disabled={isDefault} onClick={() => onChange(tapZonePreset('standard'))}>
+          恢复默认
+        </Button>
       </div>
       <div className="tap-zones-grid">
         {grid.map((action, index) => {
@@ -1300,7 +1534,17 @@ function SliderRow({
  * The label follows the thumb; the page opens when the thumb is let go, so dragging
  * across 200 pages decodes one image instead of 200.
  */
-function PageScrubber({ page, count, disabled, onCommit }: { page: number; count: number; disabled: boolean; onCommit(page: number): void }): JSX.Element {
+function PageScrubber({
+  page,
+  count,
+  disabled,
+  onCommit,
+}: {
+  page: number;
+  count: number;
+  disabled: boolean;
+  onCommit(page: number): void;
+}): JSX.Element {
   const [draft, setDraft] = useState(page);
   const label = `第 ${draft}/${count} 页`;
   const commit = () => {
@@ -1343,7 +1587,11 @@ function SelectRow({
   return (
     <div className="field">
       <label>{label}</label>
-      <Select aria-label={label} value={value} onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}>
+      <Select
+        aria-label={label}
+        value={value}
+        onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -1363,7 +1611,17 @@ function SelectRow({
  * is no word under them). Centred, equal-width, and full-height so the whole
  * column of the bar is the target rather than the glyph.
  */
-function TopButton({ icon, label, onClick, pressed }: { icon: IconName; label: string; onClick(): void; pressed?: boolean }): JSX.Element {
+function TopButton({
+  icon,
+  label,
+  onClick,
+  pressed,
+}: {
+  icon: IconName;
+  label: string;
+  onClick(): void;
+  pressed?: boolean;
+}): JSX.Element {
   return (
     <button type="button" className="top-button" aria-label={label} aria-pressed={pressed} onClick={onClick}>
       <Icon name={icon} />
@@ -1392,7 +1650,14 @@ function RailButton({
   pressed?: boolean;
 }): JSX.Element {
   return (
-    <button type="button" className="rail-button" aria-label={label} title={label} {...(pressed === undefined ? {} : { 'aria-pressed': pressed })} onClick={onClick}>
+    <button
+      type="button"
+      className="rail-button"
+      aria-label={label}
+      title={label}
+      {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
+      onClick={onClick}
+    >
       <Icon name={icon} />
     </button>
   );

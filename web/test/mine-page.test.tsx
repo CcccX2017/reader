@@ -17,14 +17,19 @@ const runtime = {
   mediaApi: { preferenceScope: () => 'mine-test' },
 } as any;
 const user = (role: 'admin' | 'member') => ({ id: 'u', username: 'lin', displayName: '林间', role, createdAt: 0 });
-const paint = () => act(() => render(
-  <RuntimeContext.Provider value={runtime}>
-    <MemoryRouter initialEntries={['/me']}>
-      <Routes><Route path="/me" element={<MinePage />} /></Routes>
-    </MemoryRouter>
-  </RuntimeContext.Provider>,
-  root,
-));
+const paint = () =>
+  act(() =>
+    render(
+      <RuntimeContext.Provider value={runtime}>
+        <MemoryRouter initialEntries={['/me']}>
+          <Routes>
+            <Route path="/me" element={<MinePage />} />
+          </Routes>
+        </MemoryRouter>
+      </RuntimeContext.Provider>,
+      root,
+    ),
+  );
 
 afterEach(() => {
   act(() => render(null, root));
@@ -34,13 +39,13 @@ afterEach(() => {
 });
 
 describe('我的', () => {
-  it('pure reading hides media management but keeps administrator recovery controls',()=>{
-    useAuthStore.setState({verifiedUser:{...user('admin'),features:{media:false}}});
+  it('pure reading hides media management but keeps administrator recovery controls', () => {
+    useAuthStore.setState({ verifiedUser: { ...user('admin'), features: { media: false } } });
     paint();
-    const links=[...root.querySelectorAll<HTMLAnchorElement>('a')];
-    expect(links.some(link=>link.getAttribute('href')?.startsWith('/media/'))).toBe(false);
-    expect(links.some(link=>link.getAttribute('href')==='/me/admin/users')).toBe(true);
-    expect(links.some(link=>link.getAttribute('href')==='/me/admin/services')).toBe(true);
+    const links = [...root.querySelectorAll<HTMLAnchorElement>('a')];
+    expect(links.some((link) => link.getAttribute('href')?.startsWith('/media/'))).toBe(false);
+    expect(links.some((link) => link.getAttribute('href') === '/me/admin/users')).toBe(true);
+    expect(links.some((link) => link.getAttribute('href') === '/me/admin/services')).toBe(true);
     expect(root.textContent).not.toContain('观影');
   });
   it('shows who is signed in, which server, and opens every row as a page', () => {
@@ -49,15 +54,22 @@ describe('我的', () => {
     expect(root.querySelector('.mine-profile')?.textContent).toContain('林间');
     expect(root.querySelector('.mine-profile')?.textContent).toContain('reader.example.com');
     expect(root.querySelector('.mine-profile')?.textContent).toContain('成员');
-    const links = [...root.querySelectorAll<HTMLAnchorElement>('a.mine-row')].map(a => [a.textContent, a.getAttribute('href')]);
+    const links = [...root.querySelectorAll<HTMLAnchorElement>('a.mine-row')].map((a) => [
+      a.textContent,
+      a.getAttribute('href'),
+    ]);
     expect(links).toEqual([
-      ['书库', '/sources?tab=explore&source=local'], ['书源', '/sources'], ['读书笔记高亮、批注、书签', '/me/notes'], ['时长统计阅读、观影、听书', '/me/stats'],
+      ['书库', '/sources?tab=explore&source=local'],
+      ['书源', '/sources'],
+      ['读书笔记高亮、批注、书签', '/me/notes'],
+      ['时长统计阅读、观影、听书', '/me/stats'],
       ['偏好设置跟随系统', '/me/settings'],
-      ['账号与连接', '/me/account'], ['外部阅读器OPDS', '/me/opds'],
+      ['账号与连接', '/me/account'],
+      ['外部阅读器OPDS', '/me/opds'],
       ['关于', '/me/about'],
     ]);
     // Signing out asks first. Checking for an update reports on the row.
-    expect([...root.querySelectorAll('button.mine-row')].map(b => b.textContent)).toEqual(['退出登录', '检查更新']);
+    expect([...root.querySelectorAll('button.mine-row')].map((b) => b.textContent)).toEqual(['退出登录', '检查更新']);
     // Members see no administration group.
     expect(root.querySelector('[aria-label="管理"]')).toBeNull();
   });
@@ -66,11 +78,16 @@ describe('我的', () => {
     saveThemePreference('mine-test', { theme: 'blue', mode: 'dark' });
     useAuthStore.setState({ verifiedUser: user('admin') });
     paint();
-    const labels = [...root.querySelectorAll('.mine-row-label')].map(el => el.textContent);
+    const labels = [...root.querySelectorAll('.mine-row-label')].map((el) => el.textContent);
     expect(labels).toContain('媒体库');
-    const admin = [...root.querySelectorAll<HTMLAnchorElement>('[aria-label="管理"] a.mine-row')].map(a => [a.querySelector('.mine-row-label')?.textContent, a.getAttribute('href')]);
+    const admin = [...root.querySelectorAll<HTMLAnchorElement>('[aria-label="管理"] a.mine-row')].map((a) => [
+      a.querySelector('.mine-row-label')?.textContent,
+      a.getAttribute('href'),
+    ]);
     expect(admin).toEqual([
-      ['用户管理', '/me/admin/users'], ['注册与邀请', '/me/admin/registration'], ['服务配置', '/me/admin/services'],
+      ['用户管理', '/me/admin/users'],
+      ['注册与邀请', '/me/admin/registration'],
+      ['服务配置', '/me/admin/services'],
       ['扫描与刮削', '/media/video/settings/tasks'],
     ]);
     expect(root.textContent).toContain('雾蓝 · 深色');
@@ -82,11 +99,18 @@ describe('我的', () => {
     meta.name = 'reader-web-build';
     meta.content = 'aaaaaaaaaaaaaaaaaaaa';
     document.head.append(meta);
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })),
+    );
     useAuthStore.setState({ verifiedUser: user('member') });
     paint();
-    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
-    await act(async () => { check.click(); });
+    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find((button) =>
+      button.textContent?.startsWith('检查更新'),
+    )!;
+    await act(async () => {
+      check.click();
+    });
     expect(check.textContent).toContain('发现新版本');
     expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
     document.querySelector('.pwa-update')?.remove();
@@ -100,7 +124,10 @@ describe('我的', () => {
     meta.content = 'aaaaaaaaaaaaaaaaaaaa';
     document.head.append(meta);
     const update = vi.fn(async () => undefined);
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })),
+    );
     vi.stubGlobal('navigator', {
       serviceWorker: {
         controller: null,
@@ -109,8 +136,12 @@ describe('我的', () => {
     });
     useAuthStore.setState({ verifiedUser: user('member') });
     paint();
-    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
-    await act(async () => { check.click(); });
+    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find((button) =>
+      button.textContent?.startsWith('检查更新'),
+    )!;
+    await act(async () => {
+      check.click();
+    });
     expect(check.textContent).toContain('发现新版本');
     expect(update).toHaveBeenCalledTimes(1);
     expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
@@ -124,12 +155,19 @@ describe('我的', () => {
     meta.name = 'reader-web-build';
     meta.content = 'aaaaaaaaaaaaaaaaaaaa';
     document.head.append(meta);
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'bbbbbbbbbbbbbbbbbbbb' }) })),
+    );
     vi.stubGlobal('navigator', { serviceWorker: { controller: {} } });
     useAuthStore.setState({ verifiedUser: user('member') });
     paint();
-    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
-    await act(async () => { check.click(); });
+    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find((button) =>
+      button.textContent?.startsWith('检查更新'),
+    )!;
+    await act(async () => {
+      check.click();
+    });
     expect(check.textContent).toContain('发现新版本');
     expect(document.querySelector('.pwa-update button')?.textContent).toBe('立即更新');
     document.querySelector('.pwa-update')?.remove();
@@ -140,18 +178,27 @@ describe('我的', () => {
   it('reports a development page as having no build to compare', () => {
     useAuthStore.setState({ verifiedUser: user('member') });
     paint();
-    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find(button => button.textContent?.startsWith('检查更新'))!;
-    act(() => { check.click(); });
+    const check = [...root.querySelectorAll<HTMLButtonElement>('button.mine-row')].find((button) =>
+      button.textContent?.startsWith('检查更新'),
+    )!;
+    act(() => {
+      check.click();
+    });
     expect(check.textContent).toContain('当前是开发页面');
   });
 
   it('lists the server version on 关于', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'abcabcabcabcabcabcab' }) })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ server: '1.0.12', web: 'abcabcabcabcabcabcab' }) })),
+    );
     await act(async () => {
       render(
         <RuntimeContext.Provider value={runtime}>
           <MemoryRouter initialEntries={['/me/about']}>
-            <Routes><Route path="/me/about" element={<AboutPage />} /></Routes>
+            <Routes>
+              <Route path="/me/about" element={<AboutPage />} />
+            </Routes>
           </MemoryRouter>
         </RuntimeContext.Provider>,
         root,
@@ -174,10 +221,16 @@ describe('我的', () => {
   it('signs out through the API, after a confirmation', () => {
     useAuthStore.setState({ verifiedUser: user('member') });
     paint();
-    act(() => { root.querySelector<HTMLButtonElement>('.mine-row.is-danger')!.click(); });
+    act(() => {
+      root.querySelector<HTMLButtonElement>('.mine-row.is-danger')!.click();
+    });
     expect(signOut).not.toHaveBeenCalled();
-    const confirm = [...document.querySelectorAll<HTMLButtonElement>('dialog button')].find(button => button.textContent === '退出登录')!;
-    act(() => { confirm.click(); });
+    const confirm = [...document.querySelectorAll<HTMLButtonElement>('dialog button')].find(
+      (button) => button.textContent === '退出登录',
+    )!;
+    act(() => {
+      confirm.click();
+    });
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 });

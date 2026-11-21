@@ -176,19 +176,31 @@ describe('ReaderChrome', () => {
     const onSaveDescription = vi.fn(async () => undefined);
     const onRestoreDescription = vi.fn(async () => undefined);
     const stage = document.createElement('div');
-    render(h(ReaderChrome, {
-      state: chromeState({ bookInfoOpen: true, description: '原简介', descriptionManual: true }),
-      stage,
-      handlers: { ...handlers(), onSaveDescription, onRestoreDescription },
-    }), container);
+    render(
+      h(ReaderChrome, {
+        state: chromeState({ bookInfoOpen: true, description: '原简介', descriptionManual: true }),
+        stage,
+        handlers: { ...handlers(), onSaveDescription, onRestoreDescription },
+      }),
+      container,
+    );
     expect(container.textContent).toContain('原简介');
-    await act(async () => { [...container.querySelectorAll('button')].find(button => button.textContent === '编辑简介')!.click(); });
+    await act(async () => {
+      [...container.querySelectorAll('button')].find((button) => button.textContent === '编辑简介')!.click();
+    });
     const field = container.querySelector<HTMLTextAreaElement>('[aria-label="简介"]')!;
     expect(field.value).toBe('原简介');
-    await act(async () => { field.value = '新简介'; field.dispatchEvent(new Event('input', { bubbles: true })); });
-    await act(async () => { [...container.querySelectorAll('button')].find(button => button.textContent === '保存')!.click(); });
+    await act(async () => {
+      field.value = '新简介';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      [...container.querySelectorAll('button')].find((button) => button.textContent === '保存')!.click();
+    });
     expect(onSaveDescription).toHaveBeenCalledWith('新简介');
-    await act(async () => { [...container.querySelectorAll('button')].find(button => button.textContent === '恢复原简介')!.click(); });
+    await act(async () => {
+      [...container.querySelectorAll('button')].find((button) => button.textContent === '恢复原简介')!.click();
+    });
     expect(onRestoreDescription).toHaveBeenCalled();
   });
 
@@ -324,12 +336,26 @@ describe('ReaderChrome', () => {
     const order = [...body.children].map((element) =>
       element.matches('details.panel-fold')
         ? `fold:${element.querySelector('.panel-fold-title')?.textContent}`
-        : (element.querySelector('label')?.textContent ?? element.querySelector('.section-title')?.textContent ?? '').split(' ')[0],
+        : (
+            element.querySelector('label')?.textContent ??
+            element.querySelector('.section-title')?.textContent ??
+            ''
+          ).split(' ')[0],
     );
     // Size, spacing, theme and brightness fill the first screen; the readouts that
     // used to come first are behind a fold, closed by default. 保存位置 is last: it
     // is chosen once, and it covers this sheet and 偏好设置 together.
-    expect(order).toEqual(['纸色', '字号', '行距', '主题', '明暗', '亮度', 'fold:更多排版', 'fold:页眉页脚', '保存位置']);
+    expect(order).toEqual([
+      '纸色',
+      '字号',
+      '行距',
+      '主题',
+      '明暗',
+      '亮度',
+      'fold:更多排版',
+      'fold:页眉页脚',
+      '保存位置',
+    ]);
     for (const fold of body.querySelectorAll<HTMLDetailsElement>('details.panel-fold')) expect(fold.open).toBe(false);
     expect(body.querySelector('details.panel-fold input[aria-label="页边距"]')).not.toBeNull();
     expect(body.querySelector('details.panel-fold select[aria-label="顶部左侧"]')).not.toBeNull();
@@ -498,8 +524,17 @@ describe('ReaderChrome', () => {
   it('offers 屏幕常亮 in the reading settings and reports the new value', () => {
     const onSetting = vi.fn();
     const stage = document.createElement('div');
-    render(h(ReaderChrome, { state: chromeState({ settingsOpen: true, settingsTab: 'behavior' }), stage, handlers: { ...handlers(), onSetting } }), container);
-    const row = [...container.querySelectorAll('.switch-field')].find((field) => field.textContent?.includes('屏幕常亮'));
+    render(
+      h(ReaderChrome, {
+        state: chromeState({ settingsOpen: true, settingsTab: 'behavior' }),
+        stage,
+        handlers: { ...handlers(), onSetting },
+      }),
+      container,
+    );
+    const row = [...container.querySelectorAll('.switch-field')].find((field) =>
+      field.textContent?.includes('屏幕常亮'),
+    );
     const toggle = row?.querySelector('button');
     expect(toggle?.getAttribute('aria-pressed')).toBe('false');
     act(() => toggle?.click());

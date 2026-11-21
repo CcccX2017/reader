@@ -30,14 +30,22 @@ export function DisplayNameInput({
         value={value}
         placeholder={placeholder}
         disabled={disabled}
-        onCompositionStart={() => { composing.current = true; }}
+        onCompositionStart={() => {
+          composing.current = true;
+        }}
         onCompositionEnd={(event) => {
           composing.current = false;
           onChange(clampDisplayName(event.currentTarget.value));
         }}
-        onChange={(event) => onChange(composing.current ? event.currentTarget.value : clampDisplayName(event.currentTarget.value))}
+        onChange={(event) =>
+          onChange(composing.current ? event.currentTarget.value : clampDisplayName(event.currentTarget.value))
+        }
       />
-      <span className="display-name-count" data-over={units > DISPLAY_NAME_MAX_UNITS ? 'true' : undefined} aria-live="polite">
+      <span
+        className="display-name-count"
+        data-over={units > DISPLAY_NAME_MAX_UNITS ? 'true' : undefined}
+        aria-live="polite"
+      >
         {units}/{DISPLAY_NAME_MAX_UNITS}
       </span>
     </span>

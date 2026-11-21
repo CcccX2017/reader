@@ -32,10 +32,19 @@ describe('useAvatar', () => {
 
   it('hides the picture until the bytes arrive, and reuses them for the next page', async () => {
     let release: (bytes: Uint8Array) => void = () => undefined;
-    const api = { coverBytes: vi.fn(() => new Promise<Uint8Array>(resolve => { release = resolve; })) };
+    const api = {
+      coverBytes: vi.fn(
+        () =>
+          new Promise<Uint8Array>((resolve) => {
+            release = resolve;
+          }),
+      ),
+    };
     act(() => render(<Probe api={api} url="/api/v1/users/u/avatar?v=1" />, root));
     expect(root.querySelector('output')?.dataset).toMatchObject({ pending: 'yes', src: '' });
-    await act(async () => { release(new Uint8Array([9, 8, 7])); });
+    await act(async () => {
+      release(new Uint8Array([9, 8, 7]));
+    });
     const src = root.querySelector('output')?.dataset.src ?? '';
     expect(src.startsWith('blob:')).toBe(true);
     expect(root.querySelector('output')?.dataset.pending).toBe('no');
@@ -47,7 +56,9 @@ describe('useAvatar', () => {
 
   it('falls back to no picture when the download fails', async () => {
     const api = { coverBytes: vi.fn().mockRejectedValue(new Error('missing')) };
-    await act(async () => { render(<Probe api={api} url="/api/v1/users/u/avatar?v=2" />, root); });
+    await act(async () => {
+      render(<Probe api={api} url="/api/v1/users/u/avatar?v=2" />, root);
+    });
     expect(root.querySelector('output')?.dataset).toMatchObject({ pending: 'no', src: '' });
   });
 

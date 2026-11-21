@@ -16,8 +16,8 @@ import { expect, it } from 'vitest';
  *    as a string literal;
  *  - `prefix-${expr}`: any class starting with `prefix-`.
  *
- * Library markup (Notyf, DPlayer) is theirs, not ours. A class inside :not() is matched
- * by its absence, so it need not exist.
+ * Library markup (Notyf, DPlayer, OpenPageFlip `opf-`, flipbook `stf__`) is theirs,
+ * not ours. A class inside :not() is matched by its absence, so it need not exist.
  */
 const src = join(import.meta.dirname, '..', 'src');
 const files = (dir: string): string[] =>
@@ -45,7 +45,7 @@ it('styles only classes that the source renders', () => {
         .replace(/:not\([^)]*\)/g, '');
       const names = new Set([...css.matchAll(/\.(-?[a-zA-Z_][\w-]*)/g)].map((match) => match[1]!));
       return [...names]
-        .filter((cls) => !/^(dplayer|notyf)/.test(cls) && !used(cls))
+        .filter((cls) => !/^(dplayer|notyf|opf-|stf__)/.test(cls) && !used(cls))
         .map((cls) => `${relative(src, file)}: .${cls}`);
     });
   expect(unused).toEqual([]);

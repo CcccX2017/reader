@@ -16,7 +16,9 @@ export function setAppName(name: string): void {
 
 export function subscribeAppName(listener: () => void): () => void {
   appNameListeners.add(listener);
-  return () => { appNameListeners.delete(listener); };
+  return () => {
+    appNameListeners.delete(listener);
+  };
 }
 
 /** First match wins, so the specific paths come before the sections that contain them. */

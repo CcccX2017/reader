@@ -7,9 +7,15 @@ import { usePreferencePlaceStore } from '../src/shared/stores/preference-place.s
 function memory(): KeyValueStore {
   const map = new Map<string, string>();
   return {
-    async get(key) { return map.has(key) ? map.get(key)! : null; },
-    async set(key, value) { map.set(key, value); },
-    async remove(key) { map.delete(key); },
+    async get(key) {
+      return map.has(key) ? map.get(key)! : null;
+    },
+    async set(key, value) {
+      map.set(key, value);
+    },
+    async remove(key) {
+      map.delete(key);
+    },
   };
 }
 
@@ -36,12 +42,32 @@ function harness(options?: { signedIn?: boolean; remote?: PreferenceDocument | n
     scope: () => 'server:ada',
     signedIn: () => signedIn,
     read: () => ({ app: local.app, theme: local.theme, media: local.media, playback: local.playback }),
-    write: (snapshot) => { applied.push(snapshot); local = snapshot; },
+    write: (snapshot) => {
+      applied.push(snapshot);
+      local = snapshot;
+    },
     pull: async () => remote,
-    push: async (snapshot) => { pushed.push(snapshot); remote = snapshot; return snapshot; },
-    report: (message) => { reports.push(message); },
+    push: async (snapshot) => {
+      pushed.push(snapshot);
+      remote = snapshot;
+      return snapshot;
+    },
+    report: (message) => {
+      reports.push(message);
+    },
   });
-  return { store, sync, pushed, applied, reports, remote: () => remote, local: () => local, signIn: () => { signedIn = true; } };
+  return {
+    store,
+    sync,
+    pushed,
+    applied,
+    reports,
+    remote: () => remote,
+    local: () => local,
+    signIn: () => {
+      signedIn = true;
+    },
+  };
 }
 
 afterEach(() => {

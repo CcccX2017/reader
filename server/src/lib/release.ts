@@ -27,7 +27,9 @@ export class ReleaseHub {
   subscribe(listener: (release: Release) => void): () => void {
     this.listeners.add(listener);
     listener(this.current);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   /** Notifies subscribers only when the server version or the web bundle changed. */
@@ -35,7 +37,11 @@ export class ReleaseHub {
     if (next.server === this.current.server && next.web === this.current.web) return;
     this.current = next;
     for (const listener of this.listeners) {
-      try { listener(next); } catch { /* one client must not stop the others */ }
+      try {
+        listener(next);
+      } catch {
+        /* one client must not stop the others */
+      }
     }
   }
 }
@@ -44,7 +50,9 @@ export function serverVersion(): string {
   const fromNpm = process.env.npm_package_version?.trim();
   if (fromNpm) return fromNpm;
   try {
-    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version?: string };
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
+      version?: string;
+    };
     return pkg.version?.trim() || '0.0.0';
   } catch {
     return '0.0.0';
@@ -90,12 +98,20 @@ export function watchRelease(hub: ReleaseHub, webDir: string, intervalMs = 2000)
   const tick = () => {
     if (stopped) return;
     try {
-      const file = !webDir ? '' : existsSync(join(webDir, 'sw.js')) ? join(webDir, 'sw.js') : existsSync(join(webDir, 'index.html')) ? join(webDir, 'index.html') : '';
+      const file = !webDir
+        ? ''
+        : existsSync(join(webDir, 'sw.js'))
+          ? join(webDir, 'sw.js')
+          : existsSync(join(webDir, 'index.html'))
+            ? join(webDir, 'index.html')
+            : '';
       const key = file ? `${file}:${statSync(file).mtimeMs}:${statSync(file).size}` : '';
       if (key === lastKey && hub.snapshot().server === serverVersion()) return;
       lastKey = key;
       hub.publish(currentRelease(webDir));
-    } catch { /* an unreadable file keeps the last release */ }
+    } catch {
+      /* an unreadable file keeps the last release */
+    }
   };
   const timer = setInterval(tick, intervalMs);
   timer.unref();
@@ -107,7 +123,9 @@ export function watchRelease(hub: ReleaseHub, webDir: string, intervalMs = 2000)
         clearTimeout(pending);
         pending = setTimeout(tick, 200);
       });
-    } catch { /* the interval still notices a replaced bundle */ }
+    } catch {
+      /* the interval still notices a replaced bundle */
+    }
   }
   return () => {
     stopped = true;
@@ -119,37 +137,45 @@ export function watchRelease(hub: ReleaseHub, webDir: string, intervalMs = 2000)
 
 /** One Server-Sent Events response. Ends when the request goes away. */
 export function releaseEvents(hub: ReleaseHub, signal: AbortSignal, heartbeatMs = 20_000): Readable {
-  return Readable.from((async function* () {
-    const queue: Release[] = [];
-    let wake: (() => void) | undefined;
-    const stop = hub.subscribe(release => {
-      queue.push(release);
-      wake?.();
-    });
-    const onAbort = () => wake?.();
-    signal.addEventListener('abort', onAbort, { once: true });
-    let heart: ReturnType<typeof setTimeout> | undefined;
-    try {
-      while (!signal.aborted) {
-        if (queue.length === 0) {
-          await new Promise<void>(resolve => {
-            wake = () => { wake = undefined; resolve(); };
-            heart = setTimeout(wake, heartbeatMs);
-            heart.unref?.();
-          });
-          clearTimeout(heart);
-          if (signal.aborted) break;
-          if (queue.length === 0) { yield ': ping\n\n'; continue; }
+  return Readable.from(
+    (async function* () {
+      const queue: Release[] = [];
+      let wake: (() => void) | undefined;
+      const stop = hub.subscribe((release) => {
+        queue.push(release);
+        wake?.();
+      });
+      const onAbort = () => wake?.();
+      signal.addEventListener('abort', onAbort, { once: true });
+      let heart: ReturnType<typeof setTimeout> | undefined;
+      try {
+        while (!signal.aborted) {
+          if (queue.length === 0) {
+            await new Promise<void>((resolve) => {
+              wake = () => {
+                wake = undefined;
+                resolve();
+              };
+              heart = setTimeout(wake, heartbeatMs);
+              heart.unref?.();
+            });
+            clearTimeout(heart);
+            if (signal.aborted) break;
+            if (queue.length === 0) {
+              yield ': ping\n\n';
+              continue;
+            }
+          }
+          while (queue.length > 0 && !signal.aborted) {
+            const release = queue.shift();
+            if (release) yield frame('release', release);
+          }
         }
-        while (queue.length > 0 && !signal.aborted) {
-          const release = queue.shift();
-          if (release) yield frame('release', release);
-        }
+      } finally {
+        clearTimeout(heart);
+        signal.removeEventListener('abort', onAbort);
+        stop();
       }
-    } finally {
-      clearTimeout(heart);
-      signal.removeEventListener('abort', onAbort);
-      stop();
-    }
-  })());
+    })(),
+  );
 }

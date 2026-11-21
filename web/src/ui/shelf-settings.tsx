@@ -64,10 +64,18 @@ export interface ShelfSettingsOptions {
  * then leave with them.
  */
 function SettingsGroup({ title, children }: { title: string; children: ReactNode }): JSX.Element {
-  return <section className="settings-group"><SectionTitle>{title}</SectionTitle>{children}</section>;
+  return (
+    <section className="settings-group">
+      <SectionTitle>{title}</SectionTitle>
+      {children}
+    </section>
+  );
 }
 
-export function ShelfSettingsFields({ settings, onPatch }: Pick<ShelfSettingsOptions, 'settings' | 'onPatch'>): JSX.Element {
+export function ShelfSettingsFields({
+  settings,
+  onPatch,
+}: Pick<ShelfSettingsOptions, 'settings' | 'onPatch'>): JSX.Element {
   return (
     <>
       <SettingsGroup title="封面大小">
@@ -102,9 +110,12 @@ export function ShelfSettingsFields({ settings, onPatch }: Pick<ShelfSettingsOpt
         <div className="notice">只影响首页「我的书架」显示多少本、按什么顺序。书架页的排序仍由那里的按钮决定</div>
         <Segmented
           label="首页显示数量"
-          options={[...HOME_SHELF_COUNTS.map((count) => ({ value: String(count), label: `${count} 本` })), { value: 'all', label: '全部' }]}
+          options={[
+            ...HOME_SHELF_COUNTS.map((count) => ({ value: String(count), label: `${count} 本` })),
+            { value: 'all', label: '全部' },
+          ]}
           value={String(settings.homeShelfCount)}
-          onChange={(value) => onPatch({ homeShelfCount: value === 'all' ? 'all' : Number(value) as HomeShelfCount })}
+          onChange={(value) => onPatch({ homeShelfCount: value === 'all' ? 'all' : (Number(value) as HomeShelfCount) })}
         />
         <div className="home-shelf-order">
           <Segmented

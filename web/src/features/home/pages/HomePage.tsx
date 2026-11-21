@@ -8,7 +8,13 @@ import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { coverTint } from '../../../ui/cover-tint.ts';
 import { type MenuItems } from '../../../ui/action-menu.tsx';
-import { CoverCheck, useCoverActions, useCoarsePointer, usePickingCard, type Picking } from '../../../ui/cover-actions.tsx';
+import {
+  CoverCheck,
+  useCoverActions,
+  useCoarsePointer,
+  usePickingCard,
+  type Picking,
+} from '../../../ui/cover-actions.tsx';
 import { BookCard, useCover } from '../../shelf/pages/ShelfPage.tsx';
 import { BookSelectBar, BookSelectHead, useBookCommands, useBookPicking } from '../../shelf/book-selection.tsx';
 import { homeShelfQuery } from '../../shelf/queries/shelf.queries.ts';
@@ -42,7 +48,9 @@ function clock(seconds: number): string {
 /** Progress through the unfinished activity, 0..1; unknown length reads as 0 rather than a guess. */
 export function activityProgress(activity: Activity): number {
   const length = activity.end === null ? 0 : activity.end - activity.start;
-  return length > 0 && activity.position !== undefined ? Math.max(0, Math.min(1, (activity.position - activity.start) / length)) : 0;
+  return length > 0 && activity.position !== undefined
+    ? Math.max(0, Math.min(1, (activity.position - activity.start) / length))
+    : 0;
 }
 
 type Channel = 'read' | 'video' | 'audiobook';
@@ -92,28 +100,46 @@ function ResumeCard({
 const HOME_UPDATE_LIMIT = 5;
 
 /** A subscribed book with chapters the reader has not opened yet. Same card as 继续, without a second progress bar. */
-function UpdateCard({ bookId, title, count, coverUrl }: { bookId: string; title: string; count: number; coverUrl: string | null }) {
+function UpdateCard({
+  bookId,
+  title,
+  count,
+  coverUrl,
+}: {
+  bookId: string;
+  title: string;
+  count: number;
+  coverUrl: string | null;
+}) {
   const runtime = useRuntime();
   const src = useCover(runtime.api, coverUrl);
   const name = title || '未命名';
   return (
     <Link className="home-resume" data-channel="read" to={`/book/${encodeURIComponent(bookId)}`}>
       <span className="home-resume-cover" aria-hidden="true">
-        {src ? <img src={src} alt="" draggable={false} /> : <span className="home-resume-placeholder" style={coverTint(name)}>{name}</span>}
+        {src ? (
+          <img src={src} alt="" draggable={false} />
+        ) : (
+          <span className="home-resume-placeholder" style={coverTint(name)}>
+            {name}
+          </span>
+        )}
       </span>
       <span className="home-resume-text">
         <span className="home-resume-label">追更</span>
         <strong title={name}>{name}</strong>
         <small>新增 {count} 章</small>
       </span>
-      <span className="home-resume-play" aria-hidden="true"><Icon name="play" size={16} filled /></span>
+      <span className="home-resume-play" aria-hidden="true">
+        <Icon name="play" size={16} filled />
+      </span>
     </Link>
   );
 }
 
 function freshSubscriptions(items: ChapterSubscription[] | undefined): ChapterSubscription[] {
   return (items ?? [])
-    .filter(item => item.newChapters > 0)
+    .filter((item) => item.newChapters > 0)
     .sort((a, b) => b.newChapters - a.newChapters || a.title.localeCompare(b.title, 'zh'))
     .slice(0, HOME_UPDATE_LIMIT);
 }
@@ -175,11 +201,26 @@ function ResumeMedia({ channel, activity }: { channel: 'video' | 'audiobook'; ac
   });
   const resolved = work.data?.work;
   const title = resolved?.title ?? activity.title;
-  const detail = [resolved && resolved.id !== activity.itemId ? activity.title : '', activity.partTitle !== activity.title ? activity.partTitle : ''].filter(Boolean).join(' · ');
+  const detail = [
+    resolved && resolved.id !== activity.itemId ? activity.title : '',
+    activity.partTitle !== activity.title ? activity.partTitle : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const known = activity.end !== null && activity.position !== undefined;
-  const meter = known ? `${clock(activity.position! - activity.start)} / ${clock(activity.end! - activity.start)}` : `继续${channel === 'video' ? '观看' : '收听'}`;
+  const meter = known
+    ? `${clock(activity.position! - activity.start)} / ${clock(activity.end! - activity.start)}`
+    : `继续${channel === 'video' ? '观看' : '收听'}`;
   const coverItem = work.data?.artwork ??
-    resolved ?? { id: activity.itemId, libraryId: activity.libraryId, kind: activity.kind, title: activity.title, parentId: null, metadata: {}, overrides: {} };
+    resolved ?? {
+      id: activity.itemId,
+      libraryId: activity.libraryId,
+      kind: activity.kind,
+      title: activity.title,
+      parentId: null,
+      metadata: {},
+      overrides: {},
+    };
   return (
     <ResumeCard
       channel={channel}
@@ -215,7 +256,17 @@ function saveMode(channel: string, mode: DiscoverMode) {
 }
 
 /** One media channel: what just arrived, or a random handful so a rarely opened library still turns up. */
-function Discover({ channel, kind, heading, to }: { channel: 'video' | 'audiobook' | 'music'; kind: string; heading: string; to: string }) {
+function Discover({
+  channel,
+  kind,
+  heading,
+  to,
+}: {
+  channel: 'video' | 'audiobook' | 'music';
+  kind: string;
+  heading: string;
+  to: string;
+}) {
   const runtime = useRuntime();
   const [mode, setMode] = useState<DiscoverMode>(() => readMode(channel));
   const [round, setRound] = useState(0);
@@ -241,7 +292,12 @@ function Discover({ channel, kind, heading, to }: { channel: 'video' | 'audioboo
       <div className="home-section">
         <h2>{heading}</h2>
         {mode === 'random' && sample.data!.total > items.length && (
-          <button type="button" className="home-shuffle" disabled={sample.isFetching} onClick={() => setRound((value) => value + 1)}>
+          <button
+            type="button"
+            className="home-shuffle"
+            disabled={sample.isFetching}
+            onClick={() => setRound((value) => value + 1)}
+          >
             <Icon name="refresh" size={14} />
             换一批
           </button>
@@ -265,7 +321,9 @@ function Discover({ channel, kind, heading, to }: { channel: 'video' | 'audioboo
           <Link key={item.id} className="home-tile" to={`/media/${channel}/items/${encodeURIComponent(item.id)}`}>
             <MediaCover api={runtime.mediaApi} item={item} square={square} />
             <strong title={item.title}>{item.title}</strong>
-            {channel === 'music' && typeof item.metadata.artist === 'string' && <small title={item.metadata.artist}>{item.metadata.artist}</small>}
+            {channel === 'music' && typeof item.metadata.artist === 'string' && (
+              <small title={item.metadata.artist}>{item.metadata.artist}</small>
+            )}
           </Link>
         ))}
       </div>
@@ -294,7 +352,10 @@ export function HomePage() {
   // 首页显示最近续播 (偏好设置 › 影音浏览) off: no video/audiobook continue cards; books are not media.
   const { showContinue } = useMediaPreferences();
   const video = useQuery({ ...historyQuery(runtime, 'video', new URLSearchParams()), enabled: media && showContinue });
-  const audio = useQuery({ ...historyQuery(runtime, 'audiobook', new URLSearchParams()), enabled: media && showContinue });
+  const audio = useQuery({
+    ...historyQuery(runtime, 'audiobook', new URLSearchParams()),
+    enabled: media && showContinue,
+  });
   const unfinished = (items?: Activity[]) => items?.find((item) => !item.completed);
   const readingBooks = reading.data ?? [],
     book = readingBooks[0];
@@ -397,10 +458,24 @@ export function HomePage() {
   for (const item of readingBooks.slice(0, 2))
     resumes.push({
       at: item.lastReadAt ?? 0,
-      node: <ResumeBook key={`read:${item.id}`} book={item} {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })} />,
+      node: (
+        <ResumeBook
+          key={`read:${item.id}`}
+          book={item}
+          {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })}
+        />
+      ),
     });
-  if (videoActivity) resumes.push({ at: videoActivity.updatedAt ?? 0, node: <ResumeMedia key="video" channel="video" activity={videoActivity} /> });
-  if (audioActivity) resumes.push({ at: audioActivity.updatedAt ?? 0, node: <ResumeMedia key="audiobook" channel="audiobook" activity={audioActivity} /> });
+  if (videoActivity)
+    resumes.push({
+      at: videoActivity.updatedAt ?? 0,
+      node: <ResumeMedia key="video" channel="video" activity={videoActivity} />,
+    });
+  if (audioActivity)
+    resumes.push({
+      at: audioActivity.updatedAt ?? 0,
+      node: <ResumeMedia key="audiobook" channel="audiobook" activity={audioActivity} />,
+    });
   resumes.sort((a, b) => b.at - a.at);
 
   // Pull is armed from the body pane: the shelf only moves once that pane is already at its end.
@@ -408,8 +483,17 @@ export function HomePage() {
     <div ref={pull.ref} className="media-screen media-page home-page">
       <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
       <div className="select-head-slot">
-        <header className="home-header" data-picking-hidden={picking.active ? 'true' : undefined} aria-hidden={picking.active || undefined} inert={picking.active || undefined}>
-          {name && <div className={avatar.pending ? 'home-avatar is-pending' : 'home-avatar'} aria-hidden="true">{avatar.src ? <img src={avatar.src} alt="" /> : avatar.pending ? null : Array.from(name)[0]}</div>}
+        <header
+          className="home-header"
+          data-picking-hidden={picking.active ? 'true' : undefined}
+          aria-hidden={picking.active || undefined}
+          inert={picking.active || undefined}
+        >
+          {name && (
+            <div className={avatar.pending ? 'home-avatar is-pending' : 'home-avatar'} aria-hidden="true">
+              {avatar.src ? <img src={avatar.src} alt="" /> : avatar.pending ? null : Array.from(name)[0]}
+            </div>
+          )}
           <div className="home-header-text">
             <h1>
               {greeting(new Date().getHours())}
@@ -418,9 +502,18 @@ export function HomePage() {
             <p>从上次停下的地方继续</p>
           </div>
           {/* A phone has no sidebar, so this is its way into the one search (ui.md §10). */}
-          <Link className="home-search" to="/search" aria-label={media ? '搜索书籍和影音' : '搜索书籍'}><Icon name="search" size={20} /></Link>
+          <Link className="home-search" to="/search" aria-label={media ? '搜索书籍和影音' : '搜索书籍'}>
+            <Icon name="search" size={20} />
+          </Link>
         </header>
-        {picking.active && <BookSelectHead allPicked={picking.allPicked} count={picking.count} onAll={picking.selectAll} onCancel={picking.cancel} />}
+        {picking.active && (
+          <BookSelectHead
+            allPicked={picking.allPicked}
+            count={picking.count}
+            onAll={picking.selectAll}
+            onCancel={picking.cancel}
+          />
+        )}
       </div>
       <div
         className="home-body"
@@ -429,79 +522,91 @@ export function HomePage() {
           pull.scrollRef(node);
         }}
       >
-      <div className="home-continue">
-        {resumes.map((entry) => entry.node)}
-        {/* Only a successful answer can say "nothing in progress": while loading the slot keeps
+        <div className="home-continue">
+          {resumes.map((entry) => entry.node)}
+          {/* Only a successful answer can say "nothing in progress": while loading the slot keeps
           its shape, and a failure says so instead of telling a reader with books that they have none.
           Media in progress is enough to fill the row, so the "no book" invitation is only for an empty row. */}
-        {!book &&
-          (reading.isPending ? (
-            <section className="home-empty home-empty-pending" aria-label="继续阅读" aria-busy="true">
-              <strong>正在读取在读的书…</strong>
-            </section>
-          ) : reading.error ? (
-            <section className="home-empty" aria-label="继续阅读" role="alert">
-              <strong>在读的书读取失败</strong>
-              <button type="button" className="home-retry" onClick={() => void reading.refetch()}>
-                重试
-                <Icon name="chevron-right" size={16} />
-              </button>
-            </section>
-          ) : (
-            !resumes.length && (
-              <section className="home-empty" aria-label="继续阅读">
-                <strong>还没有在读的书</strong>
-                <Link to="/shelf">
-                  去书架挑一本
-                  <Icon name="chevron-right" size={16} />
-                </Link>
+          {!book &&
+            (reading.isPending ? (
+              <section className="home-empty home-empty-pending" aria-label="继续阅读" aria-busy="true">
+                <strong>正在读取在读的书…</strong>
               </section>
-            )
-          ))}
-      </div>
-      {fresh.length > 0 && (
-        <section className="home-updates" aria-label="有更新">
-          <div className="home-section">
-            <h2>有更新</h2>
-            <Link to="/sources?tab=updates">
-              追更
-              <Icon name="chevron-right" size={16} />
-            </Link>
-          </div>
-          <div className="home-continue">
-            {fresh.map(item => (
-              <UpdateCard key={item.bookId} bookId={item.bookId} title={item.title} count={item.newChapters} coverUrl={coverById.get(item.bookId) ?? null} />
+            ) : reading.error ? (
+              <section className="home-empty" aria-label="继续阅读" role="alert">
+                <strong>在读的书读取失败</strong>
+                <button type="button" className="home-retry" onClick={() => void reading.refetch()}>
+                  重试
+                  <Icon name="chevron-right" size={16} />
+                </button>
+              </section>
+            ) : (
+              !resumes.length && (
+                <section className="home-empty" aria-label="继续阅读">
+                  <strong>还没有在读的书</strong>
+                  <Link to="/shelf">
+                    去书架挑一本
+                    <Icon name="chevron-right" size={16} />
+                  </Link>
+                </section>
+              )
             ))}
-          </div>
-        </section>
-      )}
-      <section className="home-shelf" aria-label="我的书架">
-        {books.length > 0 && (
-          <div className="home-section" ref={sectionRef}>
-            <h2>我的书架</h2>
-            <Link to="/shelf">
-              全部
-              <Icon name="chevron-right" size={16} />
-            </Link>
-          </div>
-        )}
-        <div ref={shelfRef} className="home-shelf-scroll" data-selecting={picking.active ? 'true' : undefined}>
-          {books.length > 0 && (
-            <div className="book-grid" data-show-author="true" data-show-progress="true">
-              {books.map((item) => (
-                <BookCard key={item.id} book={item} showAuthor showProgress {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })} />
+        </div>
+        {fresh.length > 0 && (
+          <section className="home-updates" aria-label="有更新">
+            <div className="home-section">
+              <h2>有更新</h2>
+              <Link to="/sources?tab=updates">
+                追更
+                <Icon name="chevron-right" size={16} />
+              </Link>
+            </div>
+            <div className="home-continue">
+              {fresh.map((item) => (
+                <UpdateCard
+                  key={item.bookId}
+                  bookId={item.bookId}
+                  title={item.title}
+                  count={item.newChapters}
+                  coverUrl={coverById.get(item.bookId) ?? null}
+                />
               ))}
             </div>
+          </section>
+        )}
+        <section className="home-shelf" aria-label="我的书架">
+          {books.length > 0 && (
+            <div className="home-section" ref={sectionRef}>
+              <h2>我的书架</h2>
+              <Link to="/shelf">
+                全部
+                <Icon name="chevron-right" size={16} />
+              </Link>
+            </div>
           )}
-          {media && (
-            <>
-              <Discover channel="video" kind="video" heading="看点什么" to="/media/video" />
-              <Discover channel="audiobook" kind="audiobook" heading="听本书" to="/media/audiobook" />
-              <Discover channel="music" kind="album" heading="听张专辑" to="/media/music/albums" />
-            </>
-          )}
-        </div>
-      </section>
+          <div ref={shelfRef} className="home-shelf-scroll" data-selecting={picking.active ? 'true' : undefined}>
+            {books.length > 0 && (
+              <div className="book-grid" data-show-author="true" data-show-progress="true">
+                {books.map((item) => (
+                  <BookCard
+                    key={item.id}
+                    book={item}
+                    showAuthor
+                    showProgress
+                    {...(coarse ? { picking: picking.bind(item) } : { menu: commands.menuFor(item) })}
+                  />
+                ))}
+              </div>
+            )}
+            {media && (
+              <>
+                <Discover channel="video" kind="video" heading="看点什么" to="/media/video" />
+                <Discover channel="audiobook" kind="audiobook" heading="听本书" to="/media/audiobook" />
+                <Discover channel="music" kind="album" heading="听张专辑" to="/media/music/albums" />
+              </>
+            )}
+          </div>
+        </section>
       </div>
       {commands.ui}
       {picking.active && <BookSelectBar actions={commands.actionsFor(picking.chosen)} />}

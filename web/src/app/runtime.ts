@@ -2,15 +2,28 @@ import { ReaderApi, type SessionStore } from '../api/client.ts';
 import { ApiError } from '../api/errors.ts';
 import type { Book, Session } from '../api/types.ts';
 import { createWebPlatform } from '../core/web-platform.ts';
-import { androidPageHost, androidSpeechBridge, createAndroidPlatform, detectAndroidBridge } from '../core/android-platform.ts';
+import {
+  androidPageHost,
+  androidSpeechBridge,
+  createAndroidPlatform,
+  detectAndroidBridge,
+} from '../core/android-platform.ts';
 import { SyncEngine } from '../core/sync.ts';
 import { OfflineStore } from '../store/offline.ts';
 import { SettingsStore, type AppSettings } from '../store/settings.ts';
 import { PreferenceSync } from '../store/preference-sync.ts';
 import { bindPreferencePlace, bindPreferenceWrites, emitPreferencesApplied } from '../store/preference-writes.ts';
 import { readThemePreference, saveThemePreference, type ThemePreference } from '../shared/theme/theme.ts';
-import { readMediaPreferences, saveMediaPreferences, type MediaPreferences } from '../features/media/services/preferences.ts';
-import { readPlaybackPreferences, savePlaybackPreferences, type PlaybackPreferences } from '../features/media/services/playback-preferences.ts';
+import {
+  readMediaPreferences,
+  saveMediaPreferences,
+  type MediaPreferences,
+} from '../features/media/services/preferences.ts';
+import {
+  readPlaybackPreferences,
+  savePlaybackPreferences,
+  type PlaybackPreferences,
+} from '../features/media/services/playback-preferences.ts';
 import { notify } from '../ui/notifications.ts';
 import { publicationScope } from '../store/publications.ts';
 import { MediaApi } from '../features/media/api/media-api.ts';
@@ -26,7 +39,9 @@ export function validServerUrl(value?: string): string {
   if (!value?.trim()) return '';
   try {
     const url = new URL(value.trim());
-    return ['http:', 'https:'].includes(url.protocol) && url.hostname !== 'appassets.androidplatform.net' ? value.trim() : '';
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname !== 'appassets.androidplatform.net'
+      ? value.trim()
+      : '';
   } catch {
     return '';
   }
@@ -180,7 +195,8 @@ export async function createAppRuntime(defaultServerUrl = '') {
     if (!session) return;
     const revision = ++capabilityRevision;
     const user = await api.me();
-    if (revision !== capabilityRevision || api.baseUrl !== server || api.currentSession()?.user.id !== session.user.id) return;
+    if (revision !== capabilityRevision || api.baseUrl !== server || api.currentSession()?.user.id !== session.user.id)
+      return;
     useAuthStore.getState().verify(user);
     if (!mediaEnabled(user)) {
       playback?.stop();
@@ -210,7 +226,9 @@ export async function createAppRuntime(defaultServerUrl = '') {
     speechBridge: bridge ? androidSpeechBridge(bridge) : null,
     async authenticated() {
       const session = api.currentSession();
-      useAuthStore.getState().setSession(session ? { ...session, user: { ...session.user, features: { media: false } } } : null);
+      useAuthStore
+        .getState()
+        .setSession(session ? { ...session, user: { ...session.user, features: { media: false } } } : null);
       if (!session) return;
       await offline.setScope(publicationScope(api.baseUrl, session.user.id));
       await refreshCapabilities();
@@ -262,7 +280,9 @@ export async function createAppRuntime(defaultServerUrl = '') {
           void player?.stop().catch(() => undefined);
         }
         scope = nextScope;
-        useAuthStore.getState().setSession(session ? { ...session, user: { ...session.user, features: { media: false } } } : null);
+        useAuthStore
+          .getState()
+          .setSession(session ? { ...session, user: { ...session.user, features: { media: false } } } : null);
         if (verified) useAuthStore.getState().verify(verified);
         queryClient.clear();
         if (!session) {

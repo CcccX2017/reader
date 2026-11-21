@@ -38,12 +38,13 @@ export function preferenceDocument(body: unknown): PreferenceDocument {
     place: raw.place === 'local' ? 'local' : 'account',
     updatedAt,
   };
-  if (JSON.stringify(document).length > MAX_DOCUMENT) throw badRequest('preferences are too large', 'PAYLOAD_TOO_LARGE');
+  if (JSON.stringify(document).length > MAX_DOCUMENT)
+    throw badRequest('preferences are too large', 'PAYLOAD_TOO_LARGE');
   return document;
 }
 
 function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 function stored(row: { document: string; updated_at: number } | undefined): PreferenceDocument | null {

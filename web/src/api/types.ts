@@ -26,12 +26,12 @@ export interface User {
   /** Relative API path for the avatar image, or null/absent when none is set. */
   avatarUrl?: string | null;
   mediaEnabled?: boolean;
-  features?: {media:boolean};
-  mediaState?: 'disabled'|'stopping'|'starting'|'ready'|'failed'|'closed';
+  features?: { media: boolean };
+  mediaState?: 'disabled' | 'stopping' | 'starting' | 'ready' | 'failed' | 'closed';
 }
 
 export interface InstanceInfo {
-  features?: {media:boolean};
+  features?: { media: boolean };
   registrationMode?: 'closed' | 'open' | 'invite';
   invitationRequired?: boolean;
   name: string;
@@ -360,7 +360,17 @@ export interface UploadResult {
 }
 
 /** The fields 编辑信息 may set: the server's allowlist for `PATCH /books/:id/metadata`. */
-export type BookMetadataField = 'title' | 'author' | 'publisher' | 'language' | 'isbn' | 'description' | 'series' | 'seriesIndex' | 'pubdate' | 'tags';
+export type BookMetadataField =
+  | 'title'
+  | 'author'
+  | 'publisher'
+  | 'language'
+  | 'isbn'
+  | 'description'
+  | 'series'
+  | 'seriesIndex'
+  | 'pubdate'
+  | 'tags';
 
 /** Outcome of `POST /library/scan`. Mirrors the server's `ScanResult`. */
 export interface LibraryScanResult {
@@ -394,17 +404,45 @@ export interface ApiErrorBody {
   error: { code: string; message: string };
 }
 
-export interface ManagedUser extends User { disabled: boolean }
-export interface RegistrationInvite { id:string; label:string; maxUses:number; usedCount:number; expiresAt:number; disabled:boolean; createdAt:number }
-export interface RegistrationSettings { mode:'closed'|'open'|'invite'; invites:RegistrationInvite[] }
-
-export interface BookSearchPage {
-  hits: Array<{title: string; excerpt: string; anchor: {sectionId: string; start: number; end: number; quote: string; prefix: string; suffix: string}}>;
-  scanned: number; total: number; limited: boolean; nextCursor?: string;
-  failures: Array<{title: string; code: string}>;
+export interface ManagedUser extends User {
+  disabled: boolean;
+}
+export interface RegistrationInvite {
+  id: string;
+  label: string;
+  maxUses: number;
+  usedCount: number;
+  expiresAt: number;
+  disabled: boolean;
+  createdAt: number;
+}
+export interface RegistrationSettings {
+  mode: 'closed' | 'open' | 'invite';
+  invites: RegistrationInvite[];
 }
 
-export interface ReadingOverrides { version: number; corrections: Array<{ id: string; anchor: { sectionId: string; start: number; end: number; quote: string; prefix: string; suffix: string }; replacement: string }>; headingPrefix: string }
+export interface BookSearchPage {
+  hits: Array<{
+    title: string;
+    excerpt: string;
+    anchor: { sectionId: string; start: number; end: number; quote: string; prefix: string; suffix: string };
+  }>;
+  scanned: number;
+  total: number;
+  limited: boolean;
+  nextCursor?: string;
+  failures: Array<{ title: string; code: string }>;
+}
+
+export interface ReadingOverrides {
+  version: number;
+  corrections: Array<{
+    id: string;
+    anchor: { sectionId: string; start: number; end: number; quote: string; prefix: string; suffix: string };
+    replacement: string;
+  }>;
+  headingPrefix: string;
+}
 
 /**
  * The account copy of personal preferences.

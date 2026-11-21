@@ -103,7 +103,10 @@ export function resolvePublishedImage(
 let cached: Promise<{ digest: string; tag: string } | null> | undefined;
 
 /** The published digest for this process, or nothing when it is not that image. */
-export function publishedImageDigest(version: string, arch: string = process.arch): Promise<{ digest: string; tag: string } | null> {
+export function publishedImageDigest(
+  version: string,
+  arch: string = process.arch,
+): Promise<{ digest: string; tag: string } | null> {
   if (!runningInContainer()) return Promise.resolve(null);
   const pinned = shortDigest(process.env.READER_IMAGE_DIGEST?.trim() ?? '');
   if (pinned) return Promise.resolve({ digest: pinned, tag: imageTagFromRef(process.env.READER_IMAGE) ?? version });
@@ -118,7 +121,7 @@ async function lookupPublishedDigest(version: string, arch: string): Promise<{ d
     const url = `https://hub.docker.com/v2/repositories/${REPOSITORY}/tags?page_size=100`;
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) return null;
-    const body = await response.json() as { results?: PublishedTag[] };
+    const body = (await response.json()) as { results?: PublishedTag[] };
     return resolvePublishedImage(
       body.results ?? [],
       version,

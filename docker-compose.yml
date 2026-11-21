@@ -26,7 +26,7 @@ services:
       - '5888:5888'
     environment:
       # Business settings are managed in the administrator UI and persisted in /data.
-      LOG_LEVEL: "info"
+      LOG_LEVEL: 'info'
       READER_IMAGE: ${READER_IMAGE:-ccccx2022/reader:latest}
       # Directory holding the built H5 client, served at `/`. Already set in the
       # image; only override if you build the client separately.

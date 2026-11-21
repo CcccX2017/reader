@@ -14,7 +14,14 @@ const runtime = {
   api: {
     baseUrl: 'https://reader.example',
     currentSession: () => null,
-    browse: vi.fn(async () => ({ crumbs: [{ name: '书库', path: '' }], entries: [], writable: false, page: 1, pageSize: 200, total: 0 })),
+    browse: vi.fn(async () => ({
+      crumbs: [{ name: '书库', path: '' }],
+      entries: [],
+      writable: false,
+      page: 1,
+      pageSize: 200,
+      total: 0,
+    })),
     listBooks: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 60 })),
     sources: vi.fn(async () => []),
     sourceTypes: vi.fn(async () => []),
@@ -23,14 +30,18 @@ const runtime = {
 let client: QueryClient;
 
 function paint(state?: unknown) {
-  return act(async () => render(
-    <RuntimeContext value={runtime}>
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[{ pathname: '/sources', state }]}><SourcesPage /></MemoryRouter>
-      </QueryClientProvider>
-    </RuntimeContext>,
-    root,
-  ));
+  return act(async () =>
+    render(
+      <RuntimeContext value={runtime}>
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={[{ pathname: '/sources', state }]}>
+            <SourcesPage />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </RuntimeContext>,
+      root,
+    ),
+  );
 }
 
 function backHref() {

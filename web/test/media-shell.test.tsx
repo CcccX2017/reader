@@ -13,7 +13,10 @@ const root = document.createElement('div');
 document.body.append(root);
 const listeners = { addEventListener: () => undefined, removeEventListener: () => undefined };
 const runtime = {
-  api: { baseUrl: 'https://reader.example.com', instance: async () => ({ name: 'reader', apiVersion: 1, userCount: 1, registrationOpen: false }) },
+  api: {
+    baseUrl: 'https://reader.example.com',
+    instance: async () => ({ name: 'reader', apiVersion: 1, userCount: 1, registrationOpen: false }),
+  },
   mediaApi: { preferenceScope: () => 'shell-test' },
   player: { ...listeners, setVisible: () => undefined },
   playback: { snapshot: () => ({}) },
@@ -108,33 +111,63 @@ describe('shell navigation', () => {
     function Open() {
       const navigate = useNavigate();
       const location = useLocation();
-      return <button type="button" data-testid="open" data-path={location.pathname} onClick={() => navigate('/book/abc')}>打开</button>;
+      return (
+        <button type="button" data-testid="open" data-path={location.pathname} onClick={() => navigate('/book/abc')}>
+          打开
+        </button>
+      );
     }
     function Back() {
       const navigate = useNavigate();
-      return <button type="button" data-testid="back" onClick={() => navigate(-1)}>返回</button>;
+      return (
+        <button type="button" data-testid="back" onClick={() => navigate(-1)}>
+          返回
+        </button>
+      );
     }
-    act(() => render(
-      <RuntimeContext.Provider value={runtime}>
-        <MemoryRouter initialEntries={['/shelf']}>
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route path="/shelf" element={<main data-testid="page">书架<Open /></main>} />
-              <Route path="/book/:id" element={<main data-testid="reader">阅读<Back /></main>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      </RuntimeContext.Provider>,
-      root,
-    ));
+    act(() =>
+      render(
+        <RuntimeContext.Provider value={runtime}>
+          <MemoryRouter initialEntries={['/shelf']}>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route
+                  path="/shelf"
+                  element={
+                    <main data-testid="page">
+                      书架
+                      <Open />
+                    </main>
+                  }
+                />
+                <Route
+                  path="/book/:id"
+                  element={
+                    <main data-testid="reader">
+                      阅读
+                      <Back />
+                    </main>
+                  }
+                />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </RuntimeContext.Provider>,
+        root,
+      ),
+    );
     const page = root.querySelector('[data-testid="page"]');
-    act(() => { (root.querySelector('[data-testid="open"]') as HTMLButtonElement).click(); });
+    act(() => {
+      (root.querySelector('[data-testid="open"]') as HTMLButtonElement).click();
+    });
     expect(root.querySelector('[data-testid="page"]')).toBe(page);
     expect(root.querySelector('[data-testid="open"]')?.getAttribute('data-path')).toBe('/shelf');
     expect(root.querySelector('.app-shell-reader [data-testid="reader"]')).not.toBeNull();
     expect(page?.closest('.app-shell-page')).not.toBeNull();
     expect(document.body.dataset.appNav).toBe('top');
-    act(() => { (root.querySelector('[data-testid="back"]') as HTMLButtonElement).click(); });
+    act(() => {
+      (root.querySelector('[data-testid="back"]') as HTMLButtonElement).click();
+    });
     expect(root.querySelector('[data-testid="reader"]')).toBeNull();
     expect(root.querySelector('[data-testid="page"]')).toBe(page);
     expect(document.body.dataset.appNav).toBe('top');

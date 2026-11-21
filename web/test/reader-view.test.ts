@@ -607,7 +607,13 @@ describe('plain-text chapters are typeset by the reader', () => {
     // copies of the heuristic.
     const container = document.createElement('div');
     document.body.append(container);
-    const legacy = ['<div class="txt-body">', '<h3>第二章 落雨</h3>', '<p>　　雨来了。</p>', '<p>他走在雨里。</p>', '</div>'].join('\n');
+    const legacy = [
+      '<div class="txt-body">',
+      '<h3>第二章 落雨</h3>',
+      '<p>　　雨来了。</p>',
+      '<p>他走在雨里。</p>',
+      '</div>',
+    ].join('\n');
     const view = make(container, txtDoc(legacy));
     await view.open(0, 0);
     const body = shadowOf(container).querySelector('.txt-body');

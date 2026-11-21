@@ -16,9 +16,9 @@ export async function writeSiteIcon(dataDir: string, buf: Buffer, ext: string): 
   await mkdir(dirname(abs), { recursive: true });
   await writeFile(abs, buf);
   await Promise.all(
-    SITE_ICON_EXTENSIONS
-      .filter((other) => other !== ext)
-      .map((other) => rm(join(dataDir, siteIconRel(other)), { force: true })),
+    SITE_ICON_EXTENSIONS.filter((other) => other !== ext).map((other) =>
+      rm(join(dataDir, siteIconRel(other)), { force: true }),
+    ),
   );
   return rel;
 }

@@ -35,7 +35,12 @@ export type EdgeCurl = {
  * pointer stays at one height, so the crease stays vertical for the whole
  * page instead of peeling a corner.
  */
-export function mountEdgeCurl(overlay: HTMLElement, before: HTMLElement, after: HTMLElement, direction: 'next' | 'previous'): EdgeCurl {
+export function mountEdgeCurl(
+  overlay: HTMLElement,
+  before: HTMLElement,
+  after: HTMLElement,
+  direction: 'next' | 'previous',
+): EdgeCurl {
   const host = document.createElement('div');
   host.className = 'reader-edge-book';
   const stage = document.createElement('div');
@@ -43,7 +48,7 @@ export function mountEdgeCurl(overlay: HTMLElement, before: HTMLElement, after: 
   // The overlay is still hidden while this book is built, and a hidden box can
   // report no size. A 1px page then finishes as soon as the finger lets go.
   // The stage behind it is on screen and already has the page's real size.
-  const frame = overlay.clientWidth >= 2 ? overlay : overlay.parentElement ?? overlay;
+  const frame = overlay.clientWidth >= 2 ? overlay : (overlay.parentElement ?? overlay);
   const width = Math.max(1, frame.clientWidth);
   const height = Math.max(1, frame.clientHeight);
   stage.style.width = `${width}px`;
@@ -76,7 +81,9 @@ export function mountEdgeCurl(overlay: HTMLElement, before: HTMLElement, after: 
     ignoreDragOn: false,
   });
   const observer = new MutationObserver(() => {
-    stage.querySelectorAll<HTMLElement>('.book-host').forEach(face => { void whenFaceSettled(face); });
+    stage.querySelectorAll<HTMLElement>('.book-host').forEach((face) => {
+      void whenFaceSettled(face);
+    });
   });
   observer.observe(stage, { childList: true, subtree: true });
 
@@ -88,14 +95,16 @@ export function mountEdgeCurl(overlay: HTMLElement, before: HTMLElement, after: 
   let destination = after;
   let bounds = stage.getBoundingClientRect();
   const y = height / 2;
-  const point = (distance: number) => direction === 'next' ? width - 4 - distance : 4 + distance;
+  const point = (distance: number) => (direction === 'next' ? width - 4 - distance : 4 + distance);
   // The pointer stays with the finger. Doubling it runs the corner to the end
   // of the sheet while the finger is still near the edge, and the full-height
   // curl collapses into a fast flip.
 
   const hold = () => {
     if (down || dead || !primed) return;
-    const painted = [...stage.querySelectorAll('.opf-page')].some(node => node instanceof HTMLElement && node.offsetHeight > 0);
+    const painted = [...stage.querySelectorAll('.opf-page')].some(
+      (node) => node instanceof HTMLElement && node.offsetHeight > 0,
+    );
     if (!painted) return;
     bounds = stage.getBoundingClientRect();
     if (bounds.width < 2) return;
@@ -105,46 +114,62 @@ export function mountEdgeCurl(overlay: HTMLElement, before: HTMLElement, after: 
 
   const send = (type: 'pointerdown' | 'pointermove' | 'pointerup', x: number) => {
     if (!stage.isConnected) return;
-    stage.dispatchEvent(new PointerEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      clientX: bounds.left + x,
-      clientY: bounds.top + y,
-      pointerId: 1,
-      pointerType: 'mouse',
-      button: 0,
-      buttons: type === 'pointerup' ? 0 : 1,
-    }));
+    stage.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: bounds.left + x,
+        clientY: bounds.top + y,
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: 0,
+        buttons: type === 'pointerup' ? 0 : 1,
+      }),
+    );
   };
 
-  const glide = (from: number, to: number, duration: number) => new Promise<void>(resolve => {
-    const started = performance.now();
-    const step = (now: number) => {
-      if (dead || !stage.isConnected) { resolve(); return; }
-      const t = Math.min(1, (now - started) / duration);
-      travel = from + (to - from) * t;
-      send('pointermove', point(travel));
-      if (t < 1) requestAnimationFrame(step);
-      else resolve();
-    };
-    requestAnimationFrame(step);
-  });
+  const glide = (from: number, to: number, duration: number) =>
+    new Promise<void>((resolve) => {
+      const started = performance.now();
+      const step = (now: number) => {
+        if (dead || !stage.isConnected) {
+          resolve();
+          return;
+        }
+        const t = Math.min(1, (now - started) / duration);
+        travel = from + (to - from) * t;
+        send('pointermove', point(travel));
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      requestAnimationFrame(step);
+    });
 
   return {
     async ready() {
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         let settled = false;
-        const done = () => { if (!settled) { settled = true; resolve(); } };
+        const done = () => {
+          if (!settled) {
+            settled = true;
+            resolve();
+          }
+        };
         book.on('init', done);
         window.setTimeout(done, 400);
       });
       if (dead) return;
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         let tries = 0;
         const check = () => {
-          const shown = [...stage.querySelectorAll('.opf-page')].some(node => node instanceof HTMLElement && node.offsetHeight > 0);
+          const shown = [...stage.querySelectorAll('.opf-page')].some(
+            (node) => node instanceof HTMLElement && node.offsetHeight > 0,
+          );
           if (dead || shown || tries > 20) resolve();
-          else { tries += 1; requestAnimationFrame(check); }
+          else {
+            tries += 1;
+            requestAnimationFrame(check);
+          }
         };
         requestAnimationFrame(check);
       });
@@ -204,11 +229,17 @@ export function mountEdgeCurl(overlay: HTMLElement, before: HTMLElement, after: 
 
 /** The library reports a landing with `flip`, and a curl that falls back with `read`. */
 function landed(book: Book, commit: boolean): Promise<void> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     let timer = 0;
-    const done = () => { window.clearTimeout(timer); resolve(); };
+    const done = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
     timer = window.setTimeout(done, commit ? 1600 : 900);
     if (commit) book.on('flip', done);
-    else book.on('changeState', (event) => { if (event.state === 'read') done(); });
+    else
+      book.on('changeState', (event) => {
+        if (event.state === 'read') done();
+      });
   });
 }

@@ -55,12 +55,16 @@ describe('ReaderApi navigation query cache', () => {
     await api.listBooks({ scope: 'shelf', page: 1 });
     await api.continueReading(2);
     transport.json({ serverTime: 1, progress: [], notes: [], accepted: 1, rejected: 0 });
-    await api.push({ progress: [{ bookId: 'b', locator: 'r1:0.0000:c', percentage: 0.1, chapterTitle: '', device: 'a', updatedAt: 1 }] });
+    await api.push({
+      progress: [{ bookId: 'b', locator: 'r1:0.0000:c', percentage: 0.1, chapterTitle: '', device: 'a', updatedAt: 1 }],
+    });
     transport.json({ items: [{ id: 'b' }], total: 1 });
     await api.listBooks({ scope: 'shelf', page: 1 });
     await api.continueReading(2);
-    expect(transport.countMatching(request => request.method === 'GET' && request.url.startsWith('/api/v1/books'))).toBe(2);
-    expect(transport.countMatching(request => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
+    expect(
+      transport.countMatching((request) => request.method === 'GET' && request.url.startsWith('/api/v1/books')),
+    ).toBe(2);
+    expect(transport.countMatching((request) => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
   });
 
   it('deduplicates concurrent shelf reads and reuses them on return', async () => {
@@ -83,8 +87,10 @@ describe('ReaderApi navigation query cache', () => {
     transport.json({ items: [{ id: 'book-1', readingState: 'reading' }], total: 1 });
     await api.listBooks({ scope: 'shelf', page: 1 });
     await api.continueReading(2);
-    expect(transport.countMatching(request => request.method === 'GET' && request.url.startsWith('/api/v1/books'))).toBe(2);
-    expect(transport.countMatching(request => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
+    expect(
+      transport.countMatching((request) => request.method === 'GET' && request.url.startsWith('/api/v1/books')),
+    ).toBe(2);
+    expect(transport.countMatching((request) => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
   });
 
   it('re-reads book lists after a book is deleted', async () => {
@@ -98,8 +104,10 @@ describe('ReaderApi navigation query cache', () => {
     transport.json({ items: [], total: 0 });
     await api.listBooks({ scope: 'shelf', page: 1 });
     await api.continueReading(2);
-    expect(transport.countMatching(request => request.method === 'GET' && request.url.startsWith('/api/v1/books'))).toBe(2);
-    expect(transport.countMatching(request => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
+    expect(
+      transport.countMatching((request) => request.method === 'GET' && request.url.startsWith('/api/v1/books')),
+    ).toBe(2);
+    expect(transport.countMatching((request) => request.url.startsWith('/api/v1/library/continue'))).toBe(2);
   });
 
   it('invalidates navigation data after a write', async () => {
@@ -119,18 +127,40 @@ describe('ReaderApi navigation query cache', () => {
   it('refetches book lists after a library scan', async () => {
     const transport = new FakeTransport();
     let total = 1;
-    transport.respondWith(request => {
+    transport.respondWith((request) => {
       if (request.method === 'POST' && request.url === '/api/v1/library/scan') {
         total = 2;
-        return { status: 200, headers: {}, json: { result: { running: false, added: 1, updated: 0, removed: 0, scanned: 2, unchanged: 1, failed: 0, lastError: null, startedAt: 1, finishedAt: 2, durationMs: 1 } } };
+        return {
+          status: 200,
+          headers: {},
+          json: {
+            result: {
+              running: false,
+              added: 1,
+              updated: 0,
+              removed: 0,
+              scanned: 2,
+              unchanged: 1,
+              failed: 0,
+              lastError: null,
+              startedAt: 1,
+              finishedAt: 2,
+              durationMs: 1,
+            },
+          },
+        };
       }
-      return { status: 200, headers: {}, json: { items: Array.from({ length: total }, (_, i) => ({ id: `book-${i}` })), total } };
+      return {
+        status: 200,
+        headers: {},
+        json: { items: Array.from({ length: total }, (_, i) => ({ id: `book-${i}` })), total },
+      };
     });
     const api = await apiWith(transport);
     expect((await api.listBooks()).total).toBe(1);
     await api.scanLibrary();
     expect((await api.listBooks()).total).toBe(2);
-    expect(transport.countMatching(request => request.url.startsWith('/api/v1/books'))).toBe(2);
+    expect(transport.countMatching((request) => request.url.startsWith('/api/v1/books'))).toBe(2);
   });
 
   it('marks book and browse caches dirty after a library scan', () => {
@@ -143,11 +173,15 @@ describe('ReaderApi navigation query cache', () => {
     expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/library/continue')).toBe(true);
     expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/library/facets')).toBe(true);
     expect(affectedNavigationQuery('/api/v1/library/books/delete', '/api/v1/media/browse?channel=music')).toBe(false);
-    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/books?scope=shelf&status=reading')).toBe(true);
+    expect(
+      affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/books?scope=shelf&status=reading'),
+    ).toBe(true);
     expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/books/book-1')).toBe(true);
     expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/library/continue')).toBe(true);
     expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/library/browse?page=1')).toBe(false);
-    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/media/browse?channel=music')).toBe(false);
+    expect(affectedNavigationQuery('/api/v1/books/book-1/reading-status', '/api/v1/media/browse?channel=music')).toBe(
+      false,
+    );
   });
 });
 

@@ -14,15 +14,26 @@ afterEach(() => {
 
 function pointer(type: string, init: PointerEventInit = {}): PointerEvent {
   return new window.PointerEvent(type, {
-    bubbles: true, cancelable: true, composed: true,
-    pointerType: 'touch', isPrimary: true, pointerId: 1, clientX: 40, clientY: 40, ...init,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerType: 'touch',
+    isPrimary: true,
+    pointerId: 1,
+    clientX: 40,
+    clientY: 40,
+    ...init,
   });
 }
 
 function mount(onSelect: () => void) {
   function Host() {
     const hold = useHoldToSelect(onSelect, true);
-    return <button type="button" id="card" {...hold}>book</button>;
+    return (
+      <button type="button" id="card" {...hold}>
+        book
+      </button>
+    );
   }
   const host = document.createElement('div');
   document.body.append(host);
@@ -35,8 +46,12 @@ it('keeps the selection when the page reflows under a still-down finger', () => 
   vi.useFakeTimers();
   const onSelect = vi.fn();
   const card = mount(onSelect);
-  act(() => { card.dispatchEvent(pointer('pointerdown')); });
-  act(() => { vi.advanceTimersByTime(450); });
+  act(() => {
+    card.dispatchEvent(pointer('pointerdown'));
+  });
+  act(() => {
+    vi.advanceTimersByTime(450);
+  });
   expect(onSelect).toHaveBeenCalledTimes(1);
 
   // Selection chrome mounts and shifts the card; that must not unlock a later click.
@@ -49,7 +64,9 @@ it('keeps the selection when the page reflows under a still-down finger', () => 
   });
   expect(onSelect).toHaveBeenCalledTimes(1);
 
-  act(() => { window.dispatchEvent(pointer('pointerup')); });
+  act(() => {
+    window.dispatchEvent(pointer('pointerup'));
+  });
   act(() => {
     card.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   });

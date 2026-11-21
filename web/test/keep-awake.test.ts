@@ -51,7 +51,9 @@ describe('ScreenAwake', () => {
   it('asks for the lock again after the page was hidden and the system dropped it', async () => {
     let released = false;
     const sentinel = {
-      get released() { return released; },
+      get released() {
+        return released;
+      },
       addEventListener: vi.fn(),
       release: vi.fn(async () => undefined),
     } as unknown as WakeLockSentinel;
@@ -89,8 +91,12 @@ describe('ScreenAwake', () => {
     let released = false;
     let onRelease = (): void => undefined;
     const sentinel = {
-      get released() { return released; },
-      addEventListener: (_type: string, listener: () => void) => { onRelease = listener; },
+      get released() {
+        return released;
+      },
+      addEventListener: (_type: string, listener: () => void) => {
+        onRelease = listener;
+      },
       release: vi.fn(async () => undefined),
     } as unknown as WakeLockSentinel;
     setWakeLock(async () => sentinel);

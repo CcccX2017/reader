@@ -54,7 +54,7 @@
   padding-bottom: calc(96px + var(--safe-bottom));
   scrollbar-width: thin;
 }
-.home-shelf-scroll[data-selecting='true'] {
+.home-shelf-scroll[data-selecting="true"] {
   padding-bottom: calc(12rem + var(--safe-bottom));
 }
 /* Touch: hide the shelf scroller chrome; the pane still scrolls. */
@@ -69,8 +69,8 @@
   }
 }
 /* While pulling, lock the page and the shelf pane so the cue can move instead. */
-.home-page[data-pulling='true'],
-.home-shelf-scroll[data-pulling='true'] {
+.home-page[data-pulling="true"],
+.home-shelf-scroll[data-pulling="true"] {
   touch-action: none;
 }
 .home-header {
@@ -95,7 +95,9 @@
   font-size: var(--text-display);
   font-weight: 700;
 }
-.home-avatar.is-pending { background: var(--color-surface-2); }
+.home-avatar.is-pending {
+  background: var(--color-surface-2);
+}
 .home-avatar img {
   width: 100%;
   height: 100%;
@@ -105,7 +107,7 @@
   margin: 6px 0 0;
   min-width: 0;
   overflow: hidden;
-  font-family: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', serif;
+  font-family: "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
   font-size: 28px;
   font-weight: 600;
   line-height: 1.2;
@@ -115,14 +117,43 @@
 }
 /* 9em is 晚上好， plus a full 10-unit name. 150px is the avatar, its gap, the search button and the page padding. */
 @media (max-width: 700px) {
-  .home-header h1 { font-size: clamp(18px, calc((100vw - 150px) / 9), 28px); }
+  .home-header h1 {
+    font-size: clamp(18px, calc((100vw - 150px) / 9), 28px);
+  }
 }
-.home-page .home-header { position: relative; padding-right: 52px; }
-.home-search { position: absolute; top: 2px; right: 0; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-md); color: var(--color-ink); }
-.home-search:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-@media (hover: hover) and (pointer: fine) { .home-search:hover { background: var(--color-surface-2); } }
+.home-page .home-header {
+  position: relative;
+  padding-right: 52px;
+}
+.home-search {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+}
+.home-search:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+@media (hover: hover) and (pointer: fine) {
+  .home-search:hover {
+    background: var(--color-surface-2);
+  }
+}
 /* The sidebar carries the search field from here up. */
-@media (min-width: 701px) { .home-page .home-header { padding-right: 0; } .home-search { display: none; } }
+@media (min-width: 701px) {
+  .home-page .home-header {
+    padding-right: 0;
+  }
+  .home-search {
+    display: none;
+  }
+}
 
 .home-header p {
   margin: 6px 0 0;
@@ -189,12 +220,12 @@
     border-color var(--motion-duration) var(--motion-ease),
     box-shadow var(--motion-duration) var(--motion-ease);
 }
-.home-resume[data-channel='video'] {
+.home-resume[data-channel="video"] {
   --ch: var(--color-ch-video);
   --ch-soft: var(--color-ch-video-soft);
   --ch-text: var(--color-ch-video-text);
 }
-.home-resume[data-channel='audiobook'] {
+.home-resume[data-channel="audiobook"] {
   --ch: var(--color-ch-audio);
   --ch-soft: var(--color-ch-audio-soft);
   --ch-text: var(--color-ch-audio-text);
@@ -376,7 +407,7 @@
 .home-section h2 {
   flex: 1;
   margin: 0;
-  font-family: 'Songti SC', 'Noto Serif SC', serif;
+  font-family: "Songti SC", "Noto Serif SC", serif;
   font-size: var(--text-title);
   font-weight: 600;
 }

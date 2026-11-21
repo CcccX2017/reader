@@ -6,9 +6,16 @@ import { render } from '../src/shared/ui/render-root.ts';
 import { RuntimeContext } from '../src/app/providers/runtime-context.tsx';
 import { AccountPage } from '../src/features/account/pages/AccountPages.tsx';
 import { useAuthStore } from '../src/shared/stores/auth.store.ts';
-import { applySafariVersion, isIos, readSafariOverride, resolveSafariVersion, writeSafariOverride } from '../src/shared/safari-version.ts';
+import {
+  applySafariVersion,
+  isIos,
+  readSafariOverride,
+  resolveSafariVersion,
+  writeSafariOverride,
+} from '../src/shared/safari-version.ts';
 
-const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/605.1.15';
+const iphone =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/605.1.15';
 const root = document.createElement('div');
 document.body.append(root);
 
@@ -32,18 +39,48 @@ describe('safari version', () => {
   it('saves the version from the account field and applies it on this device', async () => {
     Object.defineProperty(navigator, 'userAgent', { configurable: true, value: iphone });
     useAuthStore.setState({ verifiedUser: user, session: null });
-    const runtime = { api: { updateDisplayName: async () => user }, mediaApi: { accountInfo: () => ({ username: 'lin', displayName: '林间', role: 'member', server: 'https://reader.example', avatarUrl: null }) } };
-    act(() => render(<RuntimeContext.Provider value={runtime as never}><MemoryRouter><AccountPage /></MemoryRouter></RuntimeContext.Provider>, root));
+    const runtime = {
+      api: { updateDisplayName: async () => user },
+      mediaApi: {
+        accountInfo: () => ({
+          username: 'lin',
+          displayName: '林间',
+          role: 'member',
+          server: 'https://reader.example',
+          avatarUrl: null,
+        }),
+      },
+    };
+    act(() =>
+      render(
+        <RuntimeContext.Provider value={runtime as never}>
+          <MemoryRouter>
+            <AccountPage />
+          </MemoryRouter>
+        </RuntimeContext.Provider>,
+        root,
+      ),
+    );
     expect(root.querySelectorAll('button[type="submit"]')).toHaveLength(1);
     const input = root.querySelector<HTMLInputElement>('[aria-label="iOS 版本"]')!;
     const write = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
     expect(input.placeholder).toBe('18.6');
-    act(() => { write.call(input, '27.2'); input.dispatchEvent(new Event('input', { bubbles: true })); });
-    await act(async () => { root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click(); });
+    act(() => {
+      write.call(input, '27.2');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    });
     expect(readSafariOverride()).toBe('27.2');
     expect(document.documentElement.dataset.safari).toBe('27.2');
-    act(() => { write.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
-    await act(async () => { root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click(); });
+    act(() => {
+      write.call(input, '');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      root.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    });
     expect(readSafariOverride()).toBe('');
     expect(document.documentElement.dataset.safari).toBe('18.6');
     expect(() => writeSafariOverride('ios')).toThrow(/27\.2/);

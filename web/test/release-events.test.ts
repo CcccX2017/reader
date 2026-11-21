@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { judgeUpdate, pageWebBuild, releaseChange, releaseResponse, subscribeReleases, type Release } from '../src/core/release-events.ts';
+import {
+  judgeUpdate,
+  pageWebBuild,
+  releaseChange,
+  releaseResponse,
+  subscribeReleases,
+  type Release,
+} from '../src/core/release-events.ts';
 
 class FakeSource extends EventTarget {
   static latest: FakeSource | undefined;
@@ -9,7 +16,9 @@ class FakeSource extends EventTarget {
     super();
     FakeSource.latest = this;
   }
-  close(): void { this.closed = true; }
+  close(): void {
+    this.closed = true;
+  }
   emit(release: Release): void {
     this.dispatchEvent(new MessageEvent('release', { data: JSON.stringify(release) }));
   }

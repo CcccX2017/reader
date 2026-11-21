@@ -7,8 +7,11 @@ export interface SiteBrand {
 
 /** An icon path from the API, resolved against the server the client is using. */
 export function siteAssetUrl(baseUrl: string, path: string): string {
-  try { return new URL(path, baseUrl || window.location.origin).href; }
-  catch { return path; }
+  try {
+    return new URL(path, baseUrl || window.location.origin).href;
+  } catch {
+    return path;
+  }
 }
 
 const SITE_BRAND_CACHE = 'reader.site-brand';
@@ -25,16 +28,24 @@ export function readCachedSiteBrand(baseUrl: string): { name: string; iconUrl: s
     const record = parsed as { baseUrl?: unknown; name?: unknown; iconUrl?: unknown };
     if (typeof record.baseUrl !== 'string' || serverKey(record.baseUrl) !== serverKey(baseUrl)) return null;
     if (typeof record.name !== 'string' || !record.name.trim()) return null;
-    return { name: record.name.trim(), iconUrl: typeof record.iconUrl === 'string' && record.iconUrl ? record.iconUrl : null };
-  } catch { return null; }
+    return {
+      name: record.name.trim(),
+      iconUrl: typeof record.iconUrl === 'string' && record.iconUrl ? record.iconUrl : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function rememberSiteBrand(baseUrl: string, brand: SiteBrand): void {
   const url = serverKey(baseUrl);
   const name = brand.name?.trim() || 'reader';
   if (!url) return;
-  try { localStorage.setItem(SITE_BRAND_CACHE, JSON.stringify({ baseUrl: url, name, iconUrl: brand.iconUrl || null })); }
-  catch { /* the login page still learns the name from the server */ }
+  try {
+    localStorage.setItem(SITE_BRAND_CACHE, JSON.stringify({ baseUrl: url, name, iconUrl: brand.iconUrl || null }));
+  } catch {
+    /* the login page still learns the name from the server */
+  }
 }
 
 /** Puts the configured name into the tab, and the icon into the favicon links. */
@@ -51,12 +62,24 @@ export function applySiteBrand(brand: SiteBrand, baseUrl = ''): void {
   const alternate = document.querySelector<HTMLLinkElement>('link[rel="alternate icon"]');
   if (brand.iconUrl) {
     const href = siteAssetUrl(baseUrl, brand.iconUrl);
-    if (icon) { icon.removeAttribute('type'); icon.href = href; }
+    if (icon) {
+      icon.removeAttribute('type');
+      icon.href = href;
+    }
     if (touch) touch.href = href;
-    if (alternate) { alternate.removeAttribute('type'); alternate.href = href; }
+    if (alternate) {
+      alternate.removeAttribute('type');
+      alternate.href = href;
+    }
   } else {
-    if (icon) { icon.type = 'image/svg+xml'; icon.href = './icons/reader.svg'; }
+    if (icon) {
+      icon.type = 'image/svg+xml';
+      icon.href = './icons/reader.svg';
+    }
     if (touch) touch.href = './icons/apple-touch-icon.png';
-    if (alternate) { alternate.type = 'image/png'; alternate.href = './icons/icon-192.png'; }
+    if (alternate) {
+      alternate.type = 'image/png';
+      alternate.href = './icons/icon-192.png';
+    }
   }
 }

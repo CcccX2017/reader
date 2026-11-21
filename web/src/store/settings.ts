@@ -182,7 +182,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   const parsed = (value && typeof value === 'object' ? value : {}) as Partial<AppSettings> & { shelfSort?: string };
   const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...parsed };
   for (const { key } of READOUT_FIELDS) {
-    if (!READOUT_OPTIONS.some(option => option.value === settings[key])) settings[key] = DEFAULT_APP_SETTINGS[key];
+    if (!READOUT_OPTIONS.some((option) => option.value === settings[key])) settings[key] = DEFAULT_APP_SETTINGS[key];
   }
   /*
    * `updated` used to be the shelf's only date sort and it meant "the file
@@ -205,13 +205,19 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   if (typeof settings.keepAwake !== 'boolean') settings.keepAwake = false;
   if (typeof settings.resumeReading !== 'boolean') settings.resumeReading = false;
   if (typeof settings.focus !== 'boolean') settings.focus = false;
-  if (!['none', 'slide', 'fade', 'flip'].includes(settings.pageAnimation)) settings.pageAnimation = DEFAULT_APP_SETTINGS.pageAnimation;
+  if (!['none', 'slide', 'fade', 'flip'].includes(settings.pageAnimation))
+    settings.pageAnimation = DEFAULT_APP_SETTINGS.pageAnimation;
   if (!['list', 'grid'].includes(settings.exploreLayout)) settings.exploreLayout = DEFAULT_APP_SETTINGS.exploreLayout;
-  if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort)) settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
-  if (settings.homeShelfCount !== 'all' && !(HOME_SHELF_COUNTS as readonly number[]).includes(settings.homeShelfCount)) {
+  if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort))
+    settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
+  if (
+    settings.homeShelfCount !== 'all' &&
+    !(HOME_SHELF_COUNTS as readonly number[]).includes(settings.homeShelfCount)
+  ) {
     settings.homeShelfCount = DEFAULT_APP_SETTINGS.homeShelfCount;
   }
-  if (!['recent', 'added', 'title', 'author'].includes(settings.homeShelfSort)) settings.homeShelfSort = DEFAULT_APP_SETTINGS.homeShelfSort;
+  if (!['recent', 'added', 'title', 'author'].includes(settings.homeShelfSort))
+    settings.homeShelfSort = DEFAULT_APP_SETTINGS.homeShelfSort;
   return settings;
 }
 
@@ -225,8 +231,11 @@ export class SettingsStore {
     if (this.loaded) return this.settings;
     const raw = await this.kv.get(KEY);
     if (raw) {
-      try { this.settings = normalizeAppSettings(JSON.parse(raw)); }
-      catch { this.settings = { ...DEFAULT_APP_SETTINGS }; }
+      try {
+        this.settings = normalizeAppSettings(JSON.parse(raw));
+      } catch {
+        this.settings = { ...DEFAULT_APP_SETTINGS };
+      }
     }
     this.loaded = true;
     return this.settings;

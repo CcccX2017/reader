@@ -14,7 +14,8 @@ export type Role = 'admin' | 'member';
 
 function displayNameToStore(displayName: string): string {
   const next = displayName.trim();
-  if (displayNameUnits(next) > DISPLAY_NAME_MAX_UNITS) throw badRequest(`显示名最多 ${DISPLAY_NAME_MAX_UNITS} 个字符`, 'DISPLAY_NAME_TOO_LONG');
+  if (displayNameUnits(next) > DISPLAY_NAME_MAX_UNITS)
+    throw badRequest(`显示名最多 ${DISPLAY_NAME_MAX_UNITS} 个字符`, 'DISPLAY_NAME_TOO_LONG');
   return next;
 }
 
@@ -68,10 +69,10 @@ export class UserService {
     return row?.n ?? 0;
   }
 
-  list(): Array<PublicUser & {disabled:boolean}> {
+  list(): Array<PublicUser & { disabled: boolean }> {
     return this.db
       .all<UserRow>('SELECT * FROM users ORDER BY created_at ASC')
-      .map(row=>({...toPublicUser(row),disabled:!!row.disabled}));
+      .map((row) => ({ ...toPublicUser(row), disabled: !!row.disabled }));
   }
 
   byId(id: string): UserRow | undefined {
@@ -88,13 +89,16 @@ export class UserService {
     return new RegistrationService(this.db).mode() !== 'closed';
   }
 
-  async create(input: {
-    username: string;
-    password: string;
-    displayName?: string;
-    role?: Role;
-    mediaEnabled?: boolean;
-  }, admission?: () => void): Promise<PublicUser> {
+  async create(
+    input: {
+      username: string;
+      password: string;
+      displayName?: string;
+      role?: Role;
+      mediaEnabled?: boolean;
+    },
+    admission?: () => void,
+  ): Promise<PublicUser> {
     const username = input.username.trim();
     if (username.length < 3) throw conflict('username must be at least 3 characters', 'USERNAME_TOO_SHORT');
     if (input.password.length < 8) throw conflict('password must be at least 8 characters', 'PASSWORD_TOO_SHORT');
@@ -104,7 +108,8 @@ export class UserService {
     const passwordHash = await this.passwordWork.run(() => hashPassword(input.password));
     return this.db.transaction(() => {
       admission?.();
-      if (this.db.get('SELECT id FROM users WHERE username = ? COLLATE NOCASE', username)) throw conflict('username already taken', 'USERNAME_TAKEN');
+      if (this.db.get('SELECT id FROM users WHERE username = ? COLLATE NOCASE', username))
+        throw conflict('username already taken', 'USERNAME_TAKEN');
       const now = Date.now();
       const row: UserRow = {
         id: randomUUID(),
@@ -115,14 +120,23 @@ export class UserService {
         role: input.role ?? (this.count() === 0 ? 'admin' : 'member'),
         disabled: 0,
         avatar_path: '',
-        media_enabled: (input.mediaEnabled ?? new BusinessSettingsReader(this.db).read('modules').newUserMediaEnabled) ? 1 : 0,
+        media_enabled:
+          (input.mediaEnabled ?? new BusinessSettingsReader(this.db).read('modules').newUserMediaEnabled) ? 1 : 0,
         created_at: now,
         updated_at: now,
       };
       this.db.run(
         `INSERT INTO users (id, username, display_name, password_hash, role, disabled, created_at, updated_at, media_enabled)
          VALUES (?,?,?,?,?,?,?,?,?)`,
-        row.id, row.username, row.display_name, row.password_hash, row.role, row.disabled, row.created_at, row.updated_at, row.media_enabled!,
+        row.id,
+        row.username,
+        row.display_name,
+        row.password_hash,
+        row.role,
+        row.disabled,
+        row.created_at,
+        row.updated_at,
+        row.media_enabled!,
       );
       // With `library.autoShelf` a new account starts with the whole library on its
       // shelf; otherwise it starts empty and adds books from 书库 and 发现.
@@ -131,7 +145,8 @@ export class UserService {
           `INSERT OR IGNORE INTO user_books (user_id, book_id, added_at)
            SELECT ?, b.id, ? FROM books b
            WHERE EXISTS (SELECT 1 FROM book_files f WHERE f.book_id = b.id AND f.missing = 0)`,
-          row.id, now,
+          row.id,
+          now,
         );
       }
       return toPublicUser(row);
@@ -154,7 +169,11 @@ export class UserService {
     return this.create({ ...input, role: requestedRole });
   }
 
-  async login(username: string, password: string, device = ''): Promise<{
+  async login(
+    username: string,
+    password: string,
+    device = '',
+  ): Promise<{
     user: PublicUser;
     accessToken: string;
     accessTokenExpiresAt: number;
@@ -166,7 +185,9 @@ export class UserService {
     const row = this.db.get<UserRow>('SELECT * FROM users WHERE username = ? COLLATE NOCASE', username.trim());
     // Always run a hash comparison so a missing user and a wrong password take
     // comparable time and cannot be distinguished by timing.
-    const ok = await this.passwordWork.run(() => verifyPassword(password, row?.password_hash ?? 'scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAA'));
+    const ok = await this.passwordWork.run(() =>
+      verifyPassword(password, row?.password_hash ?? 'scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAA'),
+    );
     if (!row || !ok) throw unauthorized('invalid username or password', 'BAD_CREDENTIALS');
     if (row.disabled === 1) throw forbidden('account disabled', 'ACCOUNT_DISABLED');
 
@@ -177,7 +198,12 @@ export class UserService {
     this.db.run(
       `INSERT INTO refresh_tokens (id, user_id, token_hash, device, created_at, expires_at, revoked_at)
        VALUES (?,?,?,?,?,?,NULL)`,
-      refresh.id, row.id, refresh.hash, device.slice(0, 200), Date.now(), refreshExpiresAt,
+      refresh.id,
+      row.id,
+      refresh.hash,
+      device.slice(0, 200),
+      Date.now(),
+      refreshExpiresAt,
     );
     return {
       user: toPublicUser(row),
@@ -214,13 +240,22 @@ export class UserService {
     this.db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', Date.now(), row.id);
 
     const access = signAccessToken(this.config, { id: user.id, role: user.role, authVersion: user.auth_version ?? 0 });
-    const resource = signResourceToken(this.config, { id: user.id, role: user.role, authVersion: user.auth_version ?? 0 });
+    const resource = signResourceToken(this.config, {
+      id: user.id,
+      role: user.role,
+      authVersion: user.auth_version ?? 0,
+    });
     const next = newRefreshToken();
     const expiresAt = Date.now() + this.config.refreshTokenTtl * 1000;
     this.db.run(
       `INSERT INTO refresh_tokens (id, user_id, token_hash, device, created_at, expires_at, revoked_at)
        VALUES (?,?,?,?,?,?,NULL)`,
-      next.id, user.id, next.hash, '', Date.now(), expiresAt,
+      next.id,
+      user.id,
+      next.hash,
+      '',
+      Date.now(),
+      expiresAt,
     );
     return {
       user: toPublicUser(user),
@@ -237,12 +272,17 @@ export class UserService {
   revokeByToken(refreshToken: string): void {
     this.db.run(
       'UPDATE refresh_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL',
-      Date.now(), hashToken(refreshToken),
+      Date.now(),
+      hashToken(refreshToken),
     );
   }
 
   revokeAll(userId: string): void {
-    this.db.run('UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', Date.now(), userId);
+    this.db.run(
+      'UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL',
+      Date.now(),
+      userId,
+    );
   }
 
   async changePassword(userId: string, currentPassword: string, nextPassword: string): Promise<void> {
@@ -254,7 +294,9 @@ export class UserService {
     if (nextPassword.length < 8) throw conflict('password must be at least 8 characters', 'PASSWORD_TOO_SHORT');
     this.db.run(
       'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, updated_at = ? WHERE id = ?',
-      await this.passwordWork.run(() => hashPassword(nextPassword)), Date.now(), userId,
+      await this.passwordWork.run(() => hashPassword(nextPassword)),
+      Date.now(),
+      userId,
     );
     // A password change must invalidate every other device's session.
     this.revokeAll(userId);
@@ -295,7 +337,10 @@ export class UserService {
 
   setDisabled(userId: string, disabled: boolean): void {
     this.db.run('UPDATE users SET disabled = ?, updated_at = ? WHERE id = ?', disabled ? 1 : 0, Date.now(), userId);
-    if (disabled) { this.revokeAll(userId); this.db.run('UPDATE users SET auth_version=auth_version+1 WHERE id=?',userId); }
+    if (disabled) {
+      this.revokeAll(userId);
+      this.db.run('UPDATE users SET auth_version=auth_version+1 WHERE id=?', userId);
+    }
   }
 
   setRole(userId: string, role: Role): void {
@@ -308,10 +353,15 @@ export class UserService {
 
   async resetPassword(userId: string, password: string): Promise<void> {
     if (!this.byId(userId)) throw notFound('用户不存在');
-    if (password.length < 8 || password.length > 1024) throw conflict('密码须为 8–1024 位','PASSWORD_TOO_SHORT');
+    if (password.length < 8 || password.length > 1024) throw conflict('密码须为 8–1024 位', 'PASSWORD_TOO_SHORT');
     const hash = await this.passwordWork.run(() => hashPassword(password));
-    this.db.transaction(()=>{
-      this.db.run('UPDATE users SET password_hash=?,auth_version=auth_version+1,updated_at=? WHERE id=?',hash,Date.now(),userId);
+    this.db.transaction(() => {
+      this.db.run(
+        'UPDATE users SET password_hash=?,auth_version=auth_version+1,updated_at=? WHERE id=?',
+        hash,
+        Date.now(),
+        userId,
+      );
       this.revokeAll(userId);
     });
   }

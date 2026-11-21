@@ -11,8 +11,20 @@ import { SourcesPage } from '../src/features/sources/pages/SourcesPage.tsx';
 const root = document.createElement('div');
 document.body.append(root);
 const source = {
-  id: 'legado', pluginId: 'legado', sourceType: 'legado', name: '发现', enabled: true, isDefault: true,
-  descriptor: { id: 'legado', pluginId: 'legado', label: 'Legado', version: '1', builtin: false, capabilities: ['search', 'browse'] },
+  id: 'legado',
+  pluginId: 'legado',
+  sourceType: 'legado',
+  name: '发现',
+  enabled: true,
+  isDefault: true,
+  descriptor: {
+    id: 'legado',
+    pluginId: 'legado',
+    label: 'Legado',
+    version: '1',
+    builtin: false,
+    capabilities: ['search', 'browse'],
+  },
 };
 const searchSource = vi.fn(async function* () {
   yield { items: [{ ref: 'hit', title: '命中的书' }] };
@@ -33,14 +45,19 @@ function typeInto(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-const paint = () => act(async () => render(
-  <RuntimeContext value={runtime}>
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/sources']}><SourcesPage /></MemoryRouter>
-    </QueryClientProvider>
-  </RuntimeContext>,
-  root,
-));
+const paint = () =>
+  act(async () =>
+    render(
+      <RuntimeContext value={runtime}>
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={['/sources']}>
+            <SourcesPage />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </RuntimeContext>,
+      root,
+    ),
+  );
 
 function keyword() {
   return root.querySelector<HTMLInputElement>('.source-keyword input')!;
@@ -60,10 +77,16 @@ afterEach(() => {
 it('clears the search results when the search box is emptied', async () => {
   await paint();
   await vi.waitFor(() => expect(keyword()).toBeTruthy());
-  await act(async () => { typeInto(keyword(), '红楼'); });
-  await act(async () => { keyword().form!.requestSubmit(); });
+  await act(async () => {
+    typeInto(keyword(), '红楼');
+  });
+  await act(async () => {
+    keyword().form!.requestSubmit();
+  });
   await vi.waitFor(() => expect(root.textContent).toContain('命中的书'));
-  await act(async () => { typeInto(keyword(), ''); });
+  await act(async () => {
+    typeInto(keyword(), '');
+  });
   await vi.waitFor(() => expect(root.textContent).not.toContain('命中的书'));
   expect(keyword().value).toBe('');
 });

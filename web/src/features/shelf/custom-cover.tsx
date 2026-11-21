@@ -26,7 +26,8 @@ export function useCustomCover(onError: (message: string) => void, onChanged?: (
 
   const show = (book: Book, file?: Blob) => {
     if (file && book.coverUrl) rememberCover(runtime.api, book.coverUrl, file);
-    const merge = <T extends { id: string }>(item: T): T => item.id === book.id ? { ...item, coverUrl: book.coverUrl, manualFields: book.manualFields } : item;
+    const merge = <T extends { id: string }>(item: T): T =>
+      item.id === book.id ? { ...item, coverUrl: book.coverUrl, manualFields: book.manualFields } : item;
     const pages = (data: unknown): unknown => {
       if (!data || typeof data !== 'object' || !Array.isArray((data as BookListPage).items)) return data;
       const page = data as BookListPage;
@@ -35,7 +36,9 @@ export function useCustomCover(onError: (message: string) => void, onChanged?: (
     queryClient.setQueriesData({ queryKey: ['shelf'] }, pages);
     queryClient.setQueriesData({ queryKey: ['library-books'] }, pages);
     queryClient.setQueriesData({ queryKey: ['search', 'books'] }, pages);
-    queryClient.setQueriesData({ queryKey: ['home', 'reading'] }, (data: unknown) => Array.isArray(data) ? (data as ContinueReadingItem[]).map(merge) : data);
+    queryClient.setQueriesData({ queryKey: ['home', 'reading'] }, (data: unknown) =>
+      Array.isArray(data) ? (data as ContinueReadingItem[]).map(merge) : data,
+    );
   };
 
   const refresh = async () => {
@@ -102,41 +105,81 @@ export function useCustomCover(onError: (message: string) => void, onChanged?: (
     }
   };
 
-  const input: JSX.Element = <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/gif,image/webp" aria-label="选择封面图片" onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void upload(file); }} />;
+  const input: JSX.Element = (
+    <input
+      ref={inputRef}
+      hidden
+      type="file"
+      accept="image/jpeg,image/png,image/gif,image/webp"
+      aria-label="选择封面图片"
+      onChange={(event) => {
+        const file = event.currentTarget.files?.[0];
+        event.currentTarget.value = '';
+        void upload(file);
+      }}
+    />
+  );
 
-  const ui: JSX.Element = <>
-    {chooser && <DialogView
-      dialog={{ kind: 'pick', title: '设置封面', options: [
-        { value: 'file', label: '选择本地图片' },
-        { value: 'url', label: '使用网络链接' },
-        { value: 'source', label: '从书源选择' },
-      ], resolve: (_value: string | null) => undefined } satisfies Dialog}
-      destructive=""
-      onClose={answer => {
-        setChooser(false);
-        if (answer === 'file') pickFile();
-        else if (answer === 'url') setUrlAsk(true);
-        else if (answer === 'source' && bookRef.current) setSourceBook(bookRef.current);
-      }}
-    />}
-    {urlAsk && <DialogView
-      dialog={{ kind: 'prompt', title: '封面图片链接', value: '', resolve: (_value: string | null) => undefined } satisfies Dialog}
-      destructive=""
-      onClose={answer => {
-        setUrlAsk(false);
-        if (typeof answer === 'string' && answer.trim()) void applyUrl(answer);
-      }}
-    />}
-    {sourceBook && <ChangeCoverSheet
-      book={sourceBook}
-      onClose={() => setSourceBook(null)}
-      onChanged={() => { void refresh(); onChanged?.(); }}
-    />}
-  </>;
+  const ui: JSX.Element = (
+    <>
+      {chooser && (
+        <DialogView
+          dialog={
+            {
+              kind: 'pick',
+              title: '设置封面',
+              options: [
+                { value: 'file', label: '选择本地图片' },
+                { value: 'url', label: '使用网络链接' },
+                { value: 'source', label: '从书源选择' },
+              ],
+              resolve: (_value: string | null) => undefined,
+            } satisfies Dialog
+          }
+          destructive=""
+          onClose={(answer) => {
+            setChooser(false);
+            if (answer === 'file') pickFile();
+            else if (answer === 'url') setUrlAsk(true);
+            else if (answer === 'source' && bookRef.current) setSourceBook(bookRef.current);
+          }}
+        />
+      )}
+      {urlAsk && (
+        <DialogView
+          dialog={
+            {
+              kind: 'prompt',
+              title: '封面图片链接',
+              value: '',
+              resolve: (_value: string | null) => undefined,
+            } satisfies Dialog
+          }
+          destructive=""
+          onClose={(answer) => {
+            setUrlAsk(false);
+            if (typeof answer === 'string' && answer.trim()) void applyUrl(answer);
+          }}
+        />
+      )}
+      {sourceBook && (
+        <ChangeCoverSheet
+          book={sourceBook}
+          onClose={() => setSourceBook(null)}
+          onChanged={() => {
+            void refresh();
+            onChanged?.();
+          }}
+        />
+      )}
+    </>
+  );
 
   const menu = (book: CoverBook): MenuItems => [
     { label: '设置封面', disabled: busy, onSelect: () => open(book) },
-    book.manualFields?.includes('cover') ? { label: '恢复原封面', disabled: busy, onSelect: () => void clear(book.id) } : undefined,
+    book.manualFields?.includes('cover')
+      ? { label: '恢复原封面', disabled: busy, onSelect: () => void clear(book.id) }
+      : undefined,
   ];
 
   return { input, ui, menu, busy, open, pick: open, clear };

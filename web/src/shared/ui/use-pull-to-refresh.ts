@@ -37,7 +37,9 @@ export function isPullPointer(event: Pick<PointerEvent, 'pointerType' | 'isPrima
   try {
     if (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) return true;
     if (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) return true;
-  } catch { /* optional */ }
+  } catch {
+    /* optional */
+  }
   return false;
 }
 
@@ -73,7 +75,9 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
   const [distance, setDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const onRefreshRef = useRef(onRefresh);
-  useEffect(() => { onRefreshRef.current = onRefresh; }, [onRefresh]);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
   const detach = useRef<(() => void) | null>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
   const scrollHostRef = useRef<HTMLElement | null>(null);
@@ -253,7 +257,11 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
       if (stream !== 'pointer' || !start || start.id !== event.pointerId) return;
       move(event.clientX, event.clientY, event.pointerId, event);
       if (tracking) {
-        try { element.setPointerCapture(event.pointerId); } catch { /* optional */ }
+        try {
+          element.setPointerCapture(event.pointerId);
+        } catch {
+          /* optional */
+        }
       }
     };
 
@@ -307,19 +315,25 @@ export function usePullToRefresh(onRefresh: () => Promise<void>): PullToRefreshS
     });
   }, [bind]);
 
-  const ref = useCallback((element: HTMLElement | null) => {
-    surfaceRef.current = element;
-    // Null is deferred: React calls an inline ref with null and then the same
-    // node in one commit. Binding on the null would drop a pull already in progress.
-    if (element) bind();
-    else schedule();
-  }, [bind, schedule]);
+  const ref = useCallback(
+    (element: HTMLElement | null) => {
+      surfaceRef.current = element;
+      // Null is deferred: React calls an inline ref with null and then the same
+      // node in one commit. Binding on the null would drop a pull already in progress.
+      if (element) bind();
+      else schedule();
+    },
+    [bind, schedule],
+  );
 
-  const scrollRef = useCallback((element: HTMLElement | null) => {
-    scrollHostRef.current = element;
-    if (element) bind();
-    else schedule();
-  }, [bind, schedule]);
+  const scrollRef = useCallback(
+    (element: HTMLElement | null) => {
+      scrollHostRef.current = element;
+      if (element) bind();
+      else schedule();
+    },
+    [bind, schedule],
+  );
 
   return {
     ref,

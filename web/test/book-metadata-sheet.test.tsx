@@ -107,20 +107,30 @@ describe('编辑信息', () => {
   });
 
   it('chooses 出版日期 as a year, a month, or a full day', async () => {
-    const updateBookMetadata = vi.fn(async (_id: string, patch: object) => book({ ...patch, manualFields: Object.keys(patch) }));
-    await paint({ getBook: async () => ({ book: book({ pubdate: '2008-01-15' }), progress: null }), updateBookMetadata });
+    const updateBookMetadata = vi.fn(async (_id: string, patch: object) =>
+      book({ ...patch, manualFields: Object.keys(patch) }),
+    );
+    await paint({
+      getBook: async () => ({ book: book({ pubdate: '2008-01-15' }), progress: null }),
+      updateBookMetadata,
+    });
     const choice = (label: string) => document.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;
     expect(choice('出版年').value).toBe('2008');
     expect(choice('出版月').value).toBe('01');
     expect(choice('出版日').value).toBe('15');
     expect(choice('出版月').disabled).toBe(false);
-    const pick = (element: HTMLSelectElement, value: string) => act(() => {
-      const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')!.set!;
-      setter.call(element, value); element.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const pick = (element: HTMLSelectElement, value: string) =>
+      act(() => {
+        const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')!.set!;
+        setter.call(element, value);
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      });
     pick(choice('出版月'), '');
     expect(choice('出版日').disabled).toBe(true);
-    await act(async () => { button('保存').click(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    await act(async () => {
+      button('保存').click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(updateBookMetadata).toHaveBeenCalledWith('b1', { pubdate: '2008' });
   });
 

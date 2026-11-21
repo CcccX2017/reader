@@ -63,13 +63,17 @@ async function start(): Promise<void> {
   // belongs to the image, so comparing them would offer an update the shell
   // cannot apply.
   const runningWeb = window.ReaderAndroid ? undefined : pageWebBuild();
-  subscribeReleases(runtime.api.baseUrl, (change) => {
-    // Server-only: the shell is unchanged, so a reload is the whole update.
-    // A new web bundle has to be installed by the worker first. Reloading over
-    // the active worker would keep the previous build id.
-    if (change === 'server') offerReload();
-    else beginWebUpdate();
-  }, runningWeb);
+  subscribeReleases(
+    runtime.api.baseUrl,
+    (change) => {
+      // Server-only: the shell is unchanged, so a reload is the whole update.
+      // A new web bundle has to be installed by the worker first. Reloading over
+      // the active worker would keep the previous build id.
+      if (change === 'server') offerReload();
+      else beginWebUpdate();
+    },
+    runningWeb,
+  );
 }
 
 void start().catch((err: unknown) => {

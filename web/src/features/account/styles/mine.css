@@ -10,8 +10,13 @@
   padding-bottom: 0;
 }
 .mine-page > .home-header,
-.mine-page > .mine-profile { flex: none; }
-.mine-page .media-back-button { color: inherit; text-decoration: none; }
+.mine-page > .mine-profile {
+  flex: none;
+}
+.mine-page .media-back-button {
+  color: inherit;
+  text-decoration: none;
+}
 
 .mine-profile {
   display: flex;
@@ -39,18 +44,68 @@
   font-weight: 700;
   box-shadow: 0 0 0 3px var(--color-surface);
 }
-.mine-avatar.is-pending { background: var(--color-surface-2); box-shadow: none; }
-.mine-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.mine-avatar.is-pending {
+  background: var(--color-surface-2);
+  box-shadow: none;
+}
+.mine-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
-.mine-profile-text { min-width: 0; }
-.mine-profile-text strong { display: flex; align-items: center; gap: 8px; font-size: var(--text-title); font-weight: 600; overflow-wrap: anywhere; }
-.mine-role { flex: none; height: 20px; padding: 0 8px; border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-brand-text); font-size: var(--text-meta); font-weight: 600; line-height: 20px; }
-.mine-profile-text small { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: var(--text-meta); color: var(--color-muted); overflow-wrap: anywhere; }
-.mine-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand-text); }
-.mine-dot[data-state='offline'] { background: var(--color-muted); }
-.mine-dot[data-state='error'] { background: var(--color-danger); }
+.mine-profile-text {
+  min-width: 0;
+}
+.mine-profile-text strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mine-role {
+  flex: none;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-brand-text);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 20px;
+}
+.mine-profile-text small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: var(--text-meta);
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+.mine-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-brand-text);
+}
+.mine-dot[data-state="offline"] {
+  background: var(--color-muted);
+}
+.mine-dot[data-state="error"] {
+  background: var(--color-danger);
+}
 /* The padding is hit area only: the line stays one line of meta text (ui.md §3.3). */
-.mine-status-link { margin: -10px 0 -10px 4px; padding: 10px 4px; color: var(--color-brand-text); text-decoration: underline; text-underline-offset: 2px; }
+.mine-status-link {
+  margin: -10px 0 -10px 4px;
+  padding: 10px 4px;
+  color: var(--color-brand-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 /* Narrow: one list in reading order. Wide: two independent columns.
  * This is the page's scroller: the header and profile stay put above it. */
@@ -66,16 +121,33 @@
   scrollbar-width: thin;
 }
 @media (pointer: coarse) {
-  .mine-groups { scrollbar-width: none; }
-  .mine-groups::-webkit-scrollbar { display: none; }
+  .mine-groups {
+    scrollbar-width: none;
+  }
+  .mine-groups::-webkit-scrollbar {
+    display: none;
+  }
 }
-.mine-column { display: contents; }
+.mine-column {
+  display: contents;
+}
 @media (min-width: 64rem) {
-  .mine-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; align-items: start; }
-  .mine-column { display: flex; flex-direction: column; min-width: 0; }
+  .mine-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+    align-items: start;
+  }
+  .mine-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
 }
 
-.mine-group { margin: 24px 0 0; }
+.mine-group {
+  margin: 24px 0 0;
+}
 /* The title stays at the top of this scroller while its card moves. It leaves
    with the group once that card has scrolled past, so the next title can take the spot. */
 .mine-group > h2 {
@@ -119,15 +191,23 @@
 
 /* Separators start after the icon, so the icons read as one column. */
 .mine-page .mine-row + .mine-row::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 60px;
   right: 0;
   border-top: 1px solid var(--color-line);
 }
-@media (hover: hover) and (pointer: fine) { .mine-page .mine-row:hover { background: var(--color-surface-2); }}
-.mine-page .mine-row:focus-visible { outline: 2px solid var(--color-brand-text); outline-offset: -2px; border-radius: var(--radius-lg); }
+@media (hover: hover) and (pointer: fine) {
+  .mine-page .mine-row:hover {
+    background: var(--color-surface-2);
+  }
+}
+.mine-page .mine-row:focus-visible {
+  outline: 2px solid var(--color-brand-text);
+  outline-offset: -2px;
+  border-radius: var(--radius-lg);
+}
 
 .mine-row-icon {
   display: grid;
@@ -140,12 +220,34 @@
   color: var(--color-brand-text);
 }
 
-.mine-row-label { flex: 1; min-width: 0; font-size: var(--text-body); font-weight: 500; }
-.mine-row-value { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-label); color: var(--color-muted); }
-.mine-row-chevron { flex: none; color: var(--color-muted); opacity: .7; }
+.mine-row-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-body);
+  font-weight: 500;
+}
+.mine-row-value {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-label);
+  color: var(--color-muted);
+}
+.mine-row-chevron {
+  flex: none;
+  color: var(--color-muted);
+  opacity: 0.7;
+}
 
-.mine-page .mine-row.is-danger { color: var(--media-error-ink); }
-.mine-page .mine-row.is-danger .mine-row-icon { background: var(--media-error-background); color: var(--media-error-ink); }
+.mine-page .mine-row.is-danger {
+  color: var(--media-error-ink);
+}
+.mine-page .mine-row.is-danger .mine-row-icon {
+  background: var(--media-error-background);
+  color: var(--media-error-ink);
+}
 
 /* 偏好设置 (/me/settings): the title stays put; the tabs and the open section
  * scroll in .settings-body. The sections bring their own controls (theme cards,
@@ -158,8 +260,14 @@
   padding-bottom: 0;
 }
 /* From 701px the shared secondary title is position:fixed and leaves this column. */
-.media-screen.settings-page > .media-heading { position: static; flex: none; height: auto; }
-body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.settings-page { padding-bottom: 0; }
+.media-screen.settings-page > .media-heading {
+  position: static;
+  flex: none;
+  height: auto;
+}
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.settings-page {
+  padding-bottom: 0;
+}
 .settings-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -174,15 +282,26 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
 /* Phone page padding is 16px and the title rule is pulled out to the screen edge.
    Give the scroller that same inset so a stuck label can paint across the whole rule. */
 @media (max-width: 700px) {
-  .settings-body { margin-inline: -16px; padding-inline: 16px; }
+  .settings-body {
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
 }
 @media (pointer: coarse) {
-  .settings-body { scrollbar-width: none; }
-  .settings-body::-webkit-scrollbar { display: none; }
+  .settings-body {
+    scrollbar-width: none;
+  }
+  .settings-body::-webkit-scrollbar {
+    display: none;
+  }
 }
-.settings-tabs { display: flex; margin: 8px 0 0; border-bottom: 1px solid var(--color-line); }
+.settings-tabs {
+  display: flex;
+  margin: 8px 0 0;
+  border-bottom: 1px solid var(--color-line);
+}
 /* Equal tabs that share the row, like the 书源 hub's: underlined, not chips. */
-.settings-page .settings-tabs [role='tab'] {
+.settings-page .settings-tabs [role="tab"] {
   flex: 1 1 0;
   min-width: 0;
   min-height: 48px;
@@ -199,21 +318,54 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   white-space: nowrap;
   cursor: pointer;
 }
-.settings-page .settings-tabs [aria-selected='true'] { border-bottom-color: var(--color-brand); color: var(--color-ink); font-weight: 650; }
-.settings-page .settings-tabs [role='tab']:focus-visible { outline: 2px solid var(--color-brand-text); outline-offset: -2px; }
-@media (hover: hover) and (pointer: fine) { .settings-page .settings-tabs [role='tab']:hover { color: var(--color-ink); } }
+.settings-page .settings-tabs [aria-selected="true"] {
+  border-bottom-color: var(--color-brand);
+  color: var(--color-ink);
+  font-weight: 650;
+}
+.settings-page .settings-tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--color-brand-text);
+  outline-offset: -2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .settings-page .settings-tabs [role="tab"]:hover {
+    color: var(--color-ink);
+  }
+}
 
 /* The selected tab's panel; its sub-headings are the quiet labels the panels already use. */
-.settings-section { margin: 16px 0 0; }
-.settings-section h2 { margin: 22px 0 10px; font-size: var(--text-label); font-weight: 600; color: var(--color-muted); }
-.settings-note { margin: 10px 0 0; font-size: var(--text-label); color: var(--color-muted); }
-.settings-page .theme-settings { margin: 0; max-width: none; }
-.settings-page .media-settings { max-width: none; }
-.settings-page .media-settings .media-settings-panel { margin: 4px 0 0; }
+.settings-section {
+  margin: 16px 0 0;
+}
+.settings-section h2 {
+  margin: 22px 0 10px;
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.settings-note {
+  margin: 10px 0 0;
+  font-size: var(--text-label);
+  color: var(--color-muted);
+}
+.settings-page .theme-settings {
+  margin: 0;
+  max-width: none;
+}
+.settings-page .media-settings {
+  max-width: none;
+}
+.settings-page .media-settings .media-settings-panel {
+  margin: 4px 0 0;
+}
 
 /* Same release as .mine-group: a label sticks while its own controls move, then
  * leaves once that block has scrolled past. The sheet's bar stays the sheet's. */
-.settings-page .settings-group { margin: 12px 0 0; padding: 0; border: 0; }
+.settings-page .settings-group {
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
 .settings-page .settings-group > h2,
 .settings-page .settings-group > .section-title,
 .settings-page .preference-place > .section-title {
@@ -238,11 +390,21 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
     padding-inline: 0;
   }
 }
-.settings-page .shelf-settings .segmented { width: 100%; }
+.settings-page .shelf-settings .segmented {
+  width: 100%;
+}
 /* The page's generic button rule (min-height, padding, a square radius, no background)
  * outranks the toolkit switch; give the switch back its pill (ui.md: one on/off control). */
-.settings-page .shelf-settings .switch { min-height: 0; padding: 0; border: 0; border-radius: var(--radius-pill); background: var(--reader-line); }
-.settings-page .shelf-settings .switch[aria-pressed='true'] { background: var(--reader-fill); }
+.settings-page .shelf-settings .switch {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--reader-line);
+}
+.settings-page .shelf-settings .switch[aria-pressed="true"] {
+  background: var(--reader-fill);
+}
 
 .settings-page .settings-link {
   display: flex;
@@ -256,14 +418,37 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   color: var(--color-ink);
   text-decoration: none;
 }
-.settings-link > span { flex: 1; min-width: 0; }
-.settings-link strong { display: block; font-size: var(--text-body); font-weight: 500; }
-.settings-link small { display: block; margin-top: 2px; font-size: var(--text-meta); color: var(--color-muted); }
-.settings-link svg { flex: none; color: var(--color-muted); }
-@media (hover: hover) and (pointer: fine) { .settings-page .settings-link:hover { background: var(--color-surface-2); } }
+.settings-link > span {
+  flex: 1;
+  min-width: 0;
+}
+.settings-link strong {
+  display: block;
+  font-size: var(--text-body);
+  font-weight: 500;
+}
+.settings-link small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-meta);
+  color: var(--color-muted);
+}
+.settings-link svg {
+  flex: none;
+  color: var(--color-muted);
+}
+@media (hover: hover) and (pointer: fine) {
+  .settings-page .settings-link:hover {
+    background: var(--color-surface-2);
+  }
+}
 
 /* 外部阅读器 and the 管理 pages: sheet-sized forms, given the same column. */
-.opds-page .opds-access, .admin-page .user-management { max-width: 640px; margin: 16px auto 40px; }
+.opds-page .opds-access,
+.admin-page .user-management {
+  max-width: 640px;
+  margin: 16px auto 40px;
+}
 /* 服务配置: the title stays put; the form scrolls underneath it. */
 .media-screen.admin-services-page {
   display: flex;
@@ -272,8 +457,14 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   overscroll-behavior: none;
   padding-bottom: 0;
 }
-.media-screen.admin-services-page > .media-heading { position: static; flex: none; height: auto; }
-body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.admin-services-page { padding-bottom: 0; }
+.media-screen.admin-services-page > .media-heading {
+  position: static;
+  flex: none;
+  height: auto;
+}
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.admin-services-page {
+  padding-bottom: 0;
+}
 .admin-services-page > .user-management {
   flex: 1 1 auto;
   min-height: 0;
@@ -285,8 +476,12 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   scrollbar-width: thin;
 }
 @media (pointer: coarse) {
-  .admin-services-page > .user-management { scrollbar-width: none; }
-  .admin-services-page > .user-management::-webkit-scrollbar { display: none; }
+  .admin-services-page > .user-management {
+    scrollbar-width: none;
+  }
+  .admin-services-page > .user-management::-webkit-scrollbar {
+    display: none;
+  }
 }
 /* 账号与连接: the title stays put; the profile and sync panel scroll underneath it. */
 .media-screen.account-page,
@@ -298,9 +493,15 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   padding-bottom: 0;
 }
 .media-screen.account-page > .media-heading,
-.media-screen.about-page > .media-heading { position: static; flex: none; height: auto; }
+.media-screen.about-page > .media-heading {
+  position: static;
+  flex: none;
+  height: auto;
+}
 body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.account-page,
-body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.about-page { padding-bottom: 0; }
+body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.about-page {
+  padding-bottom: 0;
+}
 .about-list {
   max-width: 640px;
   margin: 16px auto 0;
@@ -317,10 +518,24 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   min-height: 48px;
   padding: 12px 14px;
 }
-.about-list > div + div { border-top: 1px solid var(--color-line); }
-.about-list dt { color: var(--color-muted); font-size: var(--text-label); }
-.about-list dd { margin: 0; font-size: var(--text-body); font-weight: 600; overflow-wrap: anywhere; text-align: right; }
-.about-list > div.about-repos { justify-content: flex-end; gap: 20px; }
+.about-list > div + div {
+  border-top: 1px solid var(--color-line);
+}
+.about-list dt {
+  color: var(--color-muted);
+  font-size: var(--text-label);
+}
+.about-list dd {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.about-list > div.about-repos {
+  justify-content: flex-end;
+  gap: 20px;
+}
 .about-list a {
   display: inline-flex;
   align-items: center;
@@ -329,7 +544,12 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.about-note { max-width: 640px; margin: 12px auto 0; font-size: var(--text-label); color: var(--color-muted); }
+.about-note {
+  max-width: 640px;
+  margin: 12px auto 0;
+  font-size: var(--text-label);
+  color: var(--color-muted);
+}
 .account-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -340,6 +560,10 @@ body:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen.
   scrollbar-width: thin;
 }
 @media (pointer: coarse) {
-  .account-scroll { scrollbar-width: none; }
-  .account-scroll::-webkit-scrollbar { display: none; }
+  .account-scroll {
+    scrollbar-width: none;
+  }
+  .account-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }

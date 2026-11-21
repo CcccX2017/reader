@@ -127,21 +127,33 @@ it('does not render the login page before the instance answers', () => {
 
 it('paints the site name returned by the instance', async () => {
   const value = runtime();
-  value.api.instance = vi.fn(async () => ({ name: '书房', apiVersion: 1, userCount: 1, registrationOpen: false, invitationRequired: false }));
+  value.api.instance = vi.fn(async () => ({
+    name: '书房',
+    apiVersion: 1,
+    userCount: 1,
+    registrationOpen: false,
+    invitationRequired: false,
+  }));
   mount(<LoginPage />, value);
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
   expect(root.querySelector('.login-brand')?.textContent).toBe('书房');
 });
 
 it('shows the built-in name when neither side has saved one', async () => {
   mount(<LoginPage />);
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
   expect(root.querySelector('.login-brand')?.textContent).toBe('reader');
 });
 
 it('collapses the server address and explains that sessions are remembered on login', async () => {
   mount(<LoginPage />);
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
   const details = root.querySelector<HTMLDetailsElement>('.login-connection')!;
   expect(details.open).toBe(false);
   expect(root.textContent).toContain('登录状态自动保持，无需每天重新登录');

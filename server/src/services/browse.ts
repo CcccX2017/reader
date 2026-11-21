@@ -452,7 +452,10 @@ export class BrowseService {
     const failed: Array<{ id: string; reason: string }> = [];
     let deleted = 0;
     for (const id of [...new Set(bookIds)]) {
-      const book = this.db.get<{ id: string; cover_path: string | null }>('SELECT id, cover_path FROM books WHERE id = ?', id);
+      const book = this.db.get<{ id: string; cover_path: string | null }>(
+        'SELECT id, cover_path FROM books WHERE id = ?',
+        id,
+      );
       if (!book) {
         failed.push({ id, reason: 'NOT_FOUND' });
         continue;
@@ -461,7 +464,8 @@ export class BrowseService {
         const files = this.db.all<{ rel_path: string }>(
           `SELECT rel_path FROM book_files WHERE book_id = ?
            UNION SELECT rel_path FROM acquired_files WHERE book_id = ?`,
-          id, id,
+          id,
+          id,
         );
         for (const file of files) await this.eraseLibraryPath(file.rel_path);
         await removeCustomCover(this.config.dataDir, id);

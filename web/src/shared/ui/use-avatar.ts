@@ -36,15 +36,21 @@ function loadAvatar(api: Pick<ReaderApi, 'coverBytes'> & object, avatarUrl: stri
   let loads = avatarLoads.get(api);
   const pending = loads?.get(avatarUrl);
   if (pending) return pending;
-  const task = api.coverBytes(avatarUrl).then(bytes => {
-    const again = cachedAvatar(api, avatarUrl);
-    if (again) return again;
-    const objectUrl = URL.createObjectURL(new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer]));
-    storeAvatarObjectUrl(api, avatarUrl, objectUrl);
-    return objectUrl;
-  }).catch(() => null).finally(() => {
-    avatarLoads.get(api)?.delete(avatarUrl);
-  });
+  const task = api
+    .coverBytes(avatarUrl)
+    .then((bytes) => {
+      const again = cachedAvatar(api, avatarUrl);
+      if (again) return again;
+      const objectUrl = URL.createObjectURL(
+        new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer]),
+      );
+      storeAvatarObjectUrl(api, avatarUrl, objectUrl);
+      return objectUrl;
+    })
+    .catch(() => null)
+    .finally(() => {
+      avatarLoads.get(api)?.delete(avatarUrl);
+    });
   if (!loads) {
     loads = new Map();
     avatarLoads.set(api, loads);
@@ -70,7 +76,10 @@ function pictureFor(api: object | undefined, avatarUrl: string | null | undefine
  * Loads an avatar URL through the API (Authorization header) into an object URL.
  * A picture fetched earlier in this session is ready on the first render.
  */
-export function useAvatar(api: (Pick<ReaderApi, 'coverBytes'> & object) | undefined, avatarUrl: string | null | undefined): AvatarPicture {
+export function useAvatar(
+  api: (Pick<ReaderApi, 'coverBytes'> & object) | undefined,
+  avatarUrl: string | null | undefined,
+): AvatarPicture {
   const [picture, setPicture] = useState<AvatarPicture>(() => pictureFor(api, avatarUrl));
   const [seen, setSeen] = useState({ api, avatarUrl });
   if (api !== seen.api || avatarUrl !== seen.avatarUrl) {
@@ -80,10 +89,12 @@ export function useAvatar(api: (Pick<ReaderApi, 'coverBytes'> & object) | undefi
   useEffect(() => {
     if (!api || !avatarUrl || cachedAvatar(api, avatarUrl)) return;
     let live = true;
-    void loadAvatar(api, avatarUrl).then(src => {
+    void loadAvatar(api, avatarUrl).then((src) => {
       if (live) setPicture(src ? { src, pending: false } : { src: null, pending: false });
     });
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [api, avatarUrl]);
   return picture;
 }

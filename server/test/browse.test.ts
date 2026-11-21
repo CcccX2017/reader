@@ -896,11 +896,25 @@ describe('the library scope of the book list', () => {
     const now = Date.now();
     ctx.db.run(
       'INSERT INTO reading_progress (user_id, book_id, locator, percentage, chapter_title, device, updated_at) VALUES (?,?,?,?,?,?,?)',
-      userId, row.book_id, 'epubcfi(/6)', 0.2, '第一章', 'test', now,
+      userId,
+      row.book_id,
+      'epubcfi(/6)',
+      0.2,
+      '第一章',
+      'test',
+      now,
     );
     ctx.db.run(
       'INSERT INTO notes (id, user_id, book_id, type, locator, text, comment, color, updated_at, deleted) VALUES (?,?,?,?,?,?,?,?,?,0)',
-      'note-purge', userId, row.book_id, 'bookmark', '', '', '', '', now,
+      'note-purge',
+      userId,
+      row.book_id,
+      'bookmark',
+      '',
+      '',
+      '',
+      '',
+      now,
     );
 
     const res = await app.inject({

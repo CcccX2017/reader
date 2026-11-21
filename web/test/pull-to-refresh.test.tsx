@@ -8,7 +8,13 @@ import { PullRefreshIndicator } from '../src/ui/pull-refresh.tsx';
 /** DevTools phone mouse → pointer (not a real finger; those go through TouchEvent). */
 function pointer(type: string, init: PointerEventInit): PointerEvent {
   return new window.PointerEvent(type, {
-    bubbles: true, composed: true, cancelable: true, pointerType: 'mouse', isPrimary: true, pointerId: 1, ...init,
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+    pointerType: 'mouse',
+    isPrimary: true,
+    pointerId: 1,
+    ...init,
   });
 }
 
@@ -31,10 +37,12 @@ function mount(onRefresh: () => Promise<void>) {
   function Page() {
     const pull = usePullToRefresh(onRefresh);
     latest = { distance: pull.distance, refreshing: pull.refreshing, armed: pull.armed };
-    return <div ref={pull.ref} id="scroller" style={{ height: 200, overflow: 'auto' }}>
-      <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
-      <p id="text">text</p>
-    </div>;
+    return (
+      <div ref={pull.ref} id="scroller" style={{ height: 200, overflow: 'auto' }}>
+        <PullRefreshIndicator distance={pull.distance} refreshing={pull.refreshing} armed={pull.armed} />
+        <p id="text">text</p>
+      </div>
+    );
   }
   const host = document.createElement('div');
   document.body.append(host);
@@ -55,7 +63,9 @@ function mount(onRefresh: () => Promise<void>) {
 
 describe('usePullToRefresh', () => {
   it('arms after a deep enough downward pull and refreshes on release', async () => {
-    const onRefresh = vi.fn(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    const onRefresh = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
     const { latest, pull } = mount(onRefresh);
     act(() => pull(40));
     expect(latest().distance).toBe(0);
@@ -71,7 +81,7 @@ describe('usePullToRefresh', () => {
 
     await act(async () => {
       document.getElementById('scroller')!.dispatchEvent(pointer('pointerup', { clientX: 100, clientY: 200 }));
-      await new Promise(resolve => setTimeout(resolve, 40));
+      await new Promise((resolve) => setTimeout(resolve, 40));
     });
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(latest().refreshing).toBe(false);
@@ -109,22 +119,45 @@ describe('usePullToRefresh', () => {
     const onRefresh = vi.fn(async () => undefined);
     const { scroller } = mount(onRefresh);
     let top = 0;
-    Object.defineProperty(scroller, 'scrollTop', { configurable: true, get: () => top, set: (value: number) => { top = value; } });
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (value: number) => {
+        top = value;
+      },
+    });
     const touch = (type: string, y: number) => {
-      const t = { identifier: 1, clientX: 100, clientY: y, target: scroller, screenX: 100, screenY: y, pageX: 100, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
-      scroller.dispatchEvent(new window.TouchEvent(type, {
-        bubbles: true, cancelable: true, composed: true,
-        touches: type === 'touchend' ? [] : [t as unknown as Touch],
-        targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
-        changedTouches: [t as unknown as Touch],
-      }));
+      const t = {
+        identifier: 1,
+        clientX: 100,
+        clientY: y,
+        target: scroller,
+        screenX: 100,
+        screenY: y,
+        pageX: 100,
+        pageY: y,
+        radiusX: 1,
+        radiusY: 1,
+        rotationAngle: 0,
+        force: 1,
+      };
+      scroller.dispatchEvent(
+        new window.TouchEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          touches: type === 'touchend' ? [] : [t as unknown as Touch],
+          targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
+          changedTouches: [t as unknown as Touch],
+        }),
+      );
     };
     act(() => touch('touchstart', 40));
     expect(top).toBe(1);
     await act(async () => {
       touch('touchmove', 200);
       touch('touchend', 200);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(top).toBe(0);
@@ -134,32 +167,68 @@ describe('usePullToRefresh', () => {
     const onRefresh = vi.fn(async () => undefined);
     function Page() {
       const pull = usePullToRefresh(onRefresh);
-      return <div ref={pull.ref} id="surface">
-        <div ref={element => { pull.scrollRef(element); }} id="pane" style={{ height: 120, overflow: 'auto' }}><p>books</p></div>
-      </div>;
+      return (
+        <div ref={pull.ref} id="surface">
+          <div
+            ref={(element) => {
+              pull.scrollRef(element);
+            }}
+            id="pane"
+            style={{ height: 120, overflow: 'auto' }}
+          >
+            <p>books</p>
+          </div>
+        </div>
+      );
     }
     const host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
-    await act(async () => { root!.render(<Page />); await Promise.resolve(); });
+    await act(async () => {
+      root!.render(<Page />);
+      await Promise.resolve();
+    });
     const pane = document.getElementById('pane')!;
     let top = 0;
-    Object.defineProperty(pane, 'scrollTop', { configurable: true, get: () => top, set: (value: number) => { top = value; } });
+    Object.defineProperty(pane, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (value: number) => {
+        top = value;
+      },
+    });
     const touch = (type: string, y: number) => {
-      const t = { identifier: 1, clientX: 80, clientY: y, target: pane, screenX: 80, screenY: y, pageX: 80, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
-      pane.dispatchEvent(new window.TouchEvent(type, {
-        bubbles: true, cancelable: true, composed: true,
-        touches: type === 'touchend' ? [] : [t as unknown as Touch],
-        targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
-        changedTouches: [t as unknown as Touch],
-      }));
+      const t = {
+        identifier: 1,
+        clientX: 80,
+        clientY: y,
+        target: pane,
+        screenX: 80,
+        screenY: y,
+        pageX: 80,
+        pageY: y,
+        radiusX: 1,
+        radiusY: 1,
+        rotationAngle: 0,
+        force: 1,
+      };
+      pane.dispatchEvent(
+        new window.TouchEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          touches: type === 'touchend' ? [] : [t as unknown as Touch],
+          targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
+          changedTouches: [t as unknown as Touch],
+        }),
+      );
     };
     await act(async () => {
       touch('touchstart', 40);
       touch('touchmove', 90);
       touch('touchmove', 220);
       touch('touchend', 220);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
@@ -169,19 +238,36 @@ describe('usePullToRefresh', () => {
     const { latest, scroller } = mount(onRefresh);
     const touch = (type: string, y: number) => {
       const target = scroller;
-      const t = { identifier: 1, clientX: 100, clientY: y, target, screenX: 100, screenY: y, pageX: 100, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
-      target.dispatchEvent(new window.TouchEvent(type, {
-        bubbles: true, cancelable: true, composed: true,
-        touches: type === 'touchend' || type === 'touchcancel' ? [] : [t as unknown as Touch],
-        targetTouches: type === 'touchend' || type === 'touchcancel' ? [] : [t as unknown as Touch],
-        changedTouches: [t as unknown as Touch],
-      }));
+      const t = {
+        identifier: 1,
+        clientX: 100,
+        clientY: y,
+        target,
+        screenX: 100,
+        screenY: y,
+        pageX: 100,
+        pageY: y,
+        radiusX: 1,
+        radiusY: 1,
+        rotationAngle: 0,
+        force: 1,
+      };
+      target.dispatchEvent(
+        new window.TouchEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          touches: type === 'touchend' || type === 'touchcancel' ? [] : [t as unknown as Touch],
+          targetTouches: type === 'touchend' || type === 'touchcancel' ? [] : [t as unknown as Touch],
+          changedTouches: [t as unknown as Touch],
+        }),
+      );
     };
     await act(async () => {
       touch('touchstart', 40);
       touch('touchmove', 200);
       touch('touchend', 200);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(latest().distance).toBe(0);
@@ -193,10 +279,14 @@ describe('usePullToRefresh', () => {
     function Page() {
       const pull = usePullToRefresh(onRefresh);
       latest = { distance: pull.distance, refreshing: pull.refreshing, armed: pull.armed };
-      return <div ref={pull.ref} id="surface">
-        <header id="chrome">greeting</header>
-        <div ref={pull.scrollRef} id="pane" style={{ height: 120, overflow: 'auto' }}><p>books</p></div>
-      </div>;
+      return (
+        <div ref={pull.ref} id="surface">
+          <header id="chrome">greeting</header>
+          <div ref={pull.scrollRef} id="pane" style={{ height: 120, overflow: 'auto' }}>
+            <p>books</p>
+          </div>
+        </div>
+      );
     }
     const host = document.createElement('div');
     document.body.append(host);
@@ -209,7 +299,7 @@ describe('usePullToRefresh', () => {
       document.getElementById('chrome')!.dispatchEvent(pointer('pointerdown', { clientX: 100, clientY: 20 }));
       surface.dispatchEvent(pointer('pointermove', { clientX: 100, clientY: 200 }));
       surface.dispatchEvent(pointer('pointerup', { clientX: 100, clientY: 200 }));
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(latest.distance).toBe(0);
@@ -229,7 +319,7 @@ describe('usePullToRefresh', () => {
       scroller.dispatchEvent(pointer('pointerdown', { clientX: 100, clientY: 40 }));
       scroller.dispatchEvent(pointer('pointermove', { clientX: 100, clientY: 200 }));
       scroller.dispatchEvent(pointer('pointerup', { clientX: 100, clientY: 200 }));
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(latest().distance).toBe(0);

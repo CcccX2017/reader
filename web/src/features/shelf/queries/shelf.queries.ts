@@ -8,19 +8,55 @@ import type { HomeShelfCount, ShelfSort } from '../../../store/settings.ts';
  * What narrows the shelf besides the search: 在读 / 想读 / 已读, and one 分组 — a
  * series or a tag, the two groupings the books themselves carry.
  */
-export interface ShelfFilters { status?: ReadingState; series?: string; tag?: string }
+export interface ShelfFilters {
+  status?: ReadingState;
+  series?: string;
+  tag?: string;
+}
 
-export function shelfQuery(runtime: AppRuntime, page = 1, sort: 'recent' | 'added' | 'title' | 'author' = 'recent', search = '', filters: ShelfFilters = {}) {
+export function shelfQuery(
+  runtime: AppRuntime,
+  page = 1,
+  sort: 'recent' | 'added' | 'title' | 'author' = 'recent',
+  search = '',
+  filters: ShelfFilters = {},
+) {
   return queryOptions({
-    queryKey: ['shelf', runtime.api.baseUrl, runtime.api.currentSession()?.user.id, page, sort, search, filters.status ?? '', filters.series ?? '', filters.tag ?? ''],
-    queryFn: ({ signal }) => runtime.api.listBooks({
-      scope: 'shelf', page, pageSize: 60, sort, order: sort === 'title' || sort === 'author' ? 'asc' : 'desc', search: search.trim(),
-      ...(filters.status ? { status: filters.status } : {}), ...(filters.series ? { series: filters.series } : {}), ...(filters.tag ? { tag: filters.tag } : {}),
-    }, { signal }),
+    queryKey: [
+      'shelf',
+      runtime.api.baseUrl,
+      runtime.api.currentSession()?.user.id,
+      page,
+      sort,
+      search,
+      filters.status ?? '',
+      filters.series ?? '',
+      filters.tag ?? '',
+    ],
+    queryFn: ({ signal }) =>
+      runtime.api.listBooks(
+        {
+          scope: 'shelf',
+          page,
+          pageSize: 60,
+          sort,
+          order: sort === 'title' || sort === 'author' ? 'asc' : 'desc',
+          search: search.trim(),
+          ...(filters.status ? { status: filters.status } : {}),
+          ...(filters.series ? { series: filters.series } : {}),
+          ...(filters.tag ? { tag: filters.tag } : {}),
+        },
+        { signal },
+      ),
   });
 }
 
-export function useShelf(page = 1, sort: 'recent' | 'added' | 'title' | 'author' = 'recent', search = '', filters: ShelfFilters = {}) {
+export function useShelf(
+  page = 1,
+  sort: 'recent' | 'added' | 'title' | 'author' = 'recent',
+  search = '',
+  filters: ShelfFilters = {},
+) {
   return useQuery(shelfQuery(useRuntime(), page, sort, search, filters));
 }
 
@@ -34,9 +70,18 @@ export function homeShelfQuery(runtime: AppRuntime, sort: ShelfSort, count: Home
     queryKey: ['home', 'shelf', runtime.api.baseUrl, runtime.api.currentSession()?.user.id, sort, count],
     queryFn: async ({ signal }) => {
       const pageSize = count === 'all' ? 200 : 60;
-      const load = (page: number) => runtime.api.listBooks({
-        scope: 'shelf', page, pageSize, sort, order, search: '',
-      }, { signal });
+      const load = (page: number) =>
+        runtime.api.listBooks(
+          {
+            scope: 'shelf',
+            page,
+            pageSize,
+            sort,
+            order,
+            search: '',
+          },
+          { signal },
+        );
       const first = await load(1);
       if (count !== 'all') return { ...first, items: first.items.slice(0, count) };
       const items = [...first.items];

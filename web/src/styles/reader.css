@@ -150,7 +150,7 @@
   --reader-brightness: 1;
   /* The picture viewer's bed and the controls drawn on it: dark in every theme, like a lightbox. */
   --reader-viewer-bed: rgba(14, 13, 12, 0.96);
-  --reader-viewer-ink: #F3F0EA;
+  --reader-viewer-ink: #f3f0ea;
   --reader-viewer-control: rgba(20, 19, 18, 0.62);
   --reader-viewer-edge: rgba(255, 255, 255, 0.28);
   /* How much of the page outside the focused paragraph is covered (专注模式). */
@@ -250,8 +250,8 @@ body {
   font-family:
     system-ui,
     -apple-system,
-    'Segoe UI',
-    'Noto Sans SC',
+    "Segoe UI",
+    "Noto Sans SC",
     sans-serif;
   line-height: normal;
   -webkit-text-size-adjust: 100%;
@@ -310,17 +310,39 @@ select {
   /* The curl is a picture of the turn. Taps fall through to the same 点击区域 grid. */
   pointer-events: none;
 }
-.reader-flip-page { background: var(--reader-paper); overflow: hidden; }
-.reader-flip-sheet { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.reader-flip-page {
+  background: var(--reader-paper);
+  overflow: hidden;
+}
+.reader-flip-sheet {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
 /* The book mounts underneath a copy of the page already on screen. StPageFlip's
    pages start hidden, so the copy stays up until that book has actually drawn. */
-.reader-curl-book { position: absolute; inset: 0; }
-.reader-curl-hold { position: absolute; inset: 0; z-index: 2; background: var(--reader-paper); }
+.reader-curl-book {
+  position: absolute;
+  inset: 0;
+}
+.reader-curl-hold {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--reader-paper);
+}
 /* The middle band's book. Its page rules are the ones shipped with
    @openpageflip/core (MIT), kept here so a test runner never has to load the
    stylesheet import. The library positions each page with inline styles. */
-.reader-edge-book { position: absolute; inset: 0; }
-.reader-edge-page { background: var(--reader-paper); overflow: hidden; }
+.reader-edge-book {
+  position: absolute;
+  inset: 0;
+}
+.reader-edge-page {
+  background: var(--reader-paper);
+  overflow: hidden;
+}
 /* A settled copy of the neighbouring page, kept off screen while this one is
    read. It has the live page's own box, so its columns are already broken
    when a turn uncovers it. The copy sets its own visibility to visible so it
@@ -333,7 +355,9 @@ select {
   opacity: 0;
   pointer-events: none;
 }
-.reader-screen .reader-face-warm > .book-host { inset: 0; }
+.reader-screen .reader-face-warm > .book-host {
+  inset: 0;
+}
 .opf-book {
   position: relative;
   display: block;
@@ -359,9 +383,15 @@ select {
 }
 /* Fill the stage. The column's own top and bottom insets still apply, so the
    page number stays on the screen's bottom edge instead of riding up. */
-.reader-curl .stf__parent { position: absolute; inset: 0; }
+.reader-curl .stf__parent {
+  position: absolute;
+  inset: 0;
+}
 .reader-flip-sheet > .book-host,
-.reader-edge-page > .book-host { position: absolute; inset: 0; }
+.reader-edge-page > .book-host {
+  position: absolute;
+  inset: 0;
+}
 
 /*
  * The stage's slot in the component tree.
@@ -439,7 +469,7 @@ select {
   z-index: var(--reader-layer-page);
 }
 
-.book-host[data-layout='reflowable'] {
+.book-host[data-layout="reflowable"] {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -450,7 +480,7 @@ select {
  * not be a scroll container: a nested scroll area on top of a horizontal pager
  * produces the classic "the page drifts sideways" bug on Android.
  */
-.book-host[data-layout='fixed'] {
+.book-host[data-layout="fixed"] {
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -486,8 +516,8 @@ select {
  * `mix-blend-mode: multiply` on a pseudo-element so it costs no extra DOM and
  * cannot be reached by the book.
  */
-.book-host[data-layout='reflowable']::after {
-  content: '';
+.book-host[data-layout="reflowable"]::after {
+  content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -515,7 +545,9 @@ select {
   color: var(--reader-viewer-ink);
   overflow: hidden;
 }
-.image-viewer::backdrop { background: var(--reader-viewer-bed); }
+.image-viewer::backdrop {
+  background: var(--reader-viewer-bed);
+}
 .image-viewer-surface {
   position: absolute;
   inset: 0;
@@ -527,7 +559,9 @@ select {
   -webkit-user-select: none;
   cursor: zoom-in;
 }
-.image-viewer-surface[data-zoomed='true'] { cursor: grab; }
+.image-viewer-surface[data-zoomed="true"] {
+  cursor: grab;
+}
 .image-viewer-surface img {
   max-width: 100%;
   max-height: 100%;
@@ -537,7 +571,9 @@ select {
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
 }
-.image-viewer-surface img[data-settling='true'] { transition: transform var(--motion-duration) var(--motion-ease); }
+.image-viewer-surface img[data-settling="true"] {
+  transition: transform var(--motion-duration) var(--motion-ease);
+}
 .image-viewer-bar {
   position: absolute;
   inset: 0 0 auto 0;
@@ -545,10 +581,18 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: calc(var(--space-2) + var(--safe-top)) calc(var(--space-3) + var(--safe-right)) var(--space-2) calc(var(--space-3) + var(--safe-left));
+  padding: calc(var(--space-2) + var(--safe-top)) calc(var(--space-3) + var(--safe-right)) var(--space-2)
+    calc(var(--space-3) + var(--safe-left));
   pointer-events: none;
 }
-.image-viewer-count { font-size: var(--text-ui); font-variant-numeric: tabular-nums; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--reader-viewer-control); border: 1px solid var(--reader-viewer-edge); }
+.image-viewer-count {
+  font-size: var(--text-ui);
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--reader-viewer-control);
+  border: 1px solid var(--reader-viewer-edge);
+}
 .image-viewer .icon-button {
   width: 44px;
   height: 44px;
@@ -559,12 +603,27 @@ select {
   color: var(--reader-viewer-ink);
   pointer-events: auto;
 }
-.image-viewer .icon-button:disabled { opacity: 0.35; }
+.image-viewer .icon-button:disabled {
+  opacity: 0.35;
+}
 /* Stepping by button is for a mouse; a finger swipes, and the buttons would sit on the picture. */
-.image-viewer-step { display: none; position: absolute; top: 50%; left: calc(var(--space-3) + var(--safe-left)); transform: translateY(-50%); }
-.image-viewer-step.image-viewer-next { left: auto; right: calc(var(--space-3) + var(--safe-right)); }
+.image-viewer-step {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: calc(var(--space-3) + var(--safe-left));
+  transform: translateY(-50%);
+}
+.image-viewer-step.image-viewer-next {
+  left: auto;
+  right: calc(var(--space-3) + var(--safe-right));
+}
 @media (hover: hover) and (pointer: fine) {
-  .image-viewer-step { display: inline-flex; align-items: center; justify-content: center; }
+  .image-viewer-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 /*
@@ -582,7 +641,9 @@ select {
   background: var(--reader-paper);
   opacity: var(--reader-focus-veil);
 }
-.focus-veil[hidden] { display: none; }
+.focus-veil[hidden] {
+  display: none;
+}
 
 /*
  * The host is the scroll container in scroll mode and a plain frame in paged
@@ -607,16 +668,16 @@ book-content {
  * column inside the shadow root (see ui/shadow.ts): the column is the paged
  * scroll container, and a touch on the text is decided by the boxes up to it.
  */
-.book-host[data-layout='reflowable']:not([data-paginated='true']) {
+.book-host[data-layout="reflowable"]:not([data-paginated="true"]) {
   touch-action: pan-y;
   /* The line the page's bottom edge cuts through; see ReaderView.syncPageMask. A clip,
      not a height, so the page geometry the turns are computed from does not move. */
   clip-path: inset(0 0 var(--reader-page-mask, 0px) 0);
 }
-.book-host[data-layout='reflowable'][data-paginated='true'] {
+.book-host[data-layout="reflowable"][data-paginated="true"] {
   touch-action: none;
 }
-.book-host[data-pdf='true'] {
+.book-host[data-pdf="true"] {
   touch-action: pan-y pinch-zoom;
 }
 
@@ -753,7 +814,7 @@ book-content {
  * No height is animated, because there is no height to give back — the page never
  * had less of it. That is the point of the bars being a layer.
  */
-.reader-screen[data-chrome='hidden'] .topbar {
+.reader-screen[data-chrome="hidden"] .topbar {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1007,7 +1068,7 @@ book-content {
 
   /* Hover must not paint over the one page the reader is *on*: the fill is the
      state, and a hover that replaces it hides exactly the fact the control carries. */
-  .pager-page[aria-current='page']:hover {
+  .pager-page[aria-current="page"]:hover {
     background: var(--reader-fill);
   }
 
@@ -1069,7 +1130,7 @@ book-content {
   width: 100%;
 }
 
-.field input[type='range'] {
+.field input[type="range"] {
   padding: 0;
   border: 0;
   background: transparent;
@@ -1172,7 +1233,7 @@ book-content {
   flex: none;
   width: 100%;
 }
-.select-head-slot > [data-picking-hidden='true'] {
+.select-head-slot > [data-picking-hidden="true"] {
   visibility: hidden;
   pointer-events: none;
 }
@@ -1559,7 +1620,7 @@ book-content {
   scrollbar-width: thin;
 }
 /* Clearance for the fixed select bar (covers the tab bar and rises into the page). */
-.shelf-scroll[data-selecting='true'] {
+.shelf-scroll[data-selecting="true"] {
   padding-bottom: calc(12rem + var(--safe-bottom));
 }
 /* Touch: hide the book-pane chrome; the grid still scrolls. */
@@ -1691,7 +1752,7 @@ book-content {
  * and the two would eventually disagree — with the disagreement showing up only to a
  * screen reader, which is the worst place for it.
  */
-.pager-page[aria-current='page'] {
+.pager-page[aria-current="page"] {
   background: var(--reader-fill);
   border-color: var(--reader-fill);
   color: var(--reader-on-fill);
@@ -1766,12 +1827,12 @@ book-content {
   align-items: start;
 }
 
-.book-grid[data-density='compact'] {
+.book-grid[data-density="compact"] {
   --shelf-cover-min: 5rem;
   gap: 0.9rem 0.6rem;
 }
 
-.book-grid[data-density='comfortable'] {
+.book-grid[data-density="comfortable"] {
   --shelf-cover-min: 9.5rem;
   gap: 1.35rem 1rem;
 }
@@ -1799,15 +1860,15 @@ book-content {
  * make a desktop shelf look like a shelf.
  */
 @media (min-width: 40rem) {
-  .book-grid[data-density='compact'] {
+  .book-grid[data-density="compact"] {
     --shelf-cover-min: 7rem;
   }
 
-  .book-grid:not([data-density='compact']):not([data-density='comfortable']) {
+  .book-grid:not([data-density="compact"]):not([data-density="comfortable"]) {
     --shelf-cover-min: 9.5rem;
   }
 
-  .book-grid[data-density='comfortable'] {
+  .book-grid[data-density="comfortable"] {
     --shelf-cover-min: 12rem;
   }
 }
@@ -2076,7 +2137,11 @@ book-content {
   line-height: 1.35;
   text-align: center;
   color: color-mix(in srgb, var(--reader-ink) 72%, transparent);
-  background: linear-gradient(150deg, color-mix(in srgb, var(--reader-accent) 16%, var(--reader-surface)) 0%, color-mix(in srgb, var(--reader-accent) 6%, var(--reader-line)) 100%);
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--reader-accent) 16%, var(--reader-surface)) 0%,
+    color-mix(in srgb, var(--reader-accent) 6%, var(--reader-line)) 100%
+  );
   /* Clipped rather than scrolled: a title set to fourteen lines stops being a
      cover and starts being a paragraph in the wrong place. */
   overflow: hidden;
@@ -2085,7 +2150,7 @@ book-content {
 
 /* Per-title tint (ui/cover-tint.ts, ui.md §2.7): mixed into the theme surface, so
    it stays a tint in every theme and mode and the title on it keeps its contrast. */
-.book-card .cover .placeholder[style*='--cover-hue'] {
+.book-card .cover .placeholder[style*="--cover-hue"] {
   background: linear-gradient(
     150deg,
     color-mix(in oklab, hsl(var(--cover-hue) 55% 55%) 20%, var(--reader-surface)) 0%,
@@ -2128,11 +2193,11 @@ book-content {
   text-overflow: ellipsis;
 }
 
-.book-grid[data-show-author='false'] .book-card .author {
+.book-grid[data-show-author="false"] .book-card .author {
   display: none;
 }
 
-.book-grid[data-show-progress='false'] .cover-progress {
+.book-grid[data-show-progress="false"] .cover-progress {
   display: none;
 }
 
@@ -2205,7 +2270,12 @@ book-content {
 
 .book-grid.is-skeleton .cover,
 .skeleton-line {
-  background-image: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--reader-ink) 5%, transparent) 50%, transparent 80%);
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--reader-ink) 5%, transparent) 50%,
+    transparent 80%
+  );
   background-size: 220% 100%;
   animation: shelf-shimmer 1.5s linear infinite;
 }
@@ -2307,7 +2377,7 @@ book-content {
 }
 
 .switch::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0.2rem;
   inset-inline-start: 0.2rem;
@@ -2319,11 +2389,11 @@ book-content {
   transition: inset-inline-start var(--motion-duration) var(--motion-ease);
 }
 
-.switch[aria-pressed='true'] {
+.switch[aria-pressed="true"] {
   background: var(--reader-fill);
 }
 
-.switch[aria-pressed='true']::after {
+.switch[aria-pressed="true"]::after {
   inset-inline-start: 1.3rem;
 }
 
@@ -2394,7 +2464,7 @@ book-content {
   }
 }
 
-.toc-list li button[aria-current='true'] {
+.toc-list li button[aria-current="true"] {
   color: var(--reader-accent);
   font-weight: 600;
   background: color-mix(in srgb, var(--reader-accent) 12%, transparent);
@@ -2426,13 +2496,13 @@ book-content {
 /* A row for a chapter the loaded window cannot reach. It is still listed — the
    book does have that chapter — but it must not look tappable, because tapping it
    is the case the panel used to accept in silence. */
-.toc-list li button[data-unreachable='true'] {
+.toc-list li button[data-unreachable="true"] {
   opacity: 0.55;
   cursor: default;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .toc-list li button[data-unreachable='true']:hover {
+  .toc-list li button[data-unreachable="true"]:hover {
     background: transparent;
   }
 }
@@ -2483,7 +2553,7 @@ book-content {
  * page, with its own surface colour, so the lines it covers are *behind* it rather
  * than pushed above it.
  */
-.reader-screen[data-chrome='hidden'] .footer {
+.reader-screen[data-chrome="hidden"] .footer {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -2759,7 +2829,7 @@ book-content {
  * a control that is on its way off the screen cannot be tapped or reached by a
  * screen reader, and `pointer-events: none` covers the interval.
  */
-.reader-screen[data-chrome='hidden'] .reader-rail {
+.reader-screen[data-chrome="hidden"] .reader-rail {
   visibility: hidden;
   opacity: 0;
   transform: translateX(0.5rem);
@@ -2998,7 +3068,7 @@ book-content {
   .book-card .book-more-lens::before,
   .home-resume-slot .book-more::before,
   .home-resume-slot .book-more-lens::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: -0.5rem;
   }
@@ -3017,7 +3087,7 @@ book-content {
   }
 }
 
-.chip[aria-pressed='true'] {
+.chip[aria-pressed="true"] {
   background: color-mix(in srgb, var(--reader-accent) 12%, var(--reader-surface));
   border-color: color-mix(in srgb, var(--reader-accent) 45%, transparent);
   color: var(--reader-accent);
@@ -3025,7 +3095,7 @@ book-content {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .chip[aria-pressed='true']:hover {
+  .chip[aria-pressed="true"]:hover {
     /* The pressed chip keeps its own fill: hover must not erase the state, which is
        the one fact the control carries. */
     background: color-mix(in srgb, var(--reader-accent) 18%, var(--reader-surface));
@@ -3092,7 +3162,7 @@ book-content {
 
 .field > .segmented,
 .field > select,
-.field > input[type='range'] {
+.field > input[type="range"] {
   justify-self: stretch;
   min-width: 0;
 }
@@ -3142,12 +3212,12 @@ book-content {
   transition: border-color var(--motion-duration) var(--motion-ease);
 }
 
-.theme-swatch[aria-pressed='true'] .theme-swatch-chip {
+.theme-swatch[aria-pressed="true"] .theme-swatch-chip {
   border-width: 2px;
   border-color: var(--reader-accent);
 }
 
-.theme-swatch[aria-pressed='true'] .theme-swatch-label {
+.theme-swatch[aria-pressed="true"] .theme-swatch-label {
   font-weight: 600;
 }
 
@@ -3171,7 +3241,7 @@ book-content {
 }
 
 .panel-fold > summary::after {
-  content: '';
+  content: "";
   flex-shrink: 0;
   width: 0.5rem;
   height: 0.5rem;
@@ -3370,12 +3440,31 @@ book-content {
   outline: 2px solid color-mix(in srgb, var(--reader-accent) 28%, transparent);
   outline-offset: 1px;
 }
-.display-name-control { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
-.display-name-control > input { flex: 1 1 auto; width: auto; min-width: 0; }
-.display-name-count { flex: none; font-size: var(--text-meta); font-variant-numeric: tabular-nums; color: var(--reader-muted, var(--muted)); }
-.display-name-count[data-over='true'] { color: var(--color-danger); }
+.display-name-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+.display-name-control > input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.display-name-count {
+  flex: none;
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--reader-muted, var(--muted));
+}
+.display-name-count[data-over="true"] {
+  color: var(--color-danger);
+}
 .login-card .display-name-control > input,
-.user-management .display-name-control > input { width: auto; }
+.user-management .display-name-control > input {
+  width: auto;
+}
 .login-connection {
   margin-bottom: 1.4rem;
   border-bottom: 1px solid var(--reader-line);
@@ -3552,7 +3641,7 @@ book-content {
   background: var(--reader-paper);
   color: var(--reader-ink);
 }
-.user-management .extension-tabs button[aria-pressed='true'] {
+.user-management .extension-tabs button[aria-pressed="true"] {
   color: var(--reader-accent);
   border-bottom-color: var(--reader-accent);
 }
@@ -3709,7 +3798,7 @@ book-content {
   cursor: pointer;
 }
 
-.segmented button[aria-pressed='true'] {
+.segmented button[aria-pressed="true"] {
   background: var(--color-brand-soft);
   color: var(--reader-accent);
   font-weight: 600;
@@ -3796,7 +3885,7 @@ book-content {
   padding-bottom: calc(1.35rem + var(--safe-bottom));
   scrollbar-width: thin;
 }
-.library-browse-scroll[data-selecting='true'] {
+.library-browse-scroll[data-selecting="true"] {
   padding-bottom: calc(12rem + var(--safe-bottom));
 }
 @media (pointer: coarse) {
@@ -3854,7 +3943,7 @@ book-content {
   cursor: pointer;
 }
 
-.manager-crumb[aria-current='true'] {
+.manager-crumb[aria-current="true"] {
   font-weight: 600;
 }
 
@@ -3945,12 +4034,12 @@ book-content {
   -webkit-overflow-scrolling: touch;
   min-height: 0;
 }
-.shelf[data-pulling='true'],
-.shelf-scroll[data-pulling='true'],
-.library-browse-scroll[data-pulling='true'],
-.manager-body[data-pulling='true'],
-.sources-hub[data-pulling='true'],
-.sources-body[data-pulling='true'] {
+.shelf[data-pulling="true"],
+.shelf-scroll[data-pulling="true"],
+.library-browse-scroll[data-pulling="true"],
+.manager-body[data-pulling="true"],
+.sources-hub[data-pulling="true"],
+.sources-body[data-pulling="true"] {
   touch-action: none;
 }
 
@@ -3985,7 +4074,7 @@ book-content {
   background: color-mix(in srgb, var(--reader-ink) 6%, transparent);
 }
 
-.manager-row[data-selected='true'] {
+.manager-row[data-selected="true"] {
   background: color-mix(in srgb, var(--reader-accent) 14%, transparent);
 }
 
@@ -4025,7 +4114,7 @@ book-content {
   opacity: 1;
 }
 
-.manager-row[data-selected='true'] .manager-check {
+.manager-row[data-selected="true"] .manager-check {
   border-color: var(--reader-fill);
   background: var(--reader-fill);
 }
@@ -4039,7 +4128,7 @@ book-content {
  * one shape is not a set, and a set of one has no consistency to enforce.
  */
 .manager-check::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   margin: auto;
@@ -4056,7 +4145,7 @@ book-content {
   outline-offset: 2px;
 }
 
-.manager-row[data-selected='true'] .manager-check::after {
+.manager-row[data-selected="true"] .manager-check::after {
   opacity: 1;
 }
 
@@ -4076,7 +4165,7 @@ book-content {
  * takes the accent and the file stays ink: colour is the fastest thing in the row to
  * scan, and it costs nothing that the name beside it does not already say out loud.
  */
-.manager-row[data-type='dir'] .manager-icon {
+.manager-row[data-type="dir"] .manager-icon {
   color: var(--reader-accent);
 }
 
@@ -4159,7 +4248,7 @@ book-content {
 /* The read-only dimming, on the screen element the library actually uses. The
    `.manager-screen` alias above is kept only for the base layout rule, which the two
    names share; a state selector belongs to the screen, not to the alias. */
-.library-screen[data-writable='false'] .manager-more {
+.library-screen[data-writable="false"] .manager-more {
   opacity: 0.35;
 }
 
@@ -4386,10 +4475,10 @@ book-content {
   gap: 0.4rem;
   margin: 0.75rem 0;
 }
-.sources-card input:not([type='checkbox']),
+.sources-card input:not([type="checkbox"]),
 .sources-card select,
 .sources-card textarea,
-.extension-sheet-form input:not([type='checkbox']),
+.extension-sheet-form input:not([type="checkbox"]),
 .extension-sheet-form select,
 .extension-sheet-form textarea {
   width: 100%;
@@ -4690,105 +4779,528 @@ book-content {
 .source-description::-webkit-scrollbar {
   display: none;
 }
-.catalog-book { padding:1.4rem 0; align-items:flex-start; }
-/* 发现: a trail of where you are, the levels below as chips, then books. */
-.explore-trail { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-1); margin-bottom:var(--space-3); font-size:var(--text-ui); color:var(--reader-muted); }
-.explore-trail .explore-select-toggle { margin-inline-start:auto; width:44px; height:44px; padding:0; color:var(--reader-ink); }
-.explore-trail .explore-select-toggle[aria-pressed="true"] { color:var(--reader-accent); }
-.explore-trail span { display:inline-flex; align-items:center; gap:var(--space-1); }
-.explore-trail button { min-height:44px; padding:0 var(--space-1); border:0; background:transparent; color:var(--reader-accent); font:inherit; cursor:pointer; }
-.explore-trail button:disabled { opacity:.6; cursor:default; }
-.explore-trail strong { color:var(--reader-ink); font-size:var(--text-title); overflow-wrap:anywhere; }
-.explore-filter { width:100%; box-sizing:border-box; min-height:44px; margin-bottom:var(--space-3); padding:.6rem .8rem; border:1px solid var(--reader-line); border-radius:var(--radius-md); background:var(--reader-paper); color:var(--reader-ink); font:inherit; font-size:var(--text-title); }
-.explore-filter::-webkit-search-cancel-button, .explore-filter::-webkit-search-decoration { appearance:none; display:none; }
-.explore-links { display:flex; flex-wrap:wrap; gap:var(--space-2); }
-.explore-link { min-height:44px; max-width:100%; padding:.5rem .9rem; border:1px solid var(--reader-line); border-radius:var(--radius-pill); background:var(--reader-surface); color:var(--reader-ink); font:inherit; font-size:var(--text-ui); overflow-wrap:anywhere; cursor:pointer; }
-.explore-link:disabled { opacity:.6; cursor:default; }
-.explore-link:focus-visible, .explore-trail button:focus-visible { outline:var(--focus-ring); outline-offset:2px; }
-@media (hover: hover) and (pointer: fine) {
-  .explore-link:hover { border-color:var(--reader-accent); color:var(--reader-accent); }
-  .explore-trail button:hover { text-decoration:underline; }
-  .explore-trail .explore-select-toggle:hover { text-decoration:none; }
+.catalog-book {
+  padding: 1.4rem 0;
+  align-items: flex-start;
 }
-.explore-links + .explore-books { margin-top:var(--space-4); }
-.explore-book { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:var(--space-2) var(--space-3); padding:var(--space-3) 0; border-top:1px solid var(--reader-line); }
-.explore-book:has(.explore-pick) { grid-template-columns:auto auto minmax(0, 1fr); }
-.explore-book:has(.explore-pick) .explore-book-actions { grid-column:3; }
-.explore-pick { display:flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; grid-row:span 2; }
-.explore-pick input { width:1.25rem; height:1.25rem; margin:0; }
-.explore-card .explore-pick { position:absolute; top:0; left:0; z-index:1; grid-row:auto; border-radius:var(--radius-sm); background:color-mix(in srgb, var(--reader-paper) 88%, transparent); }
-.explore-select { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); margin-bottom:var(--space-3); }
-.explore-select-all { display:flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; }
-.explore-select-all input { width:1.25rem; height:1.25rem; margin:0; }
-.explore-select > button:not(.button) { min-height:44px; padding:0 var(--space-3); border:0; background:transparent; color:var(--reader-accent); font:inherit; font-size:var(--text-title); cursor:pointer; }
-.explore-select > button:not(.button):disabled { opacity:.5; cursor:default; }
-.explore-select > span { color:var(--reader-muted); font-size:var(--text-ui); }
-.explore-book:first-child { border-top:0; padding-top:0; }
-.explore-book .lazy-cover { width:4rem; grid-row:span 2; }
-.explore-cover-set { grid-row:span 2; width:4rem; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; }
-.explore-cover-set .lazy-cover { width:100%; grid-row:auto; }
-.explore-cover-set:focus-visible { outline:var(--focus-ring); outline-offset:2px; }
-.explore-detail-edit { display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-3) 0; }
-.explore-detail-edit .button { min-height:44px; }
-.explore-book-text { min-width:0; }
-.explore-book-text strong { display:block; font-size:var(--text-title); overflow-wrap:anywhere; }
-.explore-book-text small { display:block; margin-top:.2rem; color:var(--reader-muted); font-size:var(--text-meta); overflow-wrap:anywhere; }
-.explore-book-text p { margin:.4rem 0 0; color:var(--reader-muted); font-size:var(--text-ui); line-height:1.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.explore-book-actions { grid-column:2; display:flex; gap:var(--space-2); justify-content:flex-end; }
-.explore-book-actions .button { min-height:44px; }
+/* 发现: a trail of where you are, the levels below as chips, then books. */
+.explore-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-ui);
+  color: var(--reader-muted);
+}
+.explore-trail .explore-select-toggle {
+  margin-inline-start: auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--reader-ink);
+}
+.explore-trail .explore-select-toggle[aria-pressed="true"] {
+  color: var(--reader-accent);
+}
+.explore-trail span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.explore-trail button {
+  min-height: 44px;
+  padding: 0 var(--space-1);
+  border: 0;
+  background: transparent;
+  color: var(--reader-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.explore-trail button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.explore-trail strong {
+  color: var(--reader-ink);
+  font-size: var(--text-title);
+  overflow-wrap: anywhere;
+}
+.explore-filter {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin-bottom: var(--space-3);
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--reader-line);
+  border-radius: var(--radius-md);
+  background: var(--reader-paper);
+  color: var(--reader-ink);
+  font: inherit;
+  font-size: var(--text-title);
+}
+.explore-filter::-webkit-search-cancel-button,
+.explore-filter::-webkit-search-decoration {
+  appearance: none;
+  display: none;
+}
+.explore-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.explore-link {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--reader-line);
+  border-radius: var(--radius-pill);
+  background: var(--reader-surface);
+  color: var(--reader-ink);
+  font: inherit;
+  font-size: var(--text-ui);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.explore-link:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.explore-link:focus-visible,
+.explore-trail button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .explore-link:hover {
+    border-color: var(--reader-accent);
+    color: var(--reader-accent);
+  }
+  .explore-trail button:hover {
+    text-decoration: underline;
+  }
+  .explore-trail .explore-select-toggle:hover {
+    text-decoration: none;
+  }
+}
+.explore-links + .explore-books {
+  margin-top: var(--space-4);
+}
+.explore-book {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--reader-line);
+}
+.explore-book:has(.explore-pick) {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+.explore-book:has(.explore-pick) .explore-book-actions {
+  grid-column: 3;
+}
+.explore-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  grid-row: span 2;
+}
+.explore-pick input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+}
+.explore-card .explore-pick {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  grid-row: auto;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--reader-paper) 88%, transparent);
+}
+.explore-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.explore-select-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+.explore-select-all input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+}
+.explore-select > button:not(.button) {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--reader-accent);
+  font: inherit;
+  font-size: var(--text-title);
+  cursor: pointer;
+}
+.explore-select > button:not(.button):disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.explore-select > span {
+  color: var(--reader-muted);
+  font-size: var(--text-ui);
+}
+.explore-book:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.explore-book .lazy-cover {
+  width: 4rem;
+  grid-row: span 2;
+}
+.explore-cover-set {
+  grid-row: span 2;
+  width: 4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.explore-cover-set .lazy-cover {
+  width: 100%;
+  grid-row: auto;
+}
+.explore-cover-set:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.explore-detail-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+.explore-detail-edit .button {
+  min-height: 44px;
+}
+.explore-book-text {
+  min-width: 0;
+}
+.explore-book-text strong {
+  display: block;
+  font-size: var(--text-title);
+  overflow-wrap: anywhere;
+}
+.explore-book-text small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--reader-muted);
+  font-size: var(--text-meta);
+  overflow-wrap: anywhere;
+}
+.explore-book-text p {
+  margin: 0.4rem 0 0;
+  color: var(--reader-muted);
+  font-size: var(--text-ui);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.explore-book-actions {
+  grid-column: 2;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+.explore-book-actions .button {
+  min-height: 44px;
+}
 /* 发现's own bar: what the local library adds (upload, file manager) on the left, the layout choice on the right. */
-.explore-tools { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); margin-bottom:var(--space-3); }
+.explore-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
 /* The source picker leads the bar; its name is the control's own label, so the caption is for assistive tech only. */
-.explore-tools .searchable-select { flex:1 1 12rem; min-width:0; max-width:22rem; margin-right:auto; }
-.explore-tools .searchable-select-label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-.explore-tools .searchable-select > .searchable-select-trigger { min-height:44px; border-radius:var(--radius-md); background:var(--reader-surface); text-align:left; justify-content:space-between; }
-.explore-tools .searchable-select-menu { width:min(22rem, calc(100vw - 3rem)); border-radius:var(--radius-md); }
-.explore-tools .searchable-select-options { max-height:15rem; }
-.explore-tools .searchable-select-options button { min-height:42px; justify-content:space-between; }
-.explore-tools .button, .explore-tools label.button { min-height:44px; display:inline-flex; flex-direction:row; align-items:center; gap:var(--space-1); margin:0; white-space:nowrap; }
-.explore-tools .button.is-disabled { opacity:.5; pointer-events:none; }
-.explore-layout.segmented { flex:none; }
+.explore-tools .searchable-select {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 22rem;
+  margin-right: auto;
+}
+.explore-tools .searchable-select-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.explore-tools .searchable-select > .searchable-select-trigger {
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--reader-surface);
+  text-align: left;
+  justify-content: space-between;
+}
+.explore-tools .searchable-select-menu {
+  width: min(22rem, calc(100vw - 3rem));
+  border-radius: var(--radius-md);
+}
+.explore-tools .searchable-select-options {
+  max-height: 15rem;
+}
+.explore-tools .searchable-select-options button {
+  min-height: 42px;
+  justify-content: space-between;
+}
+.explore-tools .button,
+.explore-tools label.button {
+  min-height: 44px;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  white-space: nowrap;
+}
+.explore-tools .button.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.explore-layout.segmented {
+  flex: none;
+}
 /* A phone has one row for the picker and one for the rest, where the two local actions keep their icon and lose their words. */
 @media (max-width: 34rem) {
-  .explore-tools .searchable-select { flex-basis:100%; max-width:none; }
-  .explore-tools .button { min-width:44px; justify-content:center; }
-  .explore-tools .button > span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-  .explore-layout.segmented { margin-left:auto; }
+  .explore-tools .searchable-select {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .explore-tools .button {
+    min-width: 44px;
+    justify-content: center;
+  }
+  .explore-tools .button > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .explore-layout.segmented {
+    margin-left: auto;
+  }
 }
-.explore-layout.segmented button { flex:none; min-height:44px; padding:0 var(--space-3); }
-.explore-layout.segmented button:focus-visible { outline:var(--focus-ring); outline-offset:-2px; }
-.explore-links + .explore-grid { margin-top:var(--space-4); }
-.explore-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(5.5rem, 1fr)); gap:var(--space-4) var(--space-3); }
-.explore-card { position:relative; display:flex; flex-direction:column; gap:var(--space-2); min-width:0; }
-.explore-card-open { display:flex; flex-direction:column; flex:1 1 auto; gap:.2rem; min-width:0; padding:0; border:0; background:transparent; color:var(--reader-ink); font:inherit; text-align:left; cursor:pointer; }
-.explore-card-open:focus-visible { outline:var(--focus-ring); outline-offset:2px; }
-.explore-card .lazy-cover { width:100%; margin-bottom:.2rem; }
-.explore-card strong { font-size:var(--text-ui); line-height:1.35; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.explore-card small { color:var(--reader-muted); font-size:var(--text-meta); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.explore-card > .button { min-height:40px; width:100%; font-size:var(--text-ui); }
-@media (pointer: coarse) { .explore-card > .button { min-height:44px; } }
-@media (min-width: 720px) { .explore-grid { grid-template-columns:repeat(auto-fill, minmax(8rem, 10rem)); } }
-.catalog-book-main { display:flex; align-items:flex-start; gap:var(--space-3); }
-.catalog-book-main > div { flex:1; min-width:0; }
+.explore-layout.segmented button {
+  flex: none;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+}
+.explore-layout.segmented button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+.explore-links + .explore-grid {
+  margin-top: var(--space-4);
+}
+.explore-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: var(--space-4) var(--space-3);
+}
+.explore-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.explore-card-open {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--reader-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.explore-card-open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.explore-card .lazy-cover {
+  width: 100%;
+  margin-bottom: 0.2rem;
+}
+.explore-card strong {
+  font-size: var(--text-ui);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.explore-card small {
+  color: var(--reader-muted);
+  font-size: var(--text-meta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.explore-card > .button {
+  min-height: 40px;
+  width: 100%;
+  font-size: var(--text-ui);
+}
+@media (pointer: coarse) {
+  .explore-card > .button {
+    min-height: 44px;
+  }
+}
+@media (min-width: 720px) {
+  .explore-grid {
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 10rem));
+  }
+}
+.catalog-book-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.catalog-book-main > div {
+  flex: 1;
+  min-width: 0;
+}
 /* A source's cover: a fixed 3:4 frame, so rows do not jump when the image arrives. */
-.lazy-cover { flex:none; display:block; width:3rem; aspect-ratio:3 / 4; overflow:hidden; border-radius:var(--radius-sm); background:var(--reader-surface); border:1px solid var(--reader-line); }
-.lazy-cover img { display:block; width:100%; height:100%; object-fit:cover; }
-.lazy-cover-placeholder { display:grid; place-items:center; width:100%; height:100%; color:var(--reader-muted); font-size:var(--text-title); }
-.cover-picker-status { margin:0 0 var(--space-3); color:var(--reader-muted); font-size:var(--text-ui); }
-.cover-picker-source { display:flex; flex-direction:column; gap:var(--space-1); margin-bottom:var(--space-3); color:var(--reader-muted); font-size:var(--text-ui); }
-.cover-picker-restore { margin-top:var(--space-4); min-height:44px; }
-.cover-picker-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(6rem, 1fr)); gap:var(--space-3); }
-.cover-picker-item { display:flex; flex-direction:column; align-items:stretch; gap:var(--space-1); min-height:44px; padding:var(--space-1); border:1px solid transparent; border-radius:var(--radius-md); background:transparent; color:var(--reader-ink); font:inherit; cursor:pointer; text-align:center; }
-.cover-picker-item .lazy-cover { width:100%; }
-.cover-picker-item small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--reader-muted); font-size:var(--text-meta); }
-.cover-picker-item:focus-visible { outline:var(--focus-ring); outline-offset:2px; }
-.cover-picker-item:disabled { opacity:.6; cursor:default; }
-@media (hover: hover) and (pointer: fine) { .cover-picker-item:hover { border-color:var(--reader-line); background:var(--reader-surface); } }
-.catalog-book strong { font-size:var(--text-title); }
-.catalog-book .source-description { line-height:1.75; color:var(--reader-muted); margin:.7rem 0 0; }
-.catalog-book .sources-actions { padding-top:.2rem; }
-.catalog-pagination { display:flex; justify-content:flex-end; gap:.6rem; padding-top:1rem; border-top:1px solid var(--reader-line); }
-.catalog-load-sentinel { min-height:1.5rem; padding:.75rem 0 .25rem; text-align:center; }
+.lazy-cover {
+  flex: none;
+  display: block;
+  width: 3rem;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--reader-surface);
+  border: 1px solid var(--reader-line);
+}
+.lazy-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.lazy-cover-placeholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--reader-muted);
+  font-size: var(--text-title);
+}
+.cover-picker-status {
+  margin: 0 0 var(--space-3);
+  color: var(--reader-muted);
+  font-size: var(--text-ui);
+}
+.cover-picker-source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  color: var(--reader-muted);
+  font-size: var(--text-ui);
+}
+.cover-picker-restore {
+  margin-top: var(--space-4);
+  min-height: 44px;
+}
+.cover-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: var(--space-3);
+}
+.cover-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--reader-ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+.cover-picker-item .lazy-cover {
+  width: 100%;
+}
+.cover-picker-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--reader-muted);
+  font-size: var(--text-meta);
+}
+.cover-picker-item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.cover-picker-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cover-picker-item:hover {
+    border-color: var(--reader-line);
+    background: var(--reader-surface);
+  }
+}
+.catalog-book strong {
+  font-size: var(--text-title);
+}
+.catalog-book .source-description {
+  line-height: 1.75;
+  color: var(--reader-muted);
+  margin: 0.7rem 0 0;
+}
+.catalog-book .sources-actions {
+  padding-top: 0.2rem;
+}
+.catalog-pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--reader-line);
+}
+.catalog-load-sentinel {
+  min-height: 1.5rem;
+  padding: 0.75rem 0 0.25rem;
+  text-align: center;
+}
 
 /* Mobile reading: the surface and its information strip never resize with chrome. */
 svg.icon {
@@ -4921,14 +5433,14 @@ svg.icon {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.25rem;
 }
-.reader-actions .top-button[aria-pressed='true'] {
+.reader-actions .top-button[aria-pressed="true"] {
   color: var(--reader-accent);
 }
 /* The page's bookmark: filled in the accent colour when this page has one. */
-.reader-bookmark[aria-pressed='true'] {
+.reader-bookmark[aria-pressed="true"] {
   color: var(--reader-accent);
 }
-.reader-bookmark[aria-pressed='true'] .icon {
+.reader-bookmark[aria-pressed="true"] .icon {
   fill: currentColor;
 }
 .reader-actions .top-button {
@@ -4971,7 +5483,7 @@ svg.icon {
 @media (max-width: 700px) {
   /* Panels are a fixed half screen; a compact sheet (a note, a confirmation) stays
      as tall as what it says (docs/ui.md §3.7). */
-  .reader-screen .sheet:not([data-size='compact']) {
+  .reader-screen .sheet:not([data-size="compact"]) {
     height: min(62vh, calc(100vh - var(--safe-top) - 1.5rem));
     height: min(62dvh, calc(100dvh - var(--safe-top) - 1.5rem));
     max-height: 36rem;
@@ -4998,15 +5510,15 @@ svg.icon {
   gap: 0.75rem;
   padding-block: 0.5rem;
 }
-.reader-screen .field input[type='range'] {
+.reader-screen .field input[type="range"] {
   min-height: 32px;
 }
-.reader-screen .field input[type='range']::-webkit-slider-runnable-track {
+.reader-screen .field input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: var(--radius-xs);
   background: var(--reader-line);
 }
-.reader-screen .field input[type='range']::-webkit-slider-thumb {
+.reader-screen .field input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 18px;
   height: 18px;
@@ -5014,12 +5526,12 @@ svg.icon {
   border-radius: 50%;
   background: var(--reader-fill);
 }
-.reader-screen .field input[type='range']::-moz-range-track {
+.reader-screen .field input[type="range"]::-moz-range-track {
   height: 4px;
   border-radius: var(--radius-xs);
   background: var(--reader-line);
 }
-.reader-screen .field input[type='range']::-moz-range-thumb {
+.reader-screen .field input[type="range"]::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border: 0;
@@ -5070,7 +5582,7 @@ svg.icon {
   cursor: pointer;
   font: inherit;
 }
-.extension-tabs button[aria-selected='true'] {
+.extension-tabs button[aria-selected="true"] {
   border-bottom-color: currentColor;
   font-weight: 700;
 }
@@ -5110,7 +5622,7 @@ svg.icon {
 .extension-actions form:has(label) {
   flex-basis: 100%;
 }
-.extension-screen input:not([type='checkbox']),
+.extension-screen input:not([type="checkbox"]),
 .extension-screen textarea,
 .extension-screen select {
   box-sizing: border-box;
@@ -5164,14 +5676,14 @@ svg.icon {
   min-width: 0;
   margin: 0;
 }
-.extension-screen .extension-form-inline label[data-field-type='number'] {
+.extension-screen .extension-form-inline label[data-field-type="number"] {
   flex: 0 1 15rem;
 }
-.extension-screen label[data-field-type='boolean'] {
+.extension-screen label[data-field-type="boolean"] {
   flex-direction: row;
   align-items: center;
 }
-.extension-screen input[type='checkbox'] {
+.extension-screen input[type="checkbox"] {
   width: 1.25rem;
   height: 1.25rem;
 }
@@ -5192,7 +5704,7 @@ svg.icon {
   .extension-screen .extension-form-inline label {
     flex-basis: 100%;
   }
-  .extension-screen .extension-form-inline label[data-field-type='number'] {
+  .extension-screen .extension-form-inline label[data-field-type="number"] {
     flex: 1 1 9rem;
   }
   .extension-item-heading {
@@ -5242,7 +5754,7 @@ svg.icon {
   max-width: 66rem;
   margin: 0 auto 1rem;
 }
-.sources-hub .sources-tabs [role='tab'] {
+.sources-hub .sources-tabs [role="tab"] {
   flex: 1;
   min-width: 0;
   min-height: 52px;
@@ -5254,12 +5766,12 @@ svg.icon {
   font: inherit;
   cursor: pointer;
 }
-.sources-hub .sources-tabs [aria-selected='true'] {
+.sources-hub .sources-tabs [aria-selected="true"] {
   color: var(--reader-ink);
   border-bottom-color: var(--reader-accent);
   font-weight: 650;
 }
-.sources-hub .sources-tabs [role='tab']:focus-visible {
+.sources-hub .sources-tabs [role="tab"]:focus-visible {
   outline: var(--focus-ring);
   outline-offset: -2px;
 }
@@ -5328,7 +5840,7 @@ svg.icon {
   margin-top: 0.5rem;
 }
 .source-state::before {
-  content: '';
+  content: "";
   display: inline-block;
   height: 5px;
   width: 5px;
@@ -5352,11 +5864,11 @@ svg.icon {
   width: 2.75rem;
   height: 2.75rem;
 }
-.sources-hub [role='tab']:disabled {
+.sources-hub [role="tab"]:disabled {
   opacity: 0.5;
   cursor: default;
 }
-.sources-hub .sources-tabs [role='tab'] {
+.sources-hub .sources-tabs [role="tab"] {
   font-size: var(--text-ui);
 }
 .source-picker label,
@@ -5611,10 +6123,23 @@ svg.icon {
   font-size: var(--text-ui);
 }
 /* In the title row (phones): two words beside the settings button, no icons or chevrons — the row has ~200px. */
-.shelf-head-actions { gap: .4rem; }
-.shelf-head-actions .shelf-links { max-width: none; margin: 0; padding: 0; gap: .4rem; }
-.shelf-head-actions .shelf-links .collection-link.button { flex: none; min-width: 0; padding: 0 .75rem; }
-.shelf-head-actions .shelf-links .collection-link.button > svg { display: none; }
+.shelf-head-actions {
+  gap: 0.4rem;
+}
+.shelf-head-actions .shelf-links {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  gap: 0.4rem;
+}
+.shelf-head-actions .shelf-links .collection-link.button {
+  flex: none;
+  min-width: 0;
+  padding: 0 0.75rem;
+}
+.shelf-head-actions .shelf-links .collection-link.button > svg {
+  display: none;
+}
 /* Browsing pages with a pager, so the count is a footer line, not a sticky overlay over the grid. */
 .library-browse-scroll > .manager-status {
   position: static;
@@ -5702,7 +6227,7 @@ svg.icon {
 }
 /* The trailing "›" is a glyph, not a label: it ends the button instead of sharing the
    label's flex and landing in the middle of the leftover space. */
-.collection-link.button > span[aria-hidden='true'] {
+.collection-link.button > span[aria-hidden="true"] {
   flex: 0 0 auto;
   color: var(--reader-muted);
 }
@@ -5820,7 +6345,7 @@ svg.icon {
     font-size: var(--text-display);
     font-weight: 650;
   }
-  .sources-hub .sources-tabs [role='tab'] {
+  .sources-hub .sources-tabs [role="tab"] {
     flex: 0 1 auto;
     min-width: 9rem;
     padding-inline: 1.5rem;
@@ -5851,7 +6376,7 @@ svg.icon {
     background: color-mix(in srgb, var(--reader-paper) 95%, var(--reader-ink));
   }
   .reader-screen .stage::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     width: var(--desktop-page-width);
@@ -5863,7 +6388,7 @@ svg.icon {
     pointer-events: none;
   }
 
-  .reader-screen .book-host[data-layout='reflowable'] {
+  .reader-screen .book-host[data-layout="reflowable"] {
     width: var(--desktop-page-width);
     max-width: 100%;
     margin-inline: auto;
@@ -6122,7 +6647,9 @@ svg.icon {
   gap: var(--space-2);
   margin: var(--space-2) 0 var(--space-3);
 }
-.book-detail-actions .button { min-height: 44px; }
+.book-detail-actions .button {
+  min-height: 44px;
+}
 .book-detail .sheet-field textarea {
   min-height: 8rem;
   line-height: 1.6;
@@ -6337,7 +6864,7 @@ svg.icon {
   color: var(--reader-ink);
   cursor: pointer;
 }
-.reading-tool-tab[aria-pressed='true'] {
+.reading-tool-tab[aria-pressed="true"] {
   font-weight: 600;
   color: var(--reader-accent);
   border-bottom-color: var(--reader-accent);
@@ -6405,7 +6932,7 @@ svg.icon {
   color: #222;
   cursor: pointer;
 }
-.reading-note-colors button[aria-pressed='true'] {
+.reading-note-colors button[aria-pressed="true"] {
   border-color: var(--reader-accent);
   box-shadow: inset 0 0 0 3px var(--reader-paper);
 }
@@ -6424,7 +6951,7 @@ svg.icon {
   font-size: var(--text-label);
   cursor: pointer;
 }
-.reading-note-filters button[aria-pressed='true'] {
+.reading-note-filters button[aria-pressed="true"] {
   color: var(--reader-accent);
   border-bottom-color: var(--reader-accent);
   font-weight: 600;
@@ -6638,20 +7165,75 @@ svg.icon {
   justify-content: center;
 }
 /* A note read in place: the book's words in the app's own sheet, set as reading text. */
-.footnote-text { color: var(--reader-ink); font-size: var(--text-title); line-height: 1.7; overflow-wrap: anywhere; user-select: text; }
-.footnote-text p { margin: 0; }
-.footnote-text p + p { margin-top: var(--space-2); }
+.footnote-text {
+  color: var(--reader-ink);
+  font-size: var(--text-title);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.footnote-text p {
+  margin: 0;
+}
+.footnote-text p + p {
+  margin-top: var(--space-2);
+}
 /* AI 选区助手: the passage, what to do with it, and the one current answer. */
-.ai-assist { display: grid; gap: var(--space-3); }
-.ai-assist blockquote { margin: 0; padding: var(--space-2) var(--space-3); border-inline-start: 3px solid var(--reader-accent); max-height: 7rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--reader-muted); }
-.ai-assist-actions { display: flex; gap: var(--space-2); }
-.ai-assist-actions .button { flex: 1; min-height: 44px; }
-.ai-assist-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-2); }
-.ai-assist-ask .button { min-height: 44px; }
-.ai-assist-status, .ai-assist-hint { margin: 0; color: var(--reader-muted); font-size: var(--text-label); }
-.ai-assist-error { margin: 0; color: var(--color-danger); font-size: var(--text-ui); overflow-wrap: anywhere; }
-.ai-assist-keep { display: flex; justify-content: flex-end; }
-.ai-assist-answer { color: var(--reader-ink); font-size: var(--text-title); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.ai-assist {
+  display: grid;
+  gap: var(--space-3);
+}
+.ai-assist blockquote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid var(--reader-accent);
+  max-height: 7rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--reader-muted);
+}
+.ai-assist-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.ai-assist-actions .button {
+  flex: 1;
+  min-height: 44px;
+}
+.ai-assist-ask {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-2);
+}
+.ai-assist-ask .button {
+  min-height: 44px;
+}
+.ai-assist-status,
+.ai-assist-hint {
+  margin: 0;
+  color: var(--reader-muted);
+  font-size: var(--text-label);
+}
+.ai-assist-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--text-ui);
+  overflow-wrap: anywhere;
+}
+.ai-assist-keep {
+  display: flex;
+  justify-content: flex-end;
+}
+.ai-assist-answer {
+  color: var(--reader-ink);
+  font-size: var(--text-title);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
 
 .reading-tools {
   min-height: 0;
@@ -6777,7 +7359,7 @@ svg.icon {
   display: flex;
   gap: var(--space-1);
 }
-.shelf-filters .chip[aria-pressed='true'] {
+.shelf-filters .chip[aria-pressed="true"] {
   background: var(--color-brand-soft);
   border-color: transparent;
   color: var(--reader-accent);
@@ -6793,12 +7375,28 @@ svg.icon {
    The bands above it — title, search, status, sort — otherwise land the first
    cover just past that line once the platform font is a little taller. */
 @media (max-width: 700px) {
-  .shelf-head { padding-bottom: 0.4rem; }
-  .shelf-subtitle { margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .shelf-screen .shelf-search { margin-top: 0.15rem; margin-bottom: 0.45rem; }
-  .shelf-filters { margin-bottom: 0.3rem; }
-  .shelf-toolbar { padding-block: 0.25rem; }
-  .shelf-scroll { padding-top: 0.35rem; }
+  .shelf-head {
+    padding-bottom: 0.4rem;
+  }
+  .shelf-subtitle {
+    margin-top: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .shelf-screen .shelf-search {
+    margin-top: 0.15rem;
+    margin-bottom: 0.45rem;
+  }
+  .shelf-filters {
+    margin-bottom: 0.3rem;
+  }
+  .shelf-toolbar {
+    padding-block: 0.25rem;
+  }
+  .shelf-scroll {
+    padding-top: 0.35rem;
+  }
 }
 .book-card .book-state {
   position: absolute;
@@ -6813,7 +7411,7 @@ svg.icon {
   font-weight: 600;
   pointer-events: none;
 }
-.book-card .book-state[data-state='finished'] {
+.book-card .book-state[data-state="finished"] {
   background: var(--color-surface-2);
   color: var(--reader-muted);
 }
@@ -6827,18 +7425,37 @@ svg.icon {
  * Written as an offset from each header's own padding and gap, so the headers keep
  * their layout and only the button moves.
  */
-.collection-heading, .sources-header { --back-pad: 0.9rem; --back-gap: 0.5rem; --back-edge: 4px; }
-.sources-header { --back-pad: 1rem; --back-gap: 1rem; }
-@media (max-width: 600px) { .sources-header { --back-pad: 0.75rem; --back-gap: 0.6rem; } }
-@media (min-width: 64rem) { .collection-heading, .sources-header { --back-pad: 0.9rem; --back-edge: calc(0.9rem - 8px); } }
-.collection-heading > .icon-button[aria-label='返回'],
-.sources-header > .icon-button[aria-label='返回'] {
+.collection-heading,
+.sources-header {
+  --back-pad: 0.9rem;
+  --back-gap: 0.5rem;
+  --back-edge: 4px;
+}
+.sources-header {
+  --back-pad: 1rem;
+  --back-gap: 1rem;
+}
+@media (max-width: 600px) {
+  .sources-header {
+    --back-pad: 0.75rem;
+    --back-gap: 0.6rem;
+  }
+}
+@media (min-width: 64rem) {
+  .collection-heading,
+  .sources-header {
+    --back-pad: 0.9rem;
+    --back-edge: calc(0.9rem - 8px);
+  }
+}
+.collection-heading > .icon-button[aria-label="返回"],
+.sources-header > .icon-button[aria-label="返回"] {
   width: 44px;
   height: 44px;
   margin-inline: calc(var(--back-edge) - var(--back-pad)) calc(4px - var(--back-gap));
 }
 /* `.icon` carries its own size, so the glyph is sized here rather than on the button. */
-.collection-heading > .icon-button[aria-label='返回'] > .icon,
-.sources-header > .icon-button[aria-label='返回'] > .icon {
+.collection-heading > .icon-button[aria-label="返回"] > .icon,
+.sources-header > .icon-button[aria-label="返回"] > .icon {
   font-size: var(--text-display);
 }

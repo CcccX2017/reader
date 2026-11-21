@@ -107,10 +107,15 @@ it('activates a waiting worker when this page is not controlled yet', async () =
 
 it('downloads a new bundle instead of reloading over an active worker', async () => {
   const update = vi.fn().mockResolvedValue(undefined);
-  (serviceWorker as unknown as { controller: ServiceWorker | null; getRegistration: () => Promise<unknown> }).controller = null;
-  (serviceWorker as unknown as { getRegistration: () => Promise<unknown> }).getRegistration = () => Promise.resolve({
-    active: {}, waiting: null, update,
-  });
+  (
+    serviceWorker as unknown as { controller: ServiceWorker | null; getRegistration: () => Promise<unknown> }
+  ).controller = null;
+  (serviceWorker as unknown as { getRegistration: () => Promise<unknown> }).getRegistration = () =>
+    Promise.resolve({
+      active: {},
+      waiting: null,
+      update,
+    });
   beginWebUpdate();
   for (let i = 0; i < 5; i++) await Promise.resolve();
   expect(update).toHaveBeenCalledTimes(1);
@@ -217,9 +222,10 @@ it('ships standalone launch metadata and a first-paint startup shell', () => {
 
 it('activates a waiting worker from the reload banner instead of opening the cached shell', async () => {
   const postMessage = vi.fn();
-  (serviceWorker as unknown as { getRegistration: () => Promise<unknown> }).getRegistration = () => Promise.resolve({
-    waiting: { postMessage },
-  });
+  (serviceWorker as unknown as { getRegistration: () => Promise<unknown> }).getRegistration = () =>
+    Promise.resolve({
+      waiting: { postMessage },
+    });
   window.__readerFlush = vi.fn().mockResolvedValue(undefined);
   offerReload();
   const button = document.querySelector<HTMLButtonElement>('.pwa-update button')!;

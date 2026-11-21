@@ -7,7 +7,13 @@ import { MediaAccountPanel } from '../../media/components/settings.tsx';
 import { useRuntime } from '../../../app/providers/runtime-context.tsx';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 import { OpdsAccess } from '../../../ui/opds-access.tsx';
-import { applySafariVersion, isIos, readSafariOverride, safariVersionFromUa, writeSafariOverride } from '../../../shared/safari-version.ts';
+import {
+  applySafariVersion,
+  isIos,
+  readSafariOverride,
+  safariVersionFromUa,
+  writeSafariOverride,
+} from '../../../shared/safari-version.ts';
 import { rememberAvatar } from '../../../shared/ui/use-avatar.ts';
 
 /** 账号与连接 (/me/account): who is signed in, and to which server. */
@@ -31,56 +37,64 @@ export function AccountPage() {
   return (
     <MediaPageFrame className="media-secondary-page account-page" title="账号与连接" backTo="/me" backLabel="返回我的">
       <div className="account-scroll">
-      <MediaAccountPanel
-        account={shown}
-        api={runtime.api}
-        extraDirty={versionDirty}
-        onExtraSave={() => {
-          writeSafariOverride(version);
-          applySafariVersion();
-        }}
-        onDisplayName={async (displayName) => {
-          const next = await runtime.api.updateDisplayName(displayName);
-          useAuthStore.getState().setUser(next);
-        }}
-        onAvatar={async (file) => {
-          const next = await runtime.api.setAvatar(file);
-          if (next.avatarUrl) rememberAvatar(runtime.api, next.avatarUrl, file);
-          useAuthStore.getState().setUser(next);
-          return next;
-        }}
-        onClearAvatar={async () => {
-          const next = await runtime.api.clearAvatar();
-          useAuthStore.getState().setUser(next);
-          return next;
-        }}
-      >
-        {ios && (
-          <>
-            <label className="media-setting-field">
-              <span>iOS 版本</span>
-              <input
-                aria-label="iOS 版本"
-                inputMode="decimal"
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={16}
-                value={version}
-                placeholder={detected || '例如 27.2'}
-                onChange={(event) => setVersion(event.target.value)}
-              />
-            </label>
-            <p className="media-manager-note">只保存在这台设备，用来匹配页面留白。留空则使用浏览器报告的{detected ? ` ${detected}` : '版本'}。</p>
-          </>
-        )}
-      </MediaAccountPanel>
-      <SyncPanel />
+        <MediaAccountPanel
+          account={shown}
+          api={runtime.api}
+          extraDirty={versionDirty}
+          onExtraSave={() => {
+            writeSafariOverride(version);
+            applySafariVersion();
+          }}
+          onDisplayName={async (displayName) => {
+            const next = await runtime.api.updateDisplayName(displayName);
+            useAuthStore.getState().setUser(next);
+          }}
+          onAvatar={async (file) => {
+            const next = await runtime.api.setAvatar(file);
+            if (next.avatarUrl) rememberAvatar(runtime.api, next.avatarUrl, file);
+            useAuthStore.getState().setUser(next);
+            return next;
+          }}
+          onClearAvatar={async () => {
+            const next = await runtime.api.clearAvatar();
+            useAuthStore.getState().setUser(next);
+            return next;
+          }}
+        >
+          {ios && (
+            <>
+              <label className="media-setting-field">
+                <span>iOS 版本</span>
+                <input
+                  aria-label="iOS 版本"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={16}
+                  value={version}
+                  placeholder={detected || '例如 27.2'}
+                  onChange={(event) => setVersion(event.target.value)}
+                />
+              </label>
+              <p className="media-manager-note">
+                只保存在这台设备，用来匹配页面留白。留空则使用浏览器报告的{detected ? ` ${detected}` : '版本'}。
+              </p>
+            </>
+          )}
+        </MediaAccountPanel>
+        <SyncPanel />
       </div>
     </MediaPageFrame>
   );
 }
 
-const SYNC_LABELS: Record<SyncState, string> = { idle: '已连接', syncing: '正在同步', offline: '离线', error: '同步出错', 'signed-out': '登录已失效' };
+const SYNC_LABELS: Record<SyncState, string> = {
+  idle: '已连接',
+  syncing: '正在同步',
+  offline: '离线',
+  error: '同步出错',
+  'signed-out': '登录已失效',
+};
 
 /**
  * 同步状态: the sidebar and 我的 only have room for the verdict ("同步出错"); this is
@@ -132,7 +146,12 @@ export function OpdsPage() {
   const returnTo = useLocation().state?.returnTo;
   const back = typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : '/me';
   return (
-    <MediaPageFrame className="media-secondary-page opds-page" title="连接外部阅读器" backTo={back} backLabel={back === '/me' ? '返回我的' : '返回上一页'}>
+    <MediaPageFrame
+      className="media-secondary-page opds-page"
+      title="连接外部阅读器"
+      backTo={back}
+      backLabel={back === '/me' ? '返回我的' : '返回上一页'}
+    >
       <OpdsAccess
         api={runtime.api}
         onSignedOut={() => {

@@ -6,10 +6,18 @@
  * It does not take clicks: 点击区域 stays the grid on the stage underneath.
  */
 import { forwardRef, useEffect, useLayoutEffect, useRef, type JSX } from 'react';
-import HTMLFlipBook, { type BookSnapshot, type FlipBookHandle, type PageFlip, type WidgetEvent } from '@gullabs/react-flipbook';
+import HTMLFlipBook, {
+  type BookSnapshot,
+  type FlipBookHandle,
+  type PageFlip,
+  type WidgetEvent,
+} from '@gullabs/react-flipbook';
 import type { BookShadowHost } from './shadow.ts';
 
-interface FaceScroll { left: number; top: number }
+interface FaceScroll {
+  left: number;
+  top: number;
+}
 
 /**
  * A standalone copy of one screen of the open chapter.
@@ -89,12 +97,12 @@ function settleReadingFace(frame: HTMLElement): void {
 /** Resolves once a copied page has a size and is scrolled to the screen it copied. */
 export function whenFaceSettled(frame: HTMLElement): Promise<void> {
   settleReadingFace(frame);
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     let tries = 0;
     const check = () => {
       tries += 1;
       const raw = frame.dataset['scroll'];
-      const scroll = raw ? JSON.parse(raw) as FaceScroll : { left: 0, top: 0 };
+      const scroll = raw ? (JSON.parse(raw) as FaceScroll) : { left: 0, top: 0 };
       const flow = frame.shadowRoot?.querySelector('.book-flow');
       const leftOk = !(flow instanceof HTMLElement) || scroll.left <= 1 || flow.scrollLeft >= scroll.left - 1;
       const topOk = scroll.top <= 1 || frame.scrollTop >= scroll.top - 1;
@@ -105,7 +113,10 @@ export function whenFaceSettled(frame: HTMLElement): Promise<void> {
   });
 }
 
-const FlipPage = forwardRef<HTMLDivElement, { face: HTMLElement; hard: boolean }>(function FlipPage({ face, hard }, ref) {
+const FlipPage = forwardRef<HTMLDivElement, { face: HTMLElement; hard: boolean }>(function FlipPage(
+  { face, hard },
+  ref,
+) {
   const sheet = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const node = sheet.current;
@@ -115,7 +126,11 @@ const FlipPage = forwardRef<HTMLDivElement, { face: HTMLElement; hard: boolean }
     const again = requestAnimationFrame(() => settleReadingFace(face));
     return () => cancelAnimationFrame(again);
   }, [face]);
-  return <div className="reader-flip-page" ref={ref} data-density={hard ? 'hard' : 'soft'}><div ref={sheet} className="reader-flip-sheet" /></div>;
+  return (
+    <div className="reader-flip-page" ref={ref} data-density={hard ? 'hard' : 'soft'}>
+      <div ref={sheet} className="reader-flip-sheet" />
+    </div>
+  );
 });
 
 export type CurlFold = 'top' | 'bottom' | 'line';
@@ -154,8 +169,12 @@ function asCurlBook(flip: PageFlip): CurlBook {
     userMove: (point, isTouch) => flip.userMove(point, isTouch ?? true),
     userStop: (point, isSwipe) => flip.userStop(point, isSwipe),
     getCurrentPageIndex: () => flip.getCurrentPageIndex(),
-    flipNext: (corner) => { flip.flipNext(corner ?? 'bottom'); },
-    flipPrev: (corner) => { flip.flipPrev(corner ?? 'bottom'); },
+    flipNext: (corner) => {
+      flip.flipNext(corner ?? 'bottom');
+    },
+    flipPrev: (corner) => {
+      flip.flipPrev(corner ?? 'bottom');
+    },
     on: (event, handler) => {
       if (event === 'flip') {
         flip.on('flip', (widget: WidgetEvent<BookSnapshot>) => handler({ data: widget.data.page }));
@@ -166,7 +185,17 @@ function asCurlBook(flip: PageFlip): CurlBook {
   };
 }
 
-export function PageCurl({ width, height, before, after, direction, fold = 'bottom', hold, onReady, onDone }: {
+export function PageCurl({
+  width,
+  height,
+  before,
+  after,
+  direction,
+  fold = 'bottom',
+  hold,
+  onReady,
+  onDone,
+}: {
   width: number;
   height: number;
   before: HTMLElement;
@@ -182,7 +211,12 @@ export function PageCurl({ width, height, before, after, direction, fold = 'bott
   const book = useRef<FlipBookHandle>(null);
   const done = useRef(false);
   const started = useRef(false);
-  const finish = () => { if (!done.current) { done.current = true; onDone(); } };
+  const finish = () => {
+    if (!done.current) {
+      done.current = true;
+      onDone();
+    }
+  };
   const target = direction === 'next' ? 1 : 0;
   const leaves = direction === 'next' ? [before, after] : [after, before];
   const begin = () => {
@@ -193,47 +227,58 @@ export function PageCurl({ width, height, before, after, direction, fold = 'bott
     if (!flip || flip.getPageCount() < 2) return;
     started.current = true;
     const curl = asCurlBook(flip);
-    if (hold) { onReady?.(curl); return; }
+    if (hold) {
+      onReady?.(curl);
+      return;
+    }
     if (direction === 'next') curl.flipNext(fold);
     else curl.flipPrev(fold);
   };
   useEffect(() => {
     const root = document.querySelector('.reader-flip-book');
     if (!root) return;
-    const settleAll = () => { root.querySelectorAll<HTMLElement>('.book-host').forEach(settleReadingFace); };
+    const settleAll = () => {
+      root.querySelectorAll<HTMLElement>('.book-host').forEach(settleReadingFace);
+    };
     settleAll();
     const observer = new MutationObserver(settleAll);
     observer.observe(root, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [before, after]);
-  return <HTMLFlipBook
-    ref={book}
-    className="reader-flip-book"
-    style={{ width, height }}
-    initialPage={target === 1 ? 0 : 1}
-    sizing="fixed"
-    width={Math.max(1, width)}
-    height={Math.max(1, height)}
-    drawShadow
-    flippingTime={400}
-    usePortrait
-    startZIndex={1}
-    autoSize={false}
-    maxShadowOpacity={0.5}
-    hardCovers={false}
-    allowTouchScroll={false}
-    respectInteractiveContent={false}
-    pointerInput={[]}
-    swipeDistance={30}
-    foldCornerOnHover={false}
-    flipOnClick="never"
-    pageBackground="var(--reader-paper)"
-    controls="none"
-    useKeyboard={false}
-    liveRegion={false}
-    onLoaded={begin}
-    onPageChange={(snapshot) => { if (snapshot.page === target) finish(); }}
-  >
-    {leaves.map((face, index) => <FlipPage key={index} face={face} hard={false} />)}
-  </HTMLFlipBook>;
+  return (
+    <HTMLFlipBook
+      ref={book}
+      className="reader-flip-book"
+      style={{ width, height }}
+      initialPage={target === 1 ? 0 : 1}
+      sizing="fixed"
+      width={Math.max(1, width)}
+      height={Math.max(1, height)}
+      drawShadow
+      flippingTime={400}
+      usePortrait
+      startZIndex={1}
+      autoSize={false}
+      maxShadowOpacity={0.5}
+      hardCovers={false}
+      allowTouchScroll={false}
+      respectInteractiveContent={false}
+      pointerInput={[]}
+      swipeDistance={30}
+      foldCornerOnHover={false}
+      flipOnClick="never"
+      pageBackground="var(--reader-paper)"
+      controls="none"
+      useKeyboard={false}
+      liveRegion={false}
+      onLoaded={begin}
+      onPageChange={(snapshot) => {
+        if (snapshot.page === target) finish();
+      }}
+    >
+      {leaves.map((face, index) => (
+        <FlipPage key={index} face={face} hard={false} />
+      ))}
+    </HTMLFlipBook>
+  );
 }

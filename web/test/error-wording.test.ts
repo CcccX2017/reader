@@ -54,6 +54,8 @@ describe('pageTitle', () => {
       expect(pageTitle('/shelf')).toBe('书架 · 书房');
       setAppName('   ');
       expect(pageTitle('/shelf')).toBe('书架 · reader');
-    } finally { setAppName('reader'); }
+    } finally {
+      setAppName('reader');
+    }
   });
 });

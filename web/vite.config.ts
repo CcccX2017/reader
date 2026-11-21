@@ -4,7 +4,9 @@ import react from '@vitejs/plugin-react';
 import { pwa } from './tools/pwa/build.ts';
 import { pdfjsAssets } from './tools/pdfjs-assets.ts';
 
-const clientVersion = (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version?: string }).version ?? '0.0.0';
+const clientVersion =
+  (JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version?: string }).version ??
+  '0.0.0';
 
 // The build output is consumed three ways:
 //   - served directly by the server for the browser/H5 build

@@ -96,9 +96,24 @@ describe('useSwipeTabs', () => {
     const { at } = mount();
     const page = at('text');
     const fire = (type: string, x: number, y: number) => {
-      const t = { identifier: 1, clientX: x, clientY: y, target: page, screenX: x, screenY: y, pageX: x, pageY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 1 };
+      const t = {
+        identifier: 1,
+        clientX: x,
+        clientY: y,
+        target: page,
+        screenX: x,
+        screenY: y,
+        pageX: x,
+        pageY: y,
+        radiusX: 1,
+        radiusY: 1,
+        rotationAngle: 0,
+        force: 1,
+      };
       const event = new window.TouchEvent(type, {
-        bubbles: true, cancelable: true, composed: true,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
         touches: type === 'touchend' ? [] : [t as unknown as Touch],
         targetTouches: type === 'touchend' ? [] : [t as unknown as Touch],
         changedTouches: [t as unknown as Touch],

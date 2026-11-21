@@ -8,7 +8,7 @@ interface PreferencePlaceState {
   replace(place: PreferencePlace): void;
 }
 
-export const usePreferencePlaceStore = create<PreferencePlaceState>(set => ({
+export const usePreferencePlaceStore = create<PreferencePlaceState>((set) => ({
   place: 'local',
-  replace: place => set({ place }),
+  replace: (place) => set({ place }),
 }));

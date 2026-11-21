@@ -12,15 +12,18 @@ export function pwa() {
       const directory = resolve(options.dir ?? 'dist');
       const files = (await readdir(directory, { recursive: true, withFileTypes: true }))
         .filter((entry) => entry.isFile())
-        .map((entry) => join(entry.parentPath, entry.name).slice(directory.length + 1).replaceAll('\\', '/'))
+        .map((entry) =>
+          join(entry.parentPath, entry.name)
+            .slice(directory.length + 1)
+            .replaceAll('\\', '/'),
+        )
         .filter((name) => name !== 'sw.js' && !name.endsWith('.map'))
         .sort();
       const template = await readFile(new URL('./sw.js', import.meta.url), 'utf8');
       const digest = createHash('sha256').update(template);
       for (const file of files) digest.update(file).update(await readFile(join(directory, file)));
       const version = digest.digest('hex').slice(0, 20);
-      const worker = template.replace('__VERSION__', version)
-        .replace('__PRECACHE__', JSON.stringify(files));
+      const worker = template.replace('__VERSION__', version).replace('__PRECACHE__', JSON.stringify(files));
       await writeFile(join(directory, 'sw.js'), worker);
       const indexPath = join(directory, 'index.html');
       const html = await readFile(indexPath, 'utf8');

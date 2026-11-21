@@ -58,11 +58,15 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
     try {
       const name = siteDisplayName(ctx.settings?.read('site').name);
       return !name || name === 'reader' ? null : name;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   };
-  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char
-  ));
+  const escapeHtml = (value: string) =>
+    value.replace(
+      /[&<>"']/g,
+      (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char,
+    );
   const sendFile = (filePath: string, reply: FastifyReply, cacheControl: string): FastifyReply => {
     reply.header('content-type', MIME_BY_EXT[extname(filePath).toLowerCase()] ?? 'application/octet-stream');
     reply.header('cache-control', cacheControl);
@@ -113,7 +117,9 @@ export function registerWebRoutes(app: FastifyInstance, ctx: AppContext): void {
           reply.header('content-type', MIME_BY_EXT['.webmanifest']);
           reply.header('cache-control', 'no-cache');
           return reply.send(JSON.stringify(manifest));
-        } catch { /* a manifest that is not JSON is still the file on disk */ }
+        } catch {
+          /* a manifest that is not JSON is still the file on disk */
+        }
       }
       // The Android-compatible build uses fixed names (client.js, sw.js, etc.).
       // Only explicitly fingerprinted assets can safely be cached forever.

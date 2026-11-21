@@ -10,7 +10,7 @@ import { UploadService } from './services/uploads.ts';
 import { buildApp } from './http/app.ts';
 import { setLogger } from './lib/log.ts';
 import type { AppContext } from './http/context.ts';
-import {createMediaService} from './media/start-runtime.ts';
+import { createMediaService } from './media/start-runtime.ts';
 import { watchRelease } from './lib/release.ts';
 import { replaceDataDir } from './maintenance/backup.ts';
 
@@ -36,11 +36,11 @@ async function main(): Promise<void> {
     sources: undefined,
   } as unknown as AppContext;
 
-  const mediaRuntime=createMediaService(db,config,error=>{
-    app.log.error({err:error},'media service unavailable; reading remains available');
+  const mediaRuntime = createMediaService(db, config, (error) => {
+    app.log.error({ err: error }, 'media service unavailable; reading remains available');
   });
-  const app = buildApp(ctx,mediaRuntime);
-  ctx.mediaState=mediaRuntime.state;
+  const app = buildApp(ctx, mediaRuntime);
+  ctx.mediaState = mediaRuntime.state;
   ctx.log = app.log;
   // Code that runs outside a request (the scanner, the format parsers) has no
   // request to borrow a logger from, so it gets the app's.
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   ctx.users = new UserService(db, config);
   ctx.shelf = new ShelfService(db);
   ctx.sync = new SyncService(db, ctx.shelf);
-  ctx.tts = new TtsService(config,ctx.settings!.read('tts'));
+  ctx.tts = new TtsService(config, ctx.settings!.read('tts'));
   ctx.browse = new BrowseService(db, config, ctx.shelf);
   ctx.uploads = new UploadService(db, config, ctx.browse, ctx.scanner);
 
@@ -64,29 +64,34 @@ async function main(): Promise<void> {
 
   let scheduler = startSchedulers(ctx, app.log);
   const stopReleaseWatch = ctx.release ? watchRelease(ctx.release, config.webDir) : () => undefined;
-  ctx.applyBackup=async id=>{
+  ctx.applyBackup = async (id) => {
     stopReleaseWatch();
-    if(scheduler.scanTimer)clearInterval(scheduler.scanTimer);
-    if(scheduler.watchTimer)clearInterval(scheduler.watchTimer);
-    let released=false;
-    try{
+    if (scheduler.scanTimer) clearInterval(scheduler.scanTimer);
+    if (scheduler.watchTimer) clearInterval(scheduler.watchTimer);
+    let released = false;
+    try {
       await mediaRuntime.close();
       db.close();
-      released=true;
-      await replaceDataDir(config.dataDir,id);
-    }catch(error){
+      released = true;
+      await replaceDataDir(config.dataDir, id);
+    } catch (error) {
       // The files are either restored or rolled back, but this process has already
       // dropped the databases. Exiting lets the supervisor open them again.
-      if(released)setTimeout(()=>process.exit(1),800);
+      if (released) setTimeout(() => process.exit(1), 800);
       throw error;
     }
   };
-  ctx.exitAfterBackup=()=>{setTimeout(()=>process.exit(0),800);};
-  ctx.settingsChanged=group=>{
-    if(group==='modules'){void mediaRuntime.setEnabled(ctx.settings!.read('modules').mediaEnabled);return;}
-    if(group!=='scanning')return;
-    if(scheduler.scanTimer)clearInterval(scheduler.scanTimer);
-    scheduler=startSchedulers(ctx,app.log,false);
+  ctx.exitAfterBackup = () => {
+    setTimeout(() => process.exit(0), 800);
+  };
+  ctx.settingsChanged = (group) => {
+    if (group === 'modules') {
+      void mediaRuntime.setEnabled(ctx.settings!.read('modules').mediaEnabled);
+      return;
+    }
+    if (group !== 'scanning') return;
+    if (scheduler.scanTimer) clearInterval(scheduler.scanTimer);
+    scheduler = startSchedulers(ctx, app.log, false);
   };
 
   const shutdown = async (signal: string): Promise<void> => {
@@ -109,7 +114,7 @@ async function main(): Promise<void> {
   }
 }
 
-function startSchedulers(ctx: AppContext, log: AppContext['log'],initial=true): Schedulers {
+function startSchedulers(ctx: AppContext, log: AppContext['log'], initial = true): Schedulers {
   const runScan = async (): Promise<void> => {
     try {
       await ctx.scanner.scan();
@@ -119,14 +124,12 @@ function startSchedulers(ctx: AppContext, log: AppContext['log'],initial=true): 
   };
 
   // A scan at boot makes the library available immediately after a restart.
-  if(initial)void runScan();
+  if (initial) void runScan();
 
   // The watch poller is the same code path as the interval scan; the mtime+size
   // fast path makes it cheap enough to run every minute (see Scanner.indexFile).
-  const interval=ctx.settings!.read('scanning').interval;
-  const scanTimer = interval > 0
-    ? setInterval(() => void runScan(), interval * 1000)
-    : undefined;
+  const interval = ctx.settings!.read('scanning').interval;
+  const scanTimer = interval > 0 ? setInterval(() => void runScan(), interval * 1000) : undefined;
   scanTimer?.unref();
 
   const watchTimer = undefined;

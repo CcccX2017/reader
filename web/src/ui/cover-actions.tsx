@@ -1,4 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type JSX, type MouseEvent, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type JSX,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type Ref,
+} from 'react';
 import type { MenuItems } from './action-menu.tsx';
 import { ActionMenu, ActionSheet } from './action-menu.tsx';
 import { Icon } from './icon.tsx';
@@ -8,9 +18,7 @@ function revealCardAboveSelectBar(card: HTMLElement | null): void {
   if (!card) return;
   const run = () => {
     const bar = document.querySelector('.shelf-select-bar');
-    const limit = bar instanceof HTMLElement
-      ? bar.getBoundingClientRect().top - 12
-      : window.innerHeight - 12;
+    const limit = bar instanceof HTMLElement ? bar.getBoundingClientRect().top - 12 : window.innerHeight - 12;
     const rect = card.getBoundingClientRect();
     if (rect.bottom <= limit) return;
     const delta = rect.bottom - limit;
@@ -36,7 +44,11 @@ export function useCoarsePointer(): boolean {
   useEffect(() => {
     if (typeof matchMedia !== 'function') return;
     let query: MediaQueryList;
-    try { query = matchMedia('(pointer: coarse)'); } catch { return; }
+    try {
+      query = matchMedia('(pointer: coarse)');
+    } catch {
+      return;
+    }
     const onChange = () => setCoarse(query.matches);
     query.addEventListener?.('change', onChange);
     return () => query.removeEventListener?.('change', onChange);
@@ -59,15 +71,20 @@ export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
   const stop = useRef<(() => void) | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
-  useEffect(() => () => {
-    stop.current?.();
-    window.clearTimeout(clearSuppress.current);
-  }, []);
+  useEffect(
+    () => () => {
+      stop.current?.();
+      window.clearTimeout(clearSuppress.current);
+    },
+    [],
+  );
 
   const armSuppress = () => {
     suppress.current = true;
     window.clearTimeout(clearSuppress.current);
-    clearSuppress.current = window.setTimeout(() => { suppress.current = false; }, 700);
+    clearSuppress.current = window.setTimeout(() => {
+      suppress.current = false;
+    }, 700);
   };
 
   const onPointerDown = (event: ReactPointerEvent) => {
@@ -104,7 +121,11 @@ export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
     timer.current = window.setTimeout(() => {
       ready.current = true;
       committed.current = true;
-      try { navigator.vibrate?.(12); } catch { /* optional */ }
+      try {
+        navigator.vibrate?.(12);
+      } catch {
+        /* optional */
+      }
       armSuppress();
       onSelectRef.current();
     }, 450);
@@ -136,13 +157,21 @@ export function useHoldToSelect(onSelect: () => void, enabled: boolean) {
 
 /** The round check on a selected cover's bottom-right. */
 export function CoverCheck() {
-  return <span className="book-selected" role="img" aria-label="已选中"><Icon name="check" size={18} strong /></span>;
+  return (
+    <span className="book-selected" role="img" aria-label="已选中">
+      <Icon name="check" size={18} strong />
+    </span>
+  );
 }
 
 /** An unchecked box: a clear ring and check, so the cover shows through. A picked book keeps the solid check. */
 export function CoverMark({ selected }: { selected: boolean }) {
   if (selected) return <CoverCheck />;
-  return <span className="book-check" role="img" aria-label="未选中"><Icon name="check" size={18} strong /></span>;
+  return (
+    <span className="book-check" role="img" aria-label="未选中">
+      <Icon name="check" size={18} strong />
+    </span>
+  );
 }
 
 /** Phone multi-select on a cover. Absent while a pointer is using the corner menu. */
@@ -188,28 +217,39 @@ export function usePickingCard(picking: Picking | undefined) {
     event.stopPropagation();
     picking.onToggle();
   };
-  const onContextMenu = (event: MouseEvent) => { if (picking) event.preventDefault(); };
-  const onDragStart = (event: DragEvent) => { event.preventDefault(); };
+  const onContextMenu = (event: MouseEvent) => {
+    if (picking) event.preventDefault();
+  };
+  const onDragStart = (event: DragEvent) => {
+    event.preventDefault();
+  };
   const selected = !!picking?.selected;
-  const setCardRef: Ref<HTMLDivElement> = (node) => { cardRef.current = node; };
+  const setCardRef: Ref<HTMLDivElement> = (node) => {
+    cardRef.current = node;
+  };
   return {
     selected,
-    props: picking ? {
-      ref: setCardRef,
-      ...(picking.active ? {} : hold),
-      onClickCapture,
-      onContextMenu,
-      onDragStart,
-      role: picking.active ? 'checkbox' as const : undefined,
-      'aria-checked': picking.active ? picking.selected : undefined,
-      'data-selected': selected ? 'true' as const : undefined,
-    } : {},
+    props: picking
+      ? {
+          ref: setCardRef,
+          ...(picking.active ? {} : hold),
+          onClickCapture,
+          onContextMenu,
+          onDragStart,
+          role: picking.active ? ('checkbox' as const) : undefined,
+          'aria-checked': picking.active ? picking.selected : undefined,
+          'data-selected': selected ? ('true' as const) : undefined,
+        }
+      : {},
     mark: picking?.active ? <CoverMark selected={selected} /> : null,
   };
 }
 
 /** Desktop keeps the corner lens. A phone hides it and opens the same actions from a long press. */
-export function useCoverActions(title: string, items: MenuItems | undefined): {
+export function useCoverActions(
+  title: string,
+  items: MenuItems | undefined,
+): {
   selected: boolean;
   hold: ReturnType<typeof useHoldToSelect> | Record<string, never>;
   menu: JSX.Element | null;
@@ -219,16 +259,34 @@ export function useCoverActions(title: string, items: MenuItems | undefined): {
 } {
   const coarse = useCoarsePointer();
   const [selected, setSelected] = useState(false);
-  useEffect(() => { if (!coarse) setSelected(false); }, [coarse]);
+  useEffect(() => {
+    if (!coarse) setSelected(false);
+  }, [coarse]);
   const enabled = coarse && !!items?.some(Boolean);
   const hold = useHoldToSelect(() => setSelected(true), enabled);
   const heading = `《${title}》`;
-  const menu = !coarse && items
-    ? <ActionMenu glass className="book-more" label={`${title} 的操作`} title={heading} items={items} />
-    : null;
-  const sheet = selected && items
-    ? <ActionSheet title={heading} items={items.map(item => item ? { ...item, onSelect: () => { setSelected(false); item.onSelect(); } } : item)} onDismiss={() => setSelected(false)} />
-    : null;
+  const menu =
+    !coarse && items ? (
+      <ActionMenu glass className="book-more" label={`${title} 的操作`} title={heading} items={items} />
+    ) : null;
+  const sheet =
+    selected && items ? (
+      <ActionSheet
+        title={heading}
+        items={items.map((item) =>
+          item
+            ? {
+                ...item,
+                onSelect: () => {
+                  setSelected(false);
+                  item.onSelect();
+                },
+              }
+            : item,
+        )}
+        onDismiss={() => setSelected(false)}
+      />
+    ) : null;
   const mark = selected ? <CoverCheck /> : null;
   return { selected, hold: enabled ? hold : {}, menu, sheet, mark };
 }

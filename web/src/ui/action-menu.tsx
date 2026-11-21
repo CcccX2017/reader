@@ -18,7 +18,17 @@
  * `ActionSheet` is the same list as a compact Sheet, for a choice that is a
  * question rather than a menu (the shelf's pick dialog).
  */
-import { type JSX, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import {
+  type JSX,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { LiquidGlass } from 'simple-liquid-glass';
 import { Sheet } from './sheet.tsx';
 import { Icon, type IconName } from './toolkit.tsx';
@@ -41,9 +51,18 @@ export interface MenuAction {
 /** `false`, `null` and `undefined` entries are skipped, so callers can write `admin && {…}`. */
 export type MenuItems = Array<MenuAction | false | null | undefined>;
 
-const GAP = 4, MARGIN = 8;
+const GAP = 4,
+  MARGIN = 8;
 
-export function ActionMenu({ label, items, icon = 'more', className, title, text, glass = false }: {
+export function ActionMenu({
+  label,
+  items,
+  icon = 'more',
+  className,
+  title,
+  text,
+  glass = false,
+}: {
   /** The trigger's accessible name; also the menu's name unless `title` is given. */
   label: string;
   items: MenuItems;
@@ -70,24 +89,65 @@ export function ActionMenu({ label, items, icon = 'more', className, title, text
     if (refocus) anchor.current?.focus({ preventScroll: true });
   };
   const toggle = () => setOpen((value) => !value);
-  const expanded = { 'aria-haspopup': 'menu' as const, 'aria-expanded': open, 'aria-controls': open ? menuId : undefined };
+  const expanded = {
+    'aria-haspopup': 'menu' as const,
+    'aria-expanded': open,
+    'aria-controls': open ? menuId : undefined,
+  };
   // No wrapper on a plain trigger: it stays the direct child its screen's layout expects.
   // A glass trigger is the exception. The lens has to be the box, and the menu is not inside it.
-  const trigger = text
-    ? <button type="button" ref={anchor} className={`button icon-text-button ${classes}`} aria-label={label} {...expanded} onClick={toggle}><Icon name={icon} /><span>{text}</span></button>
-    : <button type="button" ref={anchor} className={`icon-button ${classes}`} aria-label={label} {...expanded} onClick={toggle}><Icon name={icon} /></button>;
-  return <>
-    {glass && !text ? <CoverGlass>{trigger}</CoverGlass> : trigger}
-    {open && <ActionDropdown id={menuId} label={title ?? label} anchor={anchor} actions={actions}
-      onClose={close}
-      onPick={(action) => { close(true); action.onSelect(); }} />}
-  </>;
+  const trigger = text ? (
+    <button
+      type="button"
+      ref={anchor}
+      className={`button icon-text-button ${classes}`}
+      aria-label={label}
+      {...expanded}
+      onClick={toggle}
+    >
+      <Icon name={icon} />
+      <span>{text}</span>
+    </button>
+  ) : (
+    <button
+      type="button"
+      ref={anchor}
+      className={`icon-button ${classes}`}
+      aria-label={label}
+      {...expanded}
+      onClick={toggle}
+    >
+      <Icon name={icon} />
+    </button>
+  );
+  return (
+    <>
+      {glass && !text ? <CoverGlass>{trigger}</CoverGlass> : trigger}
+      {open && (
+        <ActionDropdown
+          id={menuId}
+          label={title ?? label}
+          anchor={anchor}
+          actions={actions}
+          onClose={close}
+          onPick={(action) => {
+            close(true);
+            action.onSelect();
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 /** A 28px Liquid Glass lens for a cover's ⋯. SVG refraction, including Android's Chromium web view. */
 function glassCanPaint(): boolean {
   if (typeof document === 'undefined') return false;
-  try { return document.createElement('canvas').getContext('2d') !== null; } catch { return false; }
+  try {
+    return document.createElement('canvas').getContext('2d') !== null;
+  } catch {
+    return false;
+  }
 }
 
 function CoverGlass({ children }: { children: ReactNode }) {
@@ -101,38 +161,49 @@ function CoverGlass({ children }: { children: ReactNode }) {
     lensProfile: 'player' as const,
     renderer: 'svg' as const,
     mobileFallback: 'svg' as const,
-    effectMode: still ? 'blur' as const : 'svg' as const,
+    effectMode: still ? ('blur' as const) : ('svg' as const),
     quality: 'high' as const,
     displacementScale: 6,
     aberrationIntensity: 0.45,
     lensOptions: { strength: 0.22, sheen: 1.6, specular: 1.7, bend: 0.6, glow: 0.2 },
   };
-  return <LiquidGlass
-    className="book-more-lens"
-    {...lens}
-    radius={999}
-    // The library's own root is position:relative and width/height 100%, which
-    // stretches the lens across the card. These win because they are applied after.
-    style={{
-      position: 'absolute',
-      width: '1.75rem',
-      height: '1.75rem',
-      minWidth: '1.75rem',
-      minHeight: '1.75rem',
-      maxWidth: '1.75rem',
-      maxHeight: '1.75rem',
-      flex: 'none',
-      padding: 0,
-      borderRadius: '50%',
-      // Visible overflow: the finger target is a 44px ::before around this 28px disc.
-      // Clipping it would leave only the disc, which a thumb misses.
-      overflow: 'visible',
-      zIndex: 2,
-    }}
-  >{children}</LiquidGlass>;
+  return (
+    <LiquidGlass
+      className="book-more-lens"
+      {...lens}
+      radius={999}
+      // The library's own root is position:relative and width/height 100%, which
+      // stretches the lens across the card. These win because they are applied after.
+      style={{
+        position: 'absolute',
+        width: '1.75rem',
+        height: '1.75rem',
+        minWidth: '1.75rem',
+        minHeight: '1.75rem',
+        maxWidth: '1.75rem',
+        maxHeight: '1.75rem',
+        flex: 'none',
+        padding: 0,
+        borderRadius: '50%',
+        // Visible overflow: the finger target is a 44px ::before around this 28px disc.
+        // Clipping it would leave only the disc, which a thumb misses.
+        overflow: 'visible',
+        zIndex: 2,
+      }}
+    >
+      {children}
+    </LiquidGlass>
+  );
 }
 
-function ActionDropdown({ id, label, anchor, actions, onClose, onPick }: {
+function ActionDropdown({
+  id,
+  label,
+  anchor,
+  actions,
+  onClose,
+  onPick,
+}: {
   id: string;
   label: string;
   anchor: RefObject<HTMLButtonElement | null>;
@@ -147,7 +218,13 @@ function ActionDropdown({ id, label, anchor, actions, onClose, onPick }: {
   useLayoutEffect(() => {
     const menu = ref.current!;
     const popover = typeof menu.showPopover === 'function';
-    if (popover) { try { menu.showPopover(); } catch { /* already shown */ } }
+    if (popover) {
+      try {
+        menu.showPopover();
+      } catch {
+        /* already shown */
+      }
+    }
     const place = () => {
       const box = anchor.current?.getBoundingClientRect();
       if (!box) return;
@@ -156,8 +233,12 @@ function ActionDropdown({ id, label, anchor, actions, onClose, onPick }: {
       // ⋯), from its leading edge otherwise; flip above when there is no room below.
       const rightHalf = box.left + box.width / 2 > innerWidth / 2;
       const left = Math.min(Math.max(MARGIN, rightHalf ? box.right - width : box.left), innerWidth - width - MARGIN);
-      const below = box.bottom + GAP, above = box.top - GAP - height;
-      const top = below + height <= innerHeight - MARGIN || above < MARGIN ? Math.min(below, Math.max(MARGIN, innerHeight - height - MARGIN)) : above;
+      const below = box.bottom + GAP,
+        above = box.top - GAP - height;
+      const top =
+        below + height <= innerHeight - MARGIN || above < MARGIN
+          ? Math.min(below, Math.max(MARGIN, innerHeight - height - MARGIN))
+          : above;
       menu.style.left = `${Math.round(left)}px`;
       menu.style.top = `${Math.round(top)}px`;
     };
@@ -168,7 +249,13 @@ function ActionDropdown({ id, label, anchor, actions, onClose, onPick }: {
     return () => {
       removeEventListener('resize', place);
       removeEventListener('scroll', place, true);
-      if (popover) { try { menu.hidePopover(); } catch { /* already hidden */ } }
+      if (popover) {
+        try {
+          menu.hidePopover();
+        } catch {
+          /* already hidden */
+        }
+      }
     };
   }, []);
 
@@ -189,16 +276,29 @@ function ActionDropdown({ id, label, anchor, actions, onClose, onPick }: {
   }, []);
 
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(true); return; }
-    if (event.key === 'Tab') { onClose(false); return; }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose(true);
+      return;
+    }
+    if (event.key === 'Tab') {
+      onClose(false);
+      return;
+    }
     const rows = [...event.currentTarget.querySelectorAll<HTMLElement>('[role^=menuitem]:not(:disabled)')];
     if (!rows.length) return;
     const index = rows.indexOf(document.activeElement as HTMLElement);
-    const next = event.key === 'ArrowDown' ? (index + 1) % rows.length
-      : event.key === 'ArrowUp' ? (index - 1 + rows.length) % rows.length
-        : event.key === 'Home' ? 0
-          : event.key === 'End' ? rows.length - 1
-            : -1;
+    const next =
+      event.key === 'ArrowDown'
+        ? (index + 1) % rows.length
+        : event.key === 'ArrowUp'
+          ? (index - 1 + rows.length) % rows.length
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? rows.length - 1
+              : -1;
     if (next < 0) return;
     event.preventDefault();
     rows[next]!.focus();
@@ -206,17 +306,28 @@ function ActionDropdown({ id, label, anchor, actions, onClose, onPick }: {
 
   return (
     <div ref={ref} id={id} className="action-menu" role="menu" aria-label={label} popover="manual" onKeyDown={move}>
-      {actions.map((action) => <MenuRow key={action.label} action={action} base="action-menu" onPick={() => onPick(action)} />)}
+      {actions.map((action) => (
+        <MenuRow key={action.label} action={action} base="action-menu" onPick={() => onPick(action)} />
+      ))}
     </div>
   );
 }
 
 /** One row; `base` names its classes (`sheet-list-item`, `sheet-list-label`, …). */
-function MenuRow({ action, base, onPick }: { action: MenuAction; base: 'action-menu' | 'sheet-list'; onPick(): void }): JSX.Element {
+function MenuRow({
+  action,
+  base,
+  onPick,
+}: {
+  action: MenuAction;
+  base: 'action-menu' | 'sheet-list';
+  onPick(): void;
+}): JSX.Element {
   const className = `${base}-item`;
   const descriptionId = useId();
   return (
-    <button type="button"
+    <button
+      type="button"
       role={action.checked === undefined ? 'menuitem' : 'menuitemradio'}
       aria-checked={action.checked}
       // The name stays the label alone; the second line is a description.
@@ -224,9 +335,21 @@ function MenuRow({ action, base, onPick }: { action: MenuAction; base: 'action-m
       aria-describedby={action.description ? descriptionId : undefined}
       className={action.danger ? `${className} is-danger` : className}
       disabled={action.disabled ?? false}
-      onClick={onPick}>
-      {action.icon ? <span className={`${base}-icon`} aria-hidden="true">{action.icon}</span> : null}
-      <span className={`${base}-label`}>{action.label}{action.description ? <small id={descriptionId} className={`${base}-description`}>{action.description}</small> : null}</span>
+      onClick={onPick}
+    >
+      {action.icon ? (
+        <span className={`${base}-icon`} aria-hidden="true">
+          {action.icon}
+        </span>
+      ) : null}
+      <span className={`${base}-label`}>
+        {action.label}
+        {action.description ? (
+          <small id={descriptionId} className={`${base}-description`}>
+            {action.description}
+          </small>
+        ) : null}
+      </span>
       {action.checked ? <Icon name="check" className={`${base}-check`} /> : null}
     </button>
   );
@@ -238,12 +361,22 @@ function MenuRow({ action, base, onPick }: { action: MenuAction; base: 'action-m
  * Exactly one of the two callbacks runs: `onSelect` of the action picked (the owner
  * closes the sheet there) or `onDismiss` when it is closed without a pick.
  */
-export function ActionSheet({ title, items, onDismiss }: { title: string; items: MenuItems; onDismiss(): void }): JSX.Element {
+export function ActionSheet({
+  title,
+  items,
+  onDismiss,
+}: {
+  title: string;
+  items: MenuItems;
+  onDismiss(): void;
+}): JSX.Element {
   const actions = items.filter((item): item is MenuAction => !!item);
   return (
     <Sheet title={title} size="compact" onClose={onDismiss}>
       <div className="sheet-list" role="menu" aria-label={title}>
-        {actions.map((action) => <MenuRow key={action.label} action={action} base="sheet-list" onPick={() => action.onSelect()} />)}
+        {actions.map((action) => (
+          <MenuRow key={action.label} action={action} base="sheet-list" onPick={() => action.onSelect()} />
+        ))}
       </div>
     </Sheet>
   );

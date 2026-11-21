@@ -1,11 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { digestForPlatform, imageTagFromRef, resolvePublishedImage, shortDigest, shortGitSha, type PublishedTag } from '../src/lib/image-digest.ts';
+import {
+  digestForPlatform,
+  imageTagFromRef,
+  resolvePublishedImage,
+  shortDigest,
+  shortGitSha,
+  type PublishedTag,
+} from '../src/lib/image-digest.ts';
 
 const images = [
   { os: 'linux', architecture: 'amd64', digest: 'sha256:017daf908bf9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
   { os: 'linux', architecture: 'arm64', digest: 'sha256:cbb2edb1c777bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
-  { os: 'unknown', architecture: 'unknown', digest: 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' },
+  {
+    os: 'unknown',
+    architecture: 'unknown',
+    digest: 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+  },
 ];
 
 test('a published image is named by the first 12 digits of its platform digest', () => {
@@ -35,13 +46,33 @@ test('a deployment tag is latest, a version, or a short commit', () => {
 });
 
 test('latest is the pulled tag even after it moves past the package version', () => {
-  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', 'latest'), { digest: '7e64e6f9a27b', tag: 'latest' });
+  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', 'latest'), {
+    digest: '7e64e6f9a27b',
+    tag: 'latest',
+  });
   assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: 'latest' });
-  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', '1.0.13'), { digest: '7e64e6f9a27b', tag: '1.0.13' });
-  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', 'sha-66ee335'), { digest: '7e64e6f9a27b', tag: 'sha-66ee335' });
-  const moved = published.map(tag => tag.name === 'latest'
-    ? { name: 'latest', images: [{ os: 'linux', architecture: 'amd64', digest: 'sha256:017daf908bf9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }] }
-    : tag);
+  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', '1.0.13'), {
+    digest: '7e64e6f9a27b',
+    tag: '1.0.13',
+  });
+  assert.deepEqual(resolvePublishedImage(published, '1.0.13', 'x64', 'sha-66ee335'), {
+    digest: '7e64e6f9a27b',
+    tag: 'sha-66ee335',
+  });
+  const moved = published.map((tag) =>
+    tag.name === 'latest'
+      ? {
+          name: 'latest',
+          images: [
+            {
+              os: 'linux',
+              architecture: 'amd64',
+              digest: 'sha256:017daf908bf9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            },
+          ],
+        }
+      : tag,
+  );
   assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null), { digest: '7e64e6f9a27b', tag: '1.0.13' });
   assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', 'latest'), { digest: '017daf908bf9', tag: 'latest' });
 });
@@ -56,6 +87,12 @@ test('the commit baked into the image is latest while Hub latest still points at
     { name: 'sha-66ee335', images: current },
     { name: 'sha-017daf9', images: [{ os: 'linux', architecture: 'amd64', digest: newer }] },
   ];
-  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null, '017daf9aaaaaa'), { digest: '017daf908bf9', tag: 'latest' });
-  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null, '66ee335c0ffee'), { digest: '7e64e6f9a27b', tag: '1.0.13' });
+  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null, '017daf9aaaaaa'), {
+    digest: '017daf908bf9',
+    tag: 'latest',
+  });
+  assert.deepEqual(resolvePublishedImage(moved, '1.0.13', 'x64', null, '66ee335c0ffee'), {
+    digest: '7e64e6f9a27b',
+    tag: '1.0.13',
+  });
 });
