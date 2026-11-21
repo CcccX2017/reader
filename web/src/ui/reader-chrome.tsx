@@ -890,6 +890,7 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
           <SegmentedRow
             label="翻页动画"
             options={[
+              { value: 'flip', label: '仿真' },
               { value: 'slide', label: '滑动' },
               { value: 'fade', label: '淡入' },
               { value: 'none', label: '无' },

@@ -205,6 +205,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   if (typeof settings.keepAwake !== 'boolean') settings.keepAwake = false;
   if (typeof settings.resumeReading !== 'boolean') settings.resumeReading = false;
   if (typeof settings.focus !== 'boolean') settings.focus = false;
+  if (!['none', 'slide', 'fade', 'flip'].includes(settings.pageAnimation)) settings.pageAnimation = DEFAULT_APP_SETTINGS.pageAnimation;
   if (!['list', 'grid'].includes(settings.exploreLayout)) settings.exploreLayout = DEFAULT_APP_SETTINGS.exploreLayout;
   if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort)) settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;
   if (settings.homeShelfCount !== 'all' && !(HOME_SHELF_COUNTS as readonly number[]).includes(settings.homeShelfCount)) {

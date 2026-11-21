@@ -32,6 +32,8 @@ import { createSpeechEngine, speechAvailability, SPEECH_ENGINE_LABELS, type Spee
 import type { NativeSpeechBridge } from '../android-bridge.ts';
 import { createRoot, type Root } from 'react-dom/client';
 import { flushSync } from 'react-dom';
+import { mountEdgeCurl, type EdgeCurl } from './edge-curl.ts';
+import { captureReadingFace, curlFold, PageCurl, whenFaceSettled, type CurlBook, type CurlFold } from './page-curl.tsx';
 import { ReaderChrome, type ChromeState, type ChromeTocEntry } from './reader-chrome.tsx';
 import { OFFLINE_FILE, PublicationCache, publicationScope } from '../store/publications.ts';
 import { ReadingTools, type SearchSection } from './reading-tools.tsx';
@@ -208,6 +210,17 @@ export class ReaderScreen {
   private progressWrite: Promise<void> = Promise.resolve();
   private readonly noticeId = Symbol('reader-status');
   private disposed = false;
+  /** A page turn, including its curl, is already in flight. */
+  private turning = false;
+  /** A finger curl: the column does not slide; the page bends with the finger. */
+  private curlDrag: { direction: 'next' | 'previous'; deltaX: number; commit: boolean | null; api: CurlBook | null; fold: CurlFold; clientY: number | null } | null = null;
+  /** The middle band's whole-edge curl, while that turn is on screen. */
+  private lineCurl: EdgeCurl | null = null;
+  /** The next and previous page, laid out while this one is being read. */
+  private warm: { bin: HTMLElement; next: HTMLElement | null; previous: HTMLElement | null; ready: boolean } | null = null;
+  private warmToken = 0;
+  private warmTimer: number | null = null;
+  private curlCommit: (() => void) | null = null;
   private themeOff?: () => void;
   private preferenceOff?: () => void;
   private pendingPosition: Position | null = null;
@@ -902,6 +915,8 @@ export class ReaderScreen {
     this.chapterRefresh?.abort();
     this.stopPreview();
     this.disposed = true;
+    if (this.warmTimer !== null) window.clearTimeout(this.warmTimer);
+    this.dropWarm();
     this.loadingToken += 1;
     this.viewEpoch += 1;
     this.tts?.dispose();
@@ -1635,24 +1650,41 @@ export class ReaderScreen {
     // back (see ReaderView.beginDrag). Mouse drags stay text selection.
     let following = false;
     this.detachGestures = attachGestures(this.stage, {
-      onTapZone: (column, row) => this.onTapZone(column, row),
-      onSwipe: (direction) => {
+      onTapZone: (column, row, offsetY) => this.onTapZone(column, row, offsetY),
+      onSwipe: (direction, clientY) => {
         // Swiping is only a page turn in fixed layout or paged mode. In scroll
         // mode a horizontal swipe has no meaning and hijacking it would fight
         // the reader's own scrolling.
         if (doc.layout !== 'fixed' && this.settings.mode !== 'paged') return;
         // Right-to-left (a manga) is read by swiping the other way.
         const rtl = this.isRtl();
-        if (direction === (rtl ? 'right' : 'left')) void this.turnPage('next');
-        else if (direction === (rtl ? 'left' : 'right')) void this.turnPage('previous');
+        const fold = this.foldAt(clientY);
+        if (direction === (rtl ? 'right' : 'left')) void this.turnPage('next', fold);
+        else if (direction === (rtl ? 'left' : 'right')) void this.turnPage('previous', fold);
       },
-      onDragDelta: (deltaX, deltaY, pointerType) => {
+      onDragDelta: (deltaX, deltaY, pointerType, clientY) => {
         const view = this.view;
         if (!view) return;
         if (!following) {
           if (pointerType === 'mouse' || Math.abs(deltaX) <= 12 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
-          if (this.chrome.refreshing || hasTextSelection(this.stage) || !view.beginDrag()) return;
+          if (this.chrome.refreshing || hasTextSelection(this.stage)) return;
+          // 仿真翻页 bends the page with the finger. The column must not slide as well.
+          // Only the drag that used to slide a paged book is replaced; scroll mode keeps scrolling.
+          if (this.wantsCurl() && this.settings.mode === 'paged' && this.doc?.layout !== 'fixed') {
+            if (this.turning) return;
+            following = true;
+            const forward = this.isRtl() ? deltaX > 0 : deltaX < 0;
+            this.beginFingerCurl(forward ? 'next' : 'previous', this.foldAt(clientY), deltaX, clientY);
+            return;
+          }
+          if (!view.beginDrag()) return;
           following = true;
+        }
+        if (this.curlDrag) {
+          this.curlDrag.deltaX = deltaX;
+          if (clientY !== undefined) this.curlDrag.clientY = clientY;
+          this.driveFingerCurl();
+          return;
         }
         view.dragTo(deltaX);
       },
@@ -1663,7 +1695,15 @@ export class ReaderScreen {
         // the page a third of the way, which is where the next page is mostly in view.
         const turn = (Math.abs(deltaX) >= 48 && duration < 800) || Math.abs(deltaX) > this.stage.clientWidth * 0.3;
         const forward = this.isRtl() ? deltaX > 0 : deltaX < 0;
-        void this.finishDrag(turn ? (forward ? 'next' : 'previous') : null);
+        const direction = turn ? (forward ? 'next' : 'previous') : null;
+        if (this.curlDrag) {
+          this.curlDrag.deltaX = deltaX;
+          this.curlDrag.commit = direction !== null && direction === this.curlDrag.direction;
+          this.curlCommit?.();
+          this.curlCommit = null;
+          return true;
+        }
+        void this.finishDrag(direction);
         return true;
       },
       // On a comic a tap turns the page, so its page is opened as a picture by a
@@ -1759,23 +1799,327 @@ export class ReaderScreen {
     else if (direction) await this.turnPage(direction);
   }
 
-  private async turnPage(direction: 'next' | 'previous'): Promise<void> {
-    if (this.chrome.refreshing) return;
+  /** A paper curl, rather than the CSS slide. Off when the reader asked for less motion. */
+  private wantsCurl(): boolean {
+    return this.settings.pageAnimation === 'flip' && !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  /** Top corner, bottom corner, or one straight line when the finger is in the middle. */
+  private foldAt(clientY?: number): CurlFold {
+    if (clientY === undefined) return 'bottom';
+    const rect = this.stage.getBoundingClientRect();
+    return curlFold(clientY - rect.top, rect.height);
+  }
+
+  /**
+   * Covers the page the reader is on, so the real page can move without a flash.
+   *
+   * The overlay stays hidden until `presentCover`: the copy has to be laid out
+   * first, or the first paint is blank paper. A second copy stays in
+   * `.reader-curl-hold` until the flip book has drawn, because mounting the book
+   * hides every page for a frame and that frame was the flash at the start.
+   */
+  private coverPage(face: HTMLElement): HTMLElement {
+    const overlay = document.createElement('div');
+    overlay.className = 'reader-curl';
+    overlay.style.visibility = 'hidden';
+    const book = document.createElement('div');
+    book.className = 'reader-curl-book';
+    const hold = document.createElement('div');
+    hold.className = 'reader-flip-sheet reader-curl-hold';
+    hold.append(face);
+    overlay.append(book, hold);
+    this.stage.append(overlay);
+    return overlay;
+  }
+
+  /** Shows the prepared copy and hides the live page in the same step. */
+  private async presentCover(overlay: HTMLElement): Promise<void> {
+    const face = overlay.querySelector('.reader-curl-hold .book-host');
+    if (face instanceof HTMLElement) await whenFaceSettled(face);
+    if (!overlay.isConnected || this.disposed) return;
+    overlay.style.visibility = '';
+    const host = this.view?.elementHost;
+    if (host) host.style.visibility = 'hidden';
+  }
+
+  /** Takes the still picture down once the flip book is actually showing a page. */
+  private async dropCurlHold(overlay: HTMLElement): Promise<void> {
+    const book = overlay.querySelector('.reader-curl-book');
+    for (let i = 0; i < 12 && overlay.isConnected; i += 1) {
+      const page = [...(book?.querySelectorAll('.stf__item') ?? [])].find((node) =>
+        node instanceof HTMLElement && node.style.display !== 'none' && node.offsetHeight > 0);
+      const face = page instanceof HTMLElement ? page.querySelector('.book-host') : null;
+      if (face instanceof HTMLElement && face.clientHeight > 0) {
+        const raw = face.dataset['scroll'];
+        const scroll = raw ? JSON.parse(raw) as { left: number; top: number } : { left: 0, top: 0 };
+        const flow = face.shadowRoot?.querySelector('.book-flow');
+        const leftOk = !(flow instanceof HTMLElement) || scroll.left <= 1 || flow.scrollLeft >= scroll.left - 1;
+        if (leftOk) break;
+      }
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    }
+    overlay.querySelector('.reader-curl-hold')?.remove();
+  }
+
+  private curlSlot(overlay: HTMLElement): HTMLElement {
+    const slot = overlay.querySelector('.reader-curl-book');
+    return slot instanceof HTMLElement ? slot : overlay;
+  }
+
+  private uncoverPage(overlay: HTMLElement | null): void {
+    overlay?.remove();
+    const host = this.view?.elementHost;
+    if (host) host.style.visibility = '';
+  }
+
+  /**
+   * Plays a curl from the page just left to the page just landed on.
+   *
+   * The overlay is already showing the page that was left, and the host is
+   * already hidden on the page that was landed on. Taps are not taken: the
+   * curl does not hit-test, so 点击区域 stays the grid on the stage.
+   */
+  private async playCurl(overlay: HTMLElement, before: HTMLElement, after: HTMLElement, direction: 'next' | 'previous', fold: 'top' | 'bottom'): Promise<void> {
+    // The book column is inset above the page number. The curl is the whole
+    // stage, so the number stays on the bottom edge and the peel starts there.
+    const width = this.stage.clientWidth;
+    const height = this.stage.clientHeight;
+    if (width < 2 || height < 2) return;
+    const root = createRoot(this.curlSlot(overlay));
+    try {
+      await new Promise<void>(resolve => {
+        const timer = window.setTimeout(resolve, 1600);
+        const done = () => { window.clearTimeout(timer); resolve(); };
+        flushSync(() => {
+          root.render(<PageCurl width={width} height={height} before={before} after={after} direction={direction} fold={fold} onDone={done} />);
+        });
+      });
+    } finally {
+      root.unmount();
+    }
+  }
+
+  /** Puts the chapter back where a cancelled finger-curl moved it. */
+  private async undoCurl(direction: 'next' | 'previous'): Promise<void> {
     const view = this.view;
     if (!view) return;
-    let moved: boolean;
+    if (direction === 'next') await view.previous();
+    else await view.next();
+  }
+
+  /**
+   * A finger drag while 仿真 is on.
+   *
+   * The column does not slide. The current page stays on screen, the next page
+   * is prepared underneath it, and the paper bends with the finger. A corner
+   * peels from the top or the bottom. The middle furls the whole edge. Letting
+   * go past the usual threshold finishes the turn; a short drag puts the page back.
+   */
+  private beginFingerCurl(direction: 'next' | 'previous', fold: CurlFold, deltaX = 0, clientY?: number): void {
+    if (this.curlDrag || this.turning) return;
+    const drag = { direction, deltaX, commit: null as boolean | null, api: null as CurlBook | null, fold, clientY: clientY ?? null };
+    this.curlDrag = drag;
+    void this.runFingerCurl(drag);
+  }
+
+  /** How far the full-edge curl has travelled, in pixels from the turning edge. */
+  private edgeTravel(drag: { direction: 'next' | 'previous'; deltaX: number }, width: number): number {
+    const raw = drag.direction === 'next' ? Math.max(0, -drag.deltaX) : Math.max(0, drag.deltaX);
+    return Math.max(0, Math.min(width, raw));
+  }
+
+  /** Where the finger is on the curl, in the overlay's own coordinates. */
+  private fingerPoint(drag: { direction: 'next' | 'previous'; deltaX: number; fold: CurlFold; clientY: number | null }, rect: DOMRect): { x: number; y: number } {
+    const travel = drag.direction === 'next' ? Math.max(0, -drag.deltaX) : Math.max(0, drag.deltaX);
+    const x = drag.direction === 'next' ? rect.width - 8 - travel : 8 + travel;
+    const rawY = drag.clientY === null ? (drag.fold === 'top' ? 8 : rect.height - 8) : drag.clientY - rect.top;
+    const y = Math.min(Math.max(8, rawY), Math.max(8, rect.height - 8));
+    return { x, y };
+  }
+
+  private driveFingerCurl(): void {
+    const drag = this.curlDrag;
+    const overlay = this.stage.querySelector('.reader-curl');
+    if (!drag || !(overlay instanceof HTMLElement)) return;
+    if (drag.fold === 'line') {
+      this.lineCurl?.drive(this.edgeTravel(drag, overlay.clientWidth));
+      return;
+    }
+    if (!drag.api) return;
+    const point = this.fingerPoint(drag, overlay.getBoundingClientRect());
+    if (!drag.commit && Math.abs(drag.deltaX) < 1) return;
     try {
-      moved = direction === 'next' ? await view.next() : await view.previous();
+      if (!(drag as { touched?: boolean }).touched) {
+        const origin = drag.direction === 'next'
+          ? { x: overlay.clientWidth - 8, y: point.y }
+          : { x: 8, y: point.y };
+        drag.api.startUserTouch(origin);
+        (drag as { touched?: boolean }).touched = true;
+      }
+      drag.api.userMove(point, true);
+    } catch { /* a fold that cannot start still finishes on release */ }
+  }
+
+  /**
+   * Finishes a finger curl with the library's own flip, which runs to the end
+   * of the sheet. Dragging the point by hand stops halfway: the fold geometry
+   * throws, the overlay comes off, and the next page flashes in.
+   */
+  private settleFingerCurl(api: CurlBook, drag: { direction: 'next' | 'previous'; fold: CurlFold }, forward: boolean): Promise<void> {
+    if (!forward) {
+      try { api.userStop({ x: 0, y: 0 }); } catch { /* the sheet still lays back when the overlay goes */ }
+      return new Promise(resolve => window.setTimeout(resolve, 900));
+    }
+    return new Promise(resolve => {
+      const timer = window.setTimeout(resolve, 1600);
+      api.on('flip', (event) => {
+        const page = Number(event.data);
+        const landed = drag.direction === 'next' ? page >= 1 : page === 0;
+        if (!landed) return;
+        window.clearTimeout(timer);
+        resolve();
+      });
+      try {
+        const corner = drag.fold === 'line' ? 'bottom' : drag.fold;
+        if (drag.direction === 'next') api.flipNext(corner);
+        else api.flipPrev(corner);
+      } catch {
+        window.clearTimeout(timer);
+        resolve();
+      }
+    });
+  }
+
+  private async runFingerCurl(drag: { direction: 'next' | 'previous'; deltaX: number; commit: boolean | null; api: CurlBook | null; fold: CurlFold; clientY: number | null }): Promise<void> {
+    const view = this.view;
+    const host = view?.elementHost;
+    if (!view || !host) { this.curlDrag = null; return; }
+    this.turning = true;
+    const prepared = this.takePrepared(drag.direction);
+    const before = captureReadingFace(host);
+    const overlay = this.coverPage(captureReadingFace(host));
+    let root: Root | null = null;
+    // The middle band starts its book now, under the still-hidden cover, so the
+    // cylinder can be on screen while the finger is down. Waiting for the next
+    // page first left the finger sliding on a flat sheet, and a finger that
+    // lifted during that wait skipped the curl entirely.
+    if (drag.fold === 'line') {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'book-host';
+      this.lineCurl = mountEdgeCurl(overlay, before, placeholder, drag.direction);
+    }
+    const preparing = this.lineCurl?.ready();
+    try {
+      await this.presentCover(overlay);
+      const moved = drag.direction === 'next' ? await view.next() : await view.previous();
+      if (!moved || this.disposed) {
+        if (drag.commit) this.flashStatus(drag.direction === 'next' ? '已经是最后一页' : '已经是第一页');
+        return;
+      }
+      if (drag.fold !== 'line' && drag.commit === false) { await this.undoCurl(drag.direction); return; }
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      if (this.disposed) { await this.undoCurl(drag.direction); return; }
+      const after = prepared ?? captureReadingFace(host);
+      if (drag.fold === 'line' && this.lineCurl) {
+        this.lineCurl.adopt(after);
+        await preparing;
+        this.lineCurl.drive(this.edgeTravel(drag, overlay.clientWidth));
+        overlay.querySelector('.reader-curl-hold')?.remove();
+        if (drag.commit === null) {
+          await new Promise<void>(resolve => { this.curlCommit = resolve; if (drag.commit !== null) resolve(); });
+        }
+        if (drag.commit) await this.lineCurl.finish(true);
+        else {
+          await this.lineCurl.finish(false);
+          await this.undoCurl(drag.direction);
+        }
+        this.pendingSpeechAnchor = null;
+        return;
+      }
+      const width = this.stage.clientWidth;
+      const height = this.stage.clientHeight;
+      root = createRoot(this.curlSlot(overlay));
+      const api = await new Promise<CurlBook | null>(resolve => {
+        let settled = false;
+        const finish = (value: CurlBook | null) => { if (!settled) { settled = true; resolve(value); } };
+        flushSync(() => {
+          root?.render(<PageCurl width={width} height={height} before={before} after={after} direction={drag.direction} fold={drag.fold === 'top' ? 'top' : 'bottom'} hold onReady={finish} onDone={() => undefined} />);
+        });
+        window.setTimeout(() => finish(null), 700);
+      });
+      drag.api = api;
+      await this.dropCurlHold(overlay);
+      if (drag.commit === null) {
+        this.driveFingerCurl();
+        await new Promise<void>(resolve => { this.curlCommit = resolve; if (drag.commit !== null) resolve(); });
+      }
+      if (drag.commit && api) await this.settleFingerCurl(api, drag, true);
+      else if (!drag.commit) {
+        if (api) await this.settleFingerCurl(api, drag, false);
+        await this.undoCurl(drag.direction);
+      }
+      this.pendingSpeechAnchor = null;
     } catch (error) {
       this.handleLoadError(error);
-      return;
+    } finally {
+      this.lineCurl?.destroy();
+      this.lineCurl = null;
+      root?.unmount();
+      this.uncoverPage(overlay);
+      before.remove();
+      if (prepared?.isConnected === false) prepared.remove();
+      this.turning = false;
+      if (!this.disposed) this.scheduleWarm();
+      this.curlCommit = null;
+      if (this.curlDrag === drag) this.curlDrag = null;
     }
-    if (!moved) {
-      this.flashStatus(direction === 'next' ? '已经是最后一页' : '已经是第一页');
-      return;
+  }
+
+  private async turnPage(direction: 'next' | 'previous', fold: CurlFold = 'bottom'): Promise<void> {
+    if (this.chrome.refreshing || this.turning) return;
+    const view = this.view;
+    if (!view) return;
+    this.turning = true;
+    const curl = this.wantsCurl();
+    const prepared = curl ? this.takePrepared(direction) : null;
+    const before = curl ? captureReadingFace(view.elementHost) : null;
+    const overlay = before ? this.coverPage(captureReadingFace(view.elementHost)) : null;
+    try {
+      if (overlay) await this.presentCover(overlay);
+      const moved = direction === 'next' ? await view.next() : await view.previous();
+      if (!moved) {
+        this.flashStatus(direction === 'next' ? '已经是最后一页' : '已经是第一页');
+        return;
+      }
+      if (before && overlay) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        if (!this.disposed) {
+          const after = prepared ?? captureReadingFace(view.elementHost);
+          if (fold === 'line') {
+            this.lineCurl = mountEdgeCurl(overlay, before, after, direction);
+            await this.lineCurl.ready();
+            overlay.querySelector('.reader-curl-hold')?.remove();
+            await this.lineCurl.finish(true);
+          } else {
+            void this.dropCurlHold(overlay);
+            await this.playCurl(overlay, before, after, direction, fold);
+          }
+          after.remove();
+        }
+      } else view.animatePage(direction);
+      this.pendingSpeechAnchor = null;
+    } catch (error) {
+      this.handleLoadError(error);
+    } finally {
+      this.lineCurl?.destroy();
+      this.lineCurl = null;
+      this.uncoverPage(overlay);
+      before?.remove();
+      if (prepared?.isConnected === false) prepared.remove();
+      this.turning = false;
+      if (!this.disposed) this.scheduleWarm();
     }
-    view.animatePage(direction);
-    this.pendingSpeechAnchor = null;
   }
 
   /**
@@ -1813,7 +2157,7 @@ export class ReaderScreen {
    * `.reader-screen` in reader.css) — so this costs no reflow. 无操作 does nothing
    * at all, including hiding the bars.
    */
-  private onTapZone(column: number, row: number): void {
+  private onTapZone(column: number, row: number, offsetY?: number): void {
     if (this.chrome.tocOpen || this.chrome.settingsOpen) return;
     // The tap that dismissed a note card (it closes on pointerdown) is spent on that:
     // it must not also turn the page or toggle the bars (ui.md §3.8).
@@ -1826,7 +2170,10 @@ export class ReaderScreen {
       return;
     }
     if (this.chromeVisible) this.setChromeVisible(false);
-    if (action === 'next' || action === 'previous') void this.turnPage(action);
+    // Near the top or bottom the page peels from that corner. Near the middle the
+    // whole height turns along one straight line.
+    const fold = offsetY === undefined ? (row === 0 ? 'top' : row === 2 ? 'bottom' : 'line') : curlFold(offsetY, this.stage.clientHeight);
+    if (action === 'next' || action === 'previous') void this.turnPage(action, fold);
     else void this.goToChapter(action === 'next-chapter' ? 1 : -1);
   }
 
@@ -1998,6 +2345,71 @@ export class ReaderScreen {
     this.progressTimer = setTimeout(() => {
       void this.flushProgress().catch(() => undefined);
     }, 1500);
+    if (!this.turning) this.scheduleWarm();
+  }
+
+  /**
+   * Lays out the neighbouring pages while this one stays on screen.
+   *
+   * A turn used to clone the chapter at the moment of the flip. The copy then
+   * broke its columns in front of the reader, which is the flash of text
+   * rearranging. The copy is made here, in the live page's own box, and a turn
+   * uncovers that copy instead of a fresh one.
+   */
+  private scheduleWarm(): void {
+    if (this.warmTimer !== null) window.clearTimeout(this.warmTimer);
+    this.warmTimer = window.setTimeout(() => {
+      this.warmTimer = null;
+      this.prepareNeighbors();
+    }, 400);
+  }
+
+  private prepareNeighbors(): void {
+    if (this.disposed || this.turning) return;
+    if (!this.wantsCurl()) { this.dropWarm(); return; }
+    const view = this.view;
+    const host = view?.elementHost;
+    if (!view || !host || host.clientWidth < 2 || host.clientHeight < 2) return;
+    const nextPlace = view.neighborPlace('next');
+    const previousPlace = view.neighborPlace('previous');
+    if (!nextPlace && !previousPlace) { this.dropWarm(); return; }
+    this.warmToken += 1;
+    const token = this.warmToken;
+    this.warm?.bin.remove();
+    const bin = document.createElement('div');
+    bin.className = 'reader-face-warm';
+    bin.setAttribute('aria-hidden', 'true');
+    bin.style.width = `${host.clientWidth}px`;
+    bin.style.height = `${host.clientHeight}px`;
+    const next = nextPlace ? captureReadingFace(host, nextPlace) : null;
+    const previous = previousPlace ? captureReadingFace(host, previousPlace) : null;
+    if (next) bin.append(next);
+    if (previous) bin.append(previous);
+    this.stage.append(bin);
+    this.warm = { bin, next, previous, ready: false };
+    const faces = [next, previous].filter((face): face is HTMLElement => face !== null);
+    void Promise.all(faces.map(face => whenFaceSettled(face))).then(() => {
+      if (this.warmToken !== token || this.warm?.bin !== bin) return;
+      this.warm.ready = true;
+    });
+  }
+
+  /** The already-laid-out neighbour, or null when it is not ready yet. */
+  private takePrepared(direction: 'next' | 'previous'): HTMLElement | null {
+    const warm = this.warm;
+    if (!warm?.ready) return null;
+    const face = direction === 'next' ? warm.next : warm.previous;
+    if (!face) return null;
+    if (direction === 'next') warm.next = null;
+    else warm.previous = null;
+    face.remove();
+    return face;
+  }
+
+  private dropWarm(): void {
+    this.warmToken += 1;
+    this.warm?.bin.remove();
+    this.warm = null;
   }
 
   /**

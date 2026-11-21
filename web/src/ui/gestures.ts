@@ -34,10 +34,10 @@
 
 export interface GestureHandlers {
   /** A tap, as the cell of a 3×3 grid it fell in: `column` and `row` are each 0–2. */
-  onTapZone(column: number, row: number): void;
-  onSwipe(direction: 'left' | 'right' | 'up' | 'down'): void;
+  onTapZone(column: number, row: number, offsetY?: number): void;
+  onSwipe(direction: 'left' | 'right' | 'up' | 'down', clientY?: number): void;
   /** Fires continuously while a finger is down and moving; paged mode follows it. */
-  onDragDelta(deltaX: number, deltaY: number, pointerType: string): void;
+  onDragDelta(deltaX: number, deltaY: number, pointerType: string, clientY?: number): void;
   /**
    * The pointer lifted (or the browser cancelled it). Return true when a drag the
    * screen was following has already decided the gesture, so it is not also read as a
@@ -219,7 +219,7 @@ export function attachGestures(element: HTMLElement, handlers: GestureHandlers):
     const deltaX = event.clientX - startX;
     const deltaY = event.clientY - startY;
     if (Math.hypot(deltaX, deltaY) > TAP_MAX_DISTANCE) clearLongPress();
-    handlers.onDragDelta(deltaX, deltaY, event.pointerType);
+    handlers.onDragDelta(deltaX, deltaY, event.pointerType, event.clientY);
   };
 
   const onPointerUp = (event: PointerEvent): void => {
@@ -244,8 +244,8 @@ export function attachGestures(element: HTMLElement, handlers: GestureHandlers):
     const horizontal = Math.abs(deltaX) > Math.abs(deltaY) * SWIPE_MAX_OFF_AXIS;
     if (distance >= SWIPE_MIN_DISTANCE && duration < 800) {
       suppressClick = true;
-      if (horizontal) handlers.onSwipe(deltaX < 0 ? 'left' : 'right');
-      else handlers.onSwipe(deltaY < 0 ? 'up' : 'down');
+      if (horizontal) handlers.onSwipe(deltaX < 0 ? 'left' : 'right', event.clientY);
+      else handlers.onSwipe(deltaY < 0 ? 'up' : 'down', event.clientY);
       return;
     }
 
@@ -300,7 +300,7 @@ export function attachGestures(element: HTMLElement, handlers: GestureHandlers):
       const scaleY = layoutHeight > 0 && rect.height > 0 ? rect.height / layoutHeight : 1;
       const y = (event.clientY - rect.top - element.clientTop * scaleY) / scaleY;
       const cell = (offset: number, size: number): number => (offset < size / 3 ? 0 : offset > (size * 2) / 3 ? 2 : 1);
-      handlers.onTapZone(cell(x, width), height > 0 ? cell(y, height) : 1);
+      handlers.onTapZone(cell(x, width), height > 0 ? cell(y, height) : 1, y);
     }
   };
 

@@ -297,6 +297,72 @@ select {
   overflow: hidden;
 }
 
+/* The curl sits over the page and under the bars, and under the page number.
+   The number stays on the screen's bottom edge; it is not part of the sheet
+   that turns, so a curl cannot lift it. The peel still starts at that edge. */
+.reader-curl {
+  position: absolute;
+  inset: 0;
+  /* Under the page-number strip (--reader-layer-readout is 5). */
+  z-index: 3;
+  overflow: hidden;
+  background: var(--reader-paper);
+  /* The curl is a picture of the turn. Taps fall through to the same 点击区域 grid. */
+  pointer-events: none;
+}
+.reader-flip-page { background: var(--reader-paper); overflow: hidden; }
+.reader-flip-sheet { position: relative; width: 100%; height: 100%; overflow: hidden; }
+/* The book mounts underneath a copy of the page already on screen. StPageFlip's
+   pages start hidden, so the copy stays up until that book has actually drawn. */
+.reader-curl-book { position: absolute; inset: 0; }
+.reader-curl-hold { position: absolute; inset: 0; z-index: 2; background: var(--reader-paper); }
+/* The middle band's book. Its page rules are the ones shipped with
+   @openpageflip/core (MIT), kept here so a test runner never has to load the
+   stylesheet import. The library positions each page with inline styles. */
+.reader-edge-book { position: absolute; inset: 0; }
+.reader-edge-page { background: var(--reader-paper); overflow: hidden; }
+/* A settled copy of the neighbouring page, kept off screen while this one is
+   read. It has the live page's own box, so its columns are already broken
+   when a turn uncovers it. The copy sets its own visibility to visible so it
+   can paint during the curl; that would show through a hidden parent, and the
+   next and previous copies would sit on top of the page being read. Opacity
+   hides the whole bin, and it lifts as soon as a copy is moved into the curl. */
+.reader-face-warm {
+  position: fixed;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.reader-screen .reader-face-warm > .book-host { inset: 0; }
+.opf-book {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  perspective: 2000px;
+  touch-action: pan-y;
+}
+.opf-page {
+  display: none;
+  position: absolute;
+  transform-style: preserve-3d;
+}
+.opf-page--turning {
+  outline: 1px solid var(--opf-page-edge, rgb(0 0 0 / 0.2));
+  outline-offset: -1px;
+}
+.opf-sheet,
+.opf-shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+/* Fill the stage. The column's own top and bottom insets still apply, so the
+   page number stays on the screen's bottom edge instead of riding up. */
+.reader-curl .stf__parent { position: absolute; inset: 0; }
+.reader-flip-sheet > .book-host,
+.reader-edge-page > .book-host { position: absolute; inset: 0; }
+
 /*
  * The stage's slot in the component tree.
  *

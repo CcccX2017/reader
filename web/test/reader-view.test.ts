@@ -455,6 +455,23 @@ describe('ReaderView appearance settings', () => {
     expect(container.querySelector('book-content')?.getAttribute('data-animating')).toBeNull();
   });
 
+  it('leaves a simulated turn to the curl, instead of sliding the text under it', () => {
+    const view = make(container, reflowableDoc(2));
+    view.applySettings({ pageAnimation: 'flip', mode: 'paged' });
+    view.animatePage('next');
+    expect(container.querySelector('book-content')?.getAttribute('data-animating')).toBeNull();
+  });
+
+  it('names one face per screen for the curl book', async () => {
+    const view = make(container, reflowableDoc(2));
+    await view.open(0, 0);
+    const faces = view.readingFaces();
+    expect(faces.count).toBeGreaterThan(0);
+    expect(faces.places).toHaveLength(faces.count);
+    expect(faces.index).toBeGreaterThanOrEqual(0);
+    expect(faces.index).toBeLessThan(faces.count);
+  });
+
   it('speaks in the order the reader sees, with stable block indices', async () => {
     const view = make(container, reflowableDoc(1));
     await view.open(0, 0);

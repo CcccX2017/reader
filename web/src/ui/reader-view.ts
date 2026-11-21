@@ -95,7 +95,7 @@ export interface Position {
 }
 
 export type TextAlign = 'inherit' | 'start' | 'justify';
-export type PageAnimation = 'none' | 'slide' | 'fade';
+export type PageAnimation = 'none' | 'slide' | 'fade' | 'flip';
 export type TapZone = 'standard' | 'reversed';
 
 export interface ViewSettings {
@@ -585,7 +585,9 @@ export class ReaderView {
    * for the second one, leaving the host stuck in an animating state.
    */
   animatePage(direction: 'next' | 'previous' | 'none'): void {
-    if (this.settings.pageAnimation === 'none' || direction === 'none') return;
+    // 仿真 is a curl drawn over the page, not a transform of the flow. A CSS
+    // animation here would slide the text under the curl.
+    if (this.settings.pageAnimation === 'none' || this.settings.pageAnimation === 'flip' || direction === 'none') return;
     if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     // The *axis* is the mode's, and the attribute carries it.
     //
@@ -659,6 +661,26 @@ export class ReaderView {
    */
   get scroller(): HTMLElement {
     return this.settings.mode === 'paged' ? this.host.flow : this.host;
+  }
+
+  /**
+   * Where the next or previous page sits, without moving there.
+   *
+   * A curl can draw that page while the reader is still on this one. Null at the
+   * edge of a chapter: the neighbouring chapter is not in this document yet.
+   */
+  neighborPlace(direction: 'next' | 'previous'): { left: number; top: number } | null {
+    if (this.doc.layout === 'fixed') return null;
+    const delta = direction === 'next' ? 1 : -1;
+    if (this.settings.mode === 'paged') {
+      const columns = this.columnCount();
+      const target = this.columnIndex() + delta;
+      if (target < 0 || target >= columns) return null;
+      return { left: target * this.columnStride(columns), top: this.scroller.scrollTop };
+    }
+    const target = this.scrollPage() + delta;
+    if (target < 0 || target >= this.screenCount()) return null;
+    return { left: this.scroller.scrollLeft, top: this.screenOffset(target) };
   }
 
   /** Opens a section by index, optionally at a fractional offset within it. */
@@ -1040,6 +1062,36 @@ export class ReaderView {
    * A page index has neither problem: it is an integer, both directions compute it
    * from the same measurement, and a step is exactly one of it.
    */
+  /**
+   * The screens a curl can turn, and the scroll that shows each one.
+   *
+   * Paged mode is one column per screen. Scroll mode is one viewport per screen.
+   * A fixed page is already a single picture, so it is one face.
+   */
+  readingFaces(): { index: number; count: number; places: Array<{ left: number; top: number }> } {
+    if (this.doc.layout === 'fixed') return { index: 0, count: 1, places: [{ left: 0, top: 0 }] };
+    if (this.settings.mode === 'paged') {
+      const count = this.columnCount();
+      const stride = this.columnStride(count);
+      return { index: this.columnIndex(), count, places: Array.from({ length: count }, (_, index) => ({ left: index * stride, top: 0 })) };
+    }
+    const count = this.screenCount();
+    return { index: this.scrollPage(), count, places: Array.from({ length: count }, (_, index) => ({ left: 0, top: this.screenOffset(index) })) };
+  }
+
+  /** Moves the real chapter to a screen the curl is showing, without animating. */
+  showReadingFace(index: number): void {
+    const faces = this.readingFaces();
+    const place = faces.places[Math.min(faces.count - 1, Math.max(0, index))];
+    if (!place || this.doc.layout === 'fixed') return;
+    if (this.settings.mode === 'paged') this.scroller.scrollLeft = place.left;
+    else {
+      this.scroller.scrollTop = place.top;
+      this.syncPageMask();
+    }
+    this.emitPosition();
+  }
+
   async next(): Promise<boolean> {
     this.pageTurnDistance = null;
     if (this.doc.layout === 'fixed') return this.stepFixed(1);
