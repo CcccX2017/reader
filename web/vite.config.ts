@@ -39,6 +39,8 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    // Bind all interfaces so phones/other devices on the LAN can reach the dev server.
+    host: true,
     proxy: {
       '/api': {
         target: process.env.READER_SERVER ?? 'http://127.0.0.1:5888',
