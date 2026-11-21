@@ -39,7 +39,9 @@ import type { BookDoc, Section, StagedBook, TocEntry } from './types.ts';
  */
 export interface SectionLoader {
   /** Section markup for a reflowable section, or a page's bytes. */
-  read(item: ContentItem): Promise<{ html?: string; image?: { mediaType: string; bytes: Uint8Array }; plainText?: boolean }>;
+  read(
+    item: ContentItem,
+  ): Promise<{ html?: string; image?: { mediaType: string; bytes: Uint8Array }; plainText?: boolean }>;
 }
 
 /**
@@ -158,8 +160,7 @@ export function createStagedDoc(options: StagedDocOptions): StagedDoc {
       : {}),
   };
 
-  let offset =
-    options.content.groups[options.content.group ?? 0]?.offset ?? options.content.items[0]?.seq ?? 0;
+  let offset = options.content.groups[options.content.group ?? 0]?.offset ?? options.content.items[0]?.seq ?? 0;
 
   async function fill(section: Section, item: ContentItem): Promise<Section> {
     const loaded = await options.loader.read(item);
@@ -167,7 +168,10 @@ export function createStagedDoc(options: StagedDocOptions): StagedDoc {
     if (loaded.image !== undefined) section.image = loaded.image;
     // The loader read the body and found characters (a book source's text-only
     // HTML chapter, converted): typeset it like a TXT, and do not parse it.
-    if (loaded.plainText) { section.plainText = true; section.bodyIsMarkup = false; }
+    if (loaded.plainText) {
+      section.plainText = true;
+      section.bodyIsMarkup = false;
+    }
     return section;
   }
 
@@ -312,4 +316,3 @@ function formatFor(kind: BookContent['kind']): BookDoc['format'] {
 export function isStagedKind(kind: BookContent['kind'] | undefined): boolean {
   return kind === 'reflowable' || kind === 'paged' || kind === 'text';
 }
-

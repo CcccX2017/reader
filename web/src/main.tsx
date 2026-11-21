@@ -53,7 +53,11 @@ async function start(): Promise<void> {
   const runtime = await createAppRuntime(import.meta.env.VITE_SERVER_URL ?? inferDefaultUrl());
   window.readerApp = runtime;
   window.__readerFlush = () => runtime.flush();
-  createRoot(appRoot).render(<AppProviders runtime={runtime}><RouterProvider router={router} /></AppProviders>);
+  createRoot(appRoot).render(
+    <AppProviders runtime={runtime}>
+      <RouterProvider router={router} />
+    </AppProviders>,
+  );
   registerPwa();
   // The Android shell serves its own copy of the bundle. The server's web id
   // belongs to the image, so comparing them would offer an update the shell

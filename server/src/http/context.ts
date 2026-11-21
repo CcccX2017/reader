@@ -14,9 +14,9 @@ import type { ReleaseHub } from '../lib/release.ts';
 
 export interface AppContext {
   config: AppConfig;
-  settings?:BusinessSettings;
-  settingsChanged?:(group:string)=>void;
-  mediaState?:()=>string;
+  settings?: BusinessSettings;
+  settingsChanged?: (group: string) => void;
+  mediaState?: () => string;
   db: Db;
   scanner: Scanner;
   users: UserService;

@@ -14,22 +14,22 @@ import { registerWebRoutes } from './routes/web.ts';
 import { registerSourceRoutes } from './routes/sources.ts';
 import { registerOpdsRoutes } from './routes/opds.ts';
 import { registerMediaRoutes } from './routes/media.ts';
-import {registerMediaProxy} from './routes/media-proxy.ts';
-import {AppError} from '../lib/errors.ts';
-import type {MediaService} from '../media/start-runtime.ts';
+import { registerMediaProxy } from './routes/media-proxy.ts';
+import { AppError } from '../lib/errors.ts';
+import type { MediaService } from '../media/start-runtime.ts';
 import { isOriginAllowed, resolveCorsOrigin } from './cors.ts';
-import {BusinessSettings} from '../services/business-settings.ts';
-import {TtsService} from '../services/tts.ts';
-import {registerBusinessSettingsRoutes} from './routes/business-settings.ts';
-import {registerAiRoutes} from './routes/ai.ts';
+import { BusinessSettings } from '../services/business-settings.ts';
+import { TtsService } from '../services/tts.ts';
+import { registerBusinessSettingsRoutes } from './routes/business-settings.ts';
+import { registerAiRoutes } from './routes/ai.ts';
 import { serializeRequest } from './request-log.ts';
 import { registerAuthProtection } from './auth-protection.ts';
 import { registerEventRoutes } from './routes/events.ts';
 import { ReleaseHub, currentRelease } from '../lib/release.ts';
 
-export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyInstance {
-  ctx.settings??=new BusinessSettings(ctx.db,ctx.config);
-  ctx.tts=new TtsService(ctx.config,ctx.settings.read('tts'));
+export function buildApp(ctx: AppContext, mediaRuntime?: MediaService): FastifyInstance {
+  ctx.settings ??= new BusinessSettings(ctx.db, ctx.config);
+  ctx.tts = new TtsService(ctx.config, ctx.settings.read('tts'));
   const app = Fastify({
     logger: { level: ctx.config.logLevel, serializers: { req: serializeRequest } },
     // Book bodies are streamed straight from disk, so a JSON limit this small is
@@ -75,8 +75,12 @@ export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyIns
     // than fixed, otherwise a shared cache will serve one origin's response to
     // another.
     reply.header('vary', 'origin');
-    if(request.method!=='OPTIONS'&&/^\/api\/v1\/media(?:\/|\?|$)/.test(request.raw.url??'')&&!ctx.settings!.read('modules').mediaEnabled){
-      throw new AppError(403,'MEDIA_DISABLED','影音模块已关闭');
+    if (
+      request.method !== 'OPTIONS' &&
+      /^\/api\/v1\/media(?:\/|\?|$)/.test(request.raw.url ?? '') &&
+      !ctx.settings!.read('modules').mediaEnabled
+    ) {
+      throw new AppError(403, 'MEDIA_DISABLED', '影音模块已关闭');
     }
   });
 
@@ -86,8 +90,8 @@ export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyIns
   ctx.release ??= new ReleaseHub(currentRelease(ctx.config.webDir));
   registerEventRoutes(app, ctx);
   registerAuthRoutes(app, ctx);
-  registerBusinessSettingsRoutes(app,ctx);
-  registerAiRoutes(app,ctx);
+  registerBusinessSettingsRoutes(app, ctx);
+  registerAiRoutes(app, ctx);
   registerLibraryRoutes(app, ctx);
   registerSyncRoutes(app, ctx);
   registerPreferenceRoutes(app, ctx);
@@ -97,7 +101,7 @@ export function buildApp(ctx: AppContext,mediaRuntime?:MediaService): FastifyIns
   registerReadingOverrideRoutes(app, ctx);
   registerSourceRoutes(app, ctx);
   registerOpdsRoutes(app, ctx);
-  if(mediaRuntime)registerMediaProxy(app,mediaRuntime);
+  if (mediaRuntime) registerMediaProxy(app, mediaRuntime);
   else registerMediaRoutes(app, ctx);
   // Registered last: the SPA fallback must not shadow an API route.
   registerWebRoutes(app, ctx);

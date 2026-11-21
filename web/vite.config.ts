@@ -32,7 +32,12 @@ export default defineConfig({
         entryFileNames: 'assets/client.js',
         chunkFileNames: 'assets/[name]-[hash].js',
         // With cssCodeSplit off Vite names the one stylesheet style.css; keep index.css.
-        assetFileNames: asset => asset.names?.[0] === 'style.css' ? 'assets/index.css' : asset.names?.[0]?.startsWith('pdf.worker') ? 'assets/[name]-[hash].js' : 'assets/[name][extname]',
+        assetFileNames: (asset) =>
+          asset.names?.[0] === 'style.css'
+            ? 'assets/index.css'
+            : asset.names?.[0]?.startsWith('pdf.worker')
+              ? 'assets/[name]-[hash].js'
+              : 'assets/[name][extname]',
       },
     },
     modulePreload: { polyfill: false },
@@ -47,7 +52,7 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-    allowedHosts: true
+    allowedHosts: true,
   },
   test: {
     environment: 'node',
@@ -57,11 +62,6 @@ export default defineConfig({
     // file from one process, or vice versa, silently produces "no test suite
     // found". Excluding them here keeps each runner to the files it can actually
     // execute, instead of a green-looking run that quietly skipped half the suite.
-    exclude: [
-      'test/api.test.ts',
-      'test/asset-url.test.ts',
-      'test/windowed-toc.test.ts',
-      'node_modules/**',
-    ],
+    exclude: ['test/api.test.ts', 'test/asset-url.test.ts', 'test/windowed-toc.test.ts', 'node_modules/**'],
   },
 });
