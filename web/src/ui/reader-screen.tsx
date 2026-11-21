@@ -1881,10 +1881,10 @@ export class ReaderScreen {
    * curl does not hit-test, so 点击区域 stays the grid on the stage.
    */
   private async playCurl(overlay: HTMLElement, before: HTMLElement, after: HTMLElement, direction: 'next' | 'previous', fold: 'top' | 'bottom'): Promise<void> {
-    // The book column is inset above the page number. The curl is the whole
-    // stage, so the number stays on the bottom edge and the peel starts there.
-    const width = this.stage.clientWidth;
-    const height = this.stage.clientHeight;
+    // On a wide screen the sheet is the text column, not the whole stage.
+    // Measuring the stage paints the turn across the dark gutters beside it.
+    const width = overlay.clientWidth;
+    const height = overlay.clientHeight;
     if (width < 2 || height < 2) return;
     const root = createRoot(this.curlSlot(overlay));
     try {
@@ -2037,8 +2037,8 @@ export class ReaderScreen {
         this.pendingSpeechAnchor = null;
         return;
       }
-      const width = this.stage.clientWidth;
-      const height = this.stage.clientHeight;
+      const width = overlay.clientWidth;
+      const height = overlay.clientHeight;
       root = createRoot(this.curlSlot(overlay));
       const api = await new Promise<CurlBook | null>(resolve => {
         let settled = false;

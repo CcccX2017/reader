@@ -5868,6 +5868,13 @@ svg.icon {
     max-width: 100%;
     margin-inline: auto;
   }
+  /* The curl is the paper column, the same box as the text. A full-stage sheet
+     paints over the dark gutters on either side of that column. */
+  .reader-screen .reader-curl {
+    width: var(--desktop-page-width);
+    max-width: 100%;
+    margin-inline: auto;
+  }
   .reader-screen .topbar {
     inset-inline: 2rem;
     width: calc(100% - 4rem);
