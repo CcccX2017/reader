@@ -18,32 +18,70 @@ function showProgress(progress: HTMLElement, message: HTMLElement, text: string)
   progress.hidden = false;
 }
 
-function waitForWaiting(worker: ServiceWorkerRegistration, ms: number): Promise<boolean> {
-  if (worker.waiting) return Promise.resolve(true);
-  if (typeof worker.addEventListener !== 'function') return Promise.resolve(false);
+/** A worker that has finished precaching and can take the page over. */
+function installedWorker(reg: ServiceWorkerRegistration): ServiceWorker | null {
+  if (reg.waiting) return reg.waiting;
+  const installing = reg.installing;
+  if (
+    installing &&
+    (installing.state === 'installed' || installing.state === 'activating' || installing.state === 'activated')
+  ) {
+    return installing;
+  }
+  return null;
+}
+
+/**
+ * Waits until the new shell has finished precaching.
+ *
+ * The banner is shown when the release event arrives, and the click often
+ * lands while `cache.addAll` is still running. Stopping at `ms` made that
+ * first click fail; the retry then found the worker that had finished in the
+ * meantime. An install that is already running gets one longer wait. A check
+ * that never produces a worker still stops at `ms`.
+ */
+function waitForWaiting(reg: ServiceWorkerRegistration, ms: number): Promise<boolean> {
+  if (installedWorker(reg)) return Promise.resolve(true);
+  if (typeof reg.addEventListener !== 'function') return Promise.resolve(false);
   return new Promise((resolve) => {
     let done = false;
-    let installing: ServiceWorker | null = worker.installing;
+    let extended = false;
+    let installing: ServiceWorker | null = reg.installing;
+    let timer: ReturnType<typeof setTimeout>;
     const finish = (ok: boolean) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
-      worker.removeEventListener('updatefound', onFound);
+      reg.removeEventListener('updatefound', onFound);
       installing?.removeEventListener('statechange', onState);
       resolve(ok);
     };
     const onState = () => {
-      if (worker.waiting) finish(true);
+      installing = reg.installing ?? installing;
+      if (installing?.state === 'redundant' && !reg.waiting) {
+        finish(false);
+        return;
+      }
+      if (installedWorker(reg)) finish(true);
     };
     const onFound = () => {
       installing?.removeEventListener('statechange', onState);
-      installing = worker.installing;
+      installing = reg.installing;
       installing?.addEventListener('statechange', onState);
       onState();
     };
-    const timer = setTimeout(() => finish(false), ms);
-    worker.addEventListener('updatefound', onFound);
+    const onTimeout = () => {
+      if (!extended && reg.installing?.state === 'installing') {
+        extended = true;
+        timer = setTimeout(onTimeout, 120_000);
+        return;
+      }
+      finish(!!installedWorker(reg));
+    };
+    timer = setTimeout(onTimeout, ms);
+    reg.addEventListener('updatefound', onFound);
     installing?.addEventListener('statechange', onState);
+    onState();
   });
 }
 
@@ -130,7 +168,7 @@ export function offerReload(): void {
       try {
         await window.__readerFlush?.();
         const reg = await resolveRegistration();
-        let waiting = reg?.waiting ?? null;
+        let waiting = reg ? installedWorker(reg) : null;
         // A waiting worker is the new shell. Reloading first is served by the
         // active worker, and the build id stays on the previous version.
         if (!waiting && reg && (reg.active || navigator.serviceWorker?.controller)) {
@@ -140,7 +178,7 @@ export function offerReload(): void {
             giveUp();
             return;
           }
-          waiting = reg.waiting ?? null;
+          waiting = installedWorker(reg);
         }
         if (waiting && navigator.serviceWorker) {
           showProgress(progress, message, '正在切换到新版本…');
@@ -263,7 +301,7 @@ export function watchPwaUpdates(
           finish();
           return;
         }
-        let worker = registration.waiting ?? ready;
+        let worker = registration.waiting ?? ready ?? installedWorker(registration);
         if (!worker) {
           showProgress(progress, message, '正在下载新版本…');
           void registration.update().catch(() => undefined);
@@ -271,7 +309,7 @@ export function watchPwaUpdates(
             failed();
             return;
           }
-          worker = registration.waiting;
+          worker = installedWorker(registration);
           ready = worker;
         }
         if (!worker) {

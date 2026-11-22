@@ -147,6 +147,28 @@ it('shows download progress after 立即更新, then activates the worker that f
   expect(reload).not.toHaveBeenCalled();
 });
 
+it('does not give up the first click while precache is still running', async () => {
+  const postMessage = vi.fn();
+  const installing = Object.assign(new EventTarget(), { state: 'installing', postMessage });
+  Object.defineProperty(registration, 'installing', { value: installing, configurable: true });
+  dispose = watchPwaUpdates(registration, async () => {}, vi.fn());
+  beginWebUpdate();
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  const button = document.querySelector<HTMLButtonElement>('.pwa-update button')!;
+  button.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  await vi.advanceTimersByTimeAsync(20_000);
+  expect(button.textContent).toBe('立即更新');
+  expect(document.querySelector('.pwa-update [role="status"]')?.textContent).toBe('正在下载新版本…');
+  Object.defineProperty(registration, 'waiting', { value: { postMessage }, configurable: true });
+  Object.defineProperty(registration, 'installing', { value: null, configurable: true });
+  installing.dispatchEvent(new Event('statechange'));
+  await Promise.resolve();
+  expect(postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+  expect(button.textContent).not.toBe('重试更新');
+});
+
 it('does not reload when another tab activates, and saves before manual refresh', async () => {
   pendingUpdate();
   const save = vi.fn().mockResolvedValue(undefined),
