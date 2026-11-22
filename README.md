@@ -14,7 +14,7 @@ A self-hosted reading and media library for browsers and Android, with EPUB and 
 - **Built for reading**: preserve publisher styles in EPUB and DRM-free Kindle books (MOBI/AZW3), detect TXT encodings and chapters, and enjoy comics, paged or scrolling reading, themes, fonts, and text-to-speech.
 - **Media browsing**: browse movies and series, artists and albums, or audiobooks and narrators. Filter by library, search, save favorites, and manage playback history and queues.
 - **Metadata and organization**: read local tags, NFO, artwork, lyrics, and subtitles. Configure TMDB and MusicBrainz for online matching, review candidates, or edit metadata and editions manually.
-- **Continue across devices**: accounts have independent shelves, notes, reading and playback progress. Web video uses DPlayer; audio includes lyrics, speed controls, and a sleep timer. Android supports native background playback.
+- **Continue across devices**: accounts have independent shelves, notes, reading and playback progress. Web video uses Artplayer; audio includes lyrics, speed controls, and a sleep timer. Android supports native background playback.
 - **Simple hosting**: one Docker container serves the backend and Web UI. Media scanning only reads source files, with separate databases and service threads for reading and media.
 
 ## Supported content
@@ -24,7 +24,7 @@ A self-hosted reading and media library for browsers and Android, with EPUB and 
 | EPUB / TXT | Publisher typography, contents, footnotes; TXT encoding detection and inferred chapters |
 | MOBI / AZW3 | DRM-free Kindle books, with the same styles, images, and contents as EPUB |
 | CBZ / ZIP / image directories | Natural page ordering, comic paging, and volumes |
-| PDF | Basic browser or device viewing without reflow |
+| PDF | Original pages (PDF.js, bookmarks, page search) or 增强解析: text reflowed into chapters by bookmarks, read like EPUB |
 | OPDS | Browse, search, and acquire books; publish a read-only catalog to external readers |
 | Movies / series | Artwork, metadata, seasons, episodes, editions, subtitles, and progress |
 | Music | Artists, albums, tracks, lyrics, queues, and continuous playback |
