@@ -94,6 +94,45 @@ function Chips<T extends string>({
   );
 }
 
+function NavStyleCards({
+  value,
+  onChange,
+}: {
+  value: AppSettings['navStyle'];
+  onChange(value: AppSettings['navStyle']): void;
+}) {
+  const options: Array<{ value: AppSettings['navStyle']; label: string; note: string }> = [
+    { value: 'solid', label: '标准', note: '通栏 · 不透明' },
+    { value: 'glass', label: '液态玻璃', note: '胶囊 · 磨砂' },
+  ];
+  return (
+    <div className="theme-grid" role="group" aria-label="界面材质">
+      {options.map((option) => (
+        <button
+          type="button"
+          key={option.value}
+          className="theme-card"
+          aria-label={option.label}
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+        >
+          <span className={'theme-nav-preview is-' + option.value} aria-hidden="true">
+            <span className={'theme-nav-bar is-' + option.value}>
+              <i />
+              <i className="is-on" />
+              <i />
+            </span>
+          </span>
+          <span className="theme-card-label">
+            <strong>{option.label}</strong>
+            {value === option.value && <Icon name="check" size={18} />}
+          </span>
+          <small>{option.note}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
 const themeOptions = appThemes.map((theme) => ({ value: theme.id as AppThemeId, label: theme.name }));
 const modeOptions: readonly { value: ThemeMode; label: string }[] = [
   { value: 'light', label: '浅色' },
@@ -179,6 +218,7 @@ export function MediaThemeSettings({
   const paperFollowsDark = useSettingsStore((state) => state.settings.paperFollowsDark);
   const keepAwake = useSettingsStore((state) => state.settings.keepAwake);
   const resumeReading = useSettingsStore((state) => state.settings.resumeReading);
+  const navStyle = useSettingsStore((state) => state.settings.navStyle);
   // One notice for the panel: a run of taps updates it in place instead of stacking (ui.md §3.6).
   const notice = useRef(Symbol('theme-notice'));
   const report = (message: string, kind: 'success' | 'error') => notify(message, { kind }, notice.current);
@@ -287,6 +327,13 @@ export function MediaThemeSettings({
 
       {onReaderSettings && (
         <>
+          <section className="settings-group">
+            <h2>界面材质</h2>
+            <NavStyleCards value={navStyle} onChange={(value) => onReaderSettings({ navStyle: value })} />
+            <p className="theme-settings-note">
+              标准保持不透明。液态玻璃时，手机底部导航改为悬浮胶囊，宽屏仍是侧栏；阅读页的顶栏、底栏和右侧圆按钮，封面左上角的阅读标记，手机上的多选底栏，以及影音的频道切换和旁边菜单，改为磨砂。
+            </p>
+          </section>
           <section className="settings-group">
             <h2>阅读纸色</h2>
             <ReadingPapers

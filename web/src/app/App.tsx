@@ -137,6 +137,14 @@ function AuthenticatedShell() {
       delete document.body.dataset.appNav;
     };
   }, [mode]);
+  const navStyle = useSettingsStore((state) => state.settings.navStyle);
+  useEffect(() => {
+    if (navStyle === 'glass') document.body.dataset.navStyle = 'glass';
+    else delete document.body.dataset.navStyle;
+    return () => {
+      delete document.body.dataset.navStyle;
+    };
+  }, [navStyle]);
   const here = covered ? underlay.current! : { node: outlet, location, navigationType };
   return (
     <>

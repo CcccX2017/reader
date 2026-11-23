@@ -140,6 +140,10 @@ export interface AppSettings extends ViewSettings {
    * 400 is the speed the curl was drawn at before the slider existed.
    */
   flipDuration: number;
+  /**
+   * Phone bottom bar. Wide screens stay a sidebar either way.
+   */
+  navStyle: 'glass' | 'solid';
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -184,6 +188,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   shelfShowProgress: true,
   keepAwake: false,
   resumeReading: false,
+  navStyle: 'solid',
 };
 
 /** 仿真翻页时长：0.1 秒到 1.2 秒，步进 0.1 秒，缺省 0.4 秒。 */
@@ -236,6 +241,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   }
   if (!['recent', 'added', 'title', 'author'].includes(settings.homeShelfSort))
     settings.homeShelfSort = DEFAULT_APP_SETTINGS.homeShelfSort;
+  if (settings.navStyle !== 'glass' && settings.navStyle !== 'solid') settings.navStyle = 'solid';
   return settings;
 }
 

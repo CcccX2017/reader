@@ -335,6 +335,7 @@ export class ReaderScreen {
     // is what makes "cannot be half-hidden" true by construction rather than by two
     // rules that have to be kept in agreement.
     this.element.dataset['chrome'] = 'hidden';
+    this.applyNavStyle();
     // The reading theme (the app's, or 黑白灰) and the reading paper, on this
     // container only; see resolveReaderSurface.
     this.applyReadingTheme();
@@ -346,6 +347,7 @@ export class ReaderScreen {
       const app = (event as CustomEvent<{ app?: AppSettings }>).detail?.app;
       if (!app || this.disposed) return;
       Object.assign(this.settings, app);
+      this.applyNavStyle();
       this.view?.applySettings(this.viewSettings());
       this.applyReadingTheme();
       this.syncScreenAwake();
@@ -372,6 +374,12 @@ export class ReaderScreen {
       this.settings.paper ?? 'theme',
       this.settings.paperFollowsDark ?? true,
     );
+  }
+
+  /** Liquid glass on the reading bands follows the same preference as the phone tab bar. */
+  private applyNavStyle(): void {
+    if (this.settings.navStyle === 'glass') this.element.dataset.navStyle = 'glass';
+    else delete this.element.dataset.navStyle;
   }
 
   private applyReadingTheme(): void {
@@ -3792,6 +3800,7 @@ function emptyChromeSettings(): Partial<ChromeState> {
       homeShelfSort: 'recent',
       shelfShowAuthor: true,
       shelfShowProgress: true,
+      navStyle: 'solid',
       readoutTopLeft: 'chapter',
       readoutTopRight: 'none',
       readoutBottomLeft: 'progress',

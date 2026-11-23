@@ -7,6 +7,7 @@ import { useSyncStore } from '../shared/stores/sync.store.ts';
 import type { SyncStatus } from '../core/sync.ts';
 import { useRuntime } from './providers/runtime-context.tsx';
 import { useMediaEnabled } from '../shared/stores/features.ts';
+import { useSettingsStore } from '../shared/stores/settings.store.ts';
 
 /**
  * hidden: the book and the player own the whole screen.
@@ -60,19 +61,6 @@ function useMediaQuery(query: string): boolean {
   );
 }
 
-/** iPhone, iPod, and iPad (including iPadOS, which reports itself as a Mac). */
-function isIosDevice(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) return true;
-  const ipadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  if (!ipadOs || typeof matchMedia !== 'function') return false;
-  try {
-    return matchMedia('(pointer: coarse)').matches;
-  } catch {
-    return false;
-  }
-}
-
 /** The lens wipes its own layer when the page behind it changes. A child of that layer cannot travel. */
 function motionMs(raw: string): number {
   const value = raw.trim();
@@ -90,7 +78,13 @@ const BAR_OMEGA = 17.6;
 const BAR_ZETA = 0.59;
 
 /** Advance an offset toward 0. Underdamped springs overshoot; critical ones do not. */
-function stepSpring(offset: number, velocity: number, omega: number, zeta: number, dt: number): { offset: number; velocity: number } {
+function stepSpring(
+  offset: number,
+  velocity: number,
+  omega: number,
+  zeta: number,
+  dt: number,
+): { offset: number; velocity: number } {
   if (dt <= 0) return { offset, velocity };
   if (zeta >= 0.999) {
     const decay = Math.exp(-omega * dt);
@@ -121,7 +115,8 @@ export function AppNav({ mode }: { mode: Exclude<NavMode, 'hidden'> }) {
   const runtime = useRuntime();
   const phone = useMediaQuery(PHONE_BAR);
   const still = useMediaQuery('(prefers-reduced-motion: reduce)');
-  const liquid = phone && isIosDevice() && showsGlassTab(pathname);
+  const navStyle = useSettingsStore((state) => state.settings.navStyle);
+  const liquid = phone && showsGlassTab(pathname) && navStyle === 'glass';
   const media = useMediaEnabled();
   const user = useAuthStore((state) => state.verifiedUser ?? state.session?.user ?? null);
   const channel = /^\/media\/(video|music|audiobook)/.exec(pathname)?.[1];
@@ -206,10 +201,7 @@ export function AppNav({ mode }: { mode: Exclude<NavMode, 'hidden'> }) {
       const grown = stepSpring(barScale - barTarget, barSpeed, BAR_OMEGA, BAR_ZETA, dt);
       barScale = barTarget + grown.offset;
       barSpeed = grown.velocity;
-      if (
-        !returning &&
-        (now - started > 450 || (now - started > 120 && Math.abs(position - target) < trip * 0.45))
-      ) {
+      if (!returning && (now - started > 450 || (now - started > 120 && Math.abs(position - target) < trip * 0.45))) {
         returning = true;
         liftTarget = 0;
         liftOmega = RETURN_OMEGA;
@@ -248,35 +240,35 @@ export function AppNav({ mode }: { mode: Exclude<NavMode, 'hidden'> }) {
   const tabs = (
     <ul className="app-nav-list">
       {visible.map(({ to, label, icon, current }) => {
-          const active = current(pathname);
-          return (
-            <li key={to}>
-              <Link className="app-nav-item" to={to} aria-current={active ? 'page' : undefined}>
-                <span className="app-nav-icon" aria-hidden="true">
-                  <Icon name={icon} size={24} strong={active} />
-                </span>
-                <span className="app-nav-label">{label}</span>
-              </Link>
-              {to === '/media/video' && (
-                <ul className="app-nav-sub" aria-label="影音频道">
-                  {mediaChannels.map((item) => (
-                    <li key={item.id}>
-                      <Link
-                        className="app-nav-subitem"
-                        data-channel={item.id}
-                        to={channelPath(item.id)}
-                        aria-current={channel === item.id ? 'page' : undefined}
-                      >
-                        <i aria-hidden="true" />
-                        {item.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          );
-        })}
+        const active = current(pathname);
+        return (
+          <li key={to}>
+            <Link className="app-nav-item" to={to} aria-current={active ? 'page' : undefined}>
+              <span className="app-nav-icon" aria-hidden="true">
+                <Icon name={icon} size={24} strong={active} />
+              </span>
+              <span className="app-nav-label">{label}</span>
+            </Link>
+            {to === '/media/video' && (
+              <ul className="app-nav-sub" aria-label="影音频道">
+                {mediaChannels.map((item) => (
+                  <li key={item.id}>
+                    <Link
+                      className="app-nav-subitem"
+                      data-channel={item.id}
+                      to={channelPath(item.id)}
+                      aria-current={channel === item.id ? 'page' : undefined}
+                    >
+                      <i aria-hidden="true" />
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
   return (
@@ -284,17 +276,17 @@ export function AppNav({ mode }: { mode: Exclude<NavMode, 'hidden'> }) {
       {liquid ? (
         <div className="app-nav-magnify" ref={barRef}>
           <div className="app-nav-float">
-          {activeIndex >= 0 ? (
-            <span
-              ref={thumbRef}
-              className="app-nav-thumb"
-              style={{ width: `calc((100% - 8px) / ${visible.length})` }}
-              aria-hidden="true"
-            >
-              <span ref={faceRef} className="app-nav-thumb-face" />
-            </span>
-          ) : null}
-          {tabs}
+            {activeIndex >= 0 ? (
+              <span
+                ref={thumbRef}
+                className="app-nav-thumb"
+                style={{ width: `calc((100% - 8px) / ${visible.length})` }}
+                aria-hidden="true"
+              >
+                <span ref={faceRef} className="app-nav-thumb-face" />
+              </span>
+            ) : null}
+            {tabs}
           </div>
         </div>
       ) : (

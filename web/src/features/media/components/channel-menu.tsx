@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ActionMenu } from '../../../ui/action-menu.tsx';
 import type { MediaChannel } from '../api/media-api.ts';
 import { useAuthStore } from '../../../shared/stores/auth.store.ts';
+import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
 
 /**
  * The ⋯ menu on a channel's landing page: 收藏, 历史 and 队列 on every channel, and
@@ -12,9 +13,11 @@ import { useAuthStore } from '../../../shared/stores/auth.store.ts';
 export function ChannelMenu({ channel }: { channel: MediaChannel }) {
   const navigate = useNavigate();
   const admin = useAuthStore((state) => state.verifiedUser?.role === 'admin');
+  const glass = useSettingsStore((state) => state.settings.navStyle) === 'glass';
   return (
     <ActionMenu
       className="media-icon-button"
+      {...(glass ? { menuClassName: 'is-liquid' } : {})}
       label="更多操作"
       items={[
         { label: '收藏', icon: <Icon name="star" size={16} />, onSelect: () => navigate('/media/favorites') },

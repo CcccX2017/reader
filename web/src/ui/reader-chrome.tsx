@@ -1062,9 +1062,7 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
           />
           {state.pageAnimation === 'flip' ? (
             <div className="field">
-              <label>
-                翻页速度 {((state.flipDuration ?? 400) / 1000).toFixed(1)} 秒
-              </label>
+              <label>翻页速度 {((state.flipDuration ?? 400) / 1000).toFixed(1)} 秒</label>
               <Slider
                 aria-label="仿真翻页速度"
                 aria-valuetext={`${((state.flipDuration ?? 400) / 1000).toFixed(1)} 秒`}

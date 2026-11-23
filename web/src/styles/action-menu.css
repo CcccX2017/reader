@@ -132,3 +132,11 @@
     animation: none;
   }
 }
+
+/* Channel ⋯ only. Same blur as the phone tab bar; the menu keeps its own radius. */
+.action-menu.is-liquid {
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  border-color: color-mix(in srgb, var(--color-ink) 10%, transparent);
+  -webkit-backdrop-filter: saturate(1.8) blur(24px);
+  backdrop-filter: saturate(1.8) blur(24px);
+}

@@ -1,4 +1,6 @@
+import { useLayoutEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useSettingsStore } from '../../../shared/stores/settings.store.ts';
 import { channelCategories, channelLabels } from '../hooks/use-media-channel.ts';
 import type { MediaChannel } from '../api/media-api.ts';
 
@@ -9,15 +11,120 @@ export const mediaChannels = [
   { id: 'audiobook', label: '有声书', icon: 'audiobook' },
 ] as const;
 
-export const channelPath = (id: string) => `/media/${id}`;
+/** Landing URL of a channel. Music and audiobook must not stop at `/media/music` or
+ * `/media/audiobook`: those routes are redirects, and the redirect unmounts the
+ * switch before the thumb can travel. */
+export const channelPath = (id: string) => {
+  const first = channelCategories[id as keyof typeof channelCategories]?.[0];
+  return first?.path ? `/media/${id}/${first.path}` : `/media/${id}`;
+};
+
+/** Last segment the thumb was sent to, including a position mid-travel. Survives a remount. */
+let channelThumbAt: number | null = null;
+
+/**
+ * Phone tab-bar travel (AppNav `TRAVEL_OMEGA` / `TRAVEL_ZETA`), position only.
+ * One segment or two settles in the same time as 首页 ↔ 书架. The overshoot is
+ * under a hundredth of a segment. The bar's scale and the thumb's stretch stay
+ * on the tab bar.
+ */
+const CHANNEL_TRAVEL_OMEGA = (2 * Math.PI) / 0.4;
+const CHANNEL_TRAVEL_ZETA = 0.85;
+
+function motionMs(raw: string): number {
+  const value = raw.trim();
+  const amount = Number.parseFloat(value);
+  if (!Number.isFinite(amount) || amount < 0) return 0;
+  return value.endsWith('ms') ? amount : amount * 1000;
+}
+
+function stepChannelTravel(offset: number, velocity: number, dt: number): { offset: number; velocity: number } {
+  if (dt <= 0) return { offset, velocity };
+  const damped = CHANNEL_TRAVEL_OMEGA * Math.sqrt(1 - CHANNEL_TRAVEL_ZETA * CHANNEL_TRAVEL_ZETA);
+  const decay = Math.exp(-CHANNEL_TRAVEL_ZETA * CHANNEL_TRAVEL_OMEGA * dt);
+  const cosine = Math.cos(damped * dt);
+  const sine = Math.sin(damped * dt);
+  const sineWeight = (velocity + CHANNEL_TRAVEL_ZETA * CHANNEL_TRAVEL_OMEGA * offset) / damped;
+  const next = decay * (offset * cosine + sineWeight * sine);
+  const velocityNext =
+    -CHANNEL_TRAVEL_ZETA * CHANNEL_TRAVEL_OMEGA * next + decay * damped * (-offset * sine + sineWeight * cosine);
+  return { offset: next, velocity: velocityNext };
+}
 
 /**
  * Phone channel switch: three always-visible segments instead of a hidden menu.
  * On wider screens the sidebar lists the same channels, so this is hidden there.
+ * With liquid glass the gray thumb uses the phone tab bar's travel, so a single
+ * step (影视 → 音乐) takes as long as 首页 → 书架 and a jump still crosses 音乐.
  */
 export function ChannelSegments({ current }: { current: string }) {
+  const glass = useSettingsStore((state) => state.settings.navStyle) === 'glass';
+  const index = Math.max(
+    0,
+    mediaChannels.findIndex((item) => item.id === current),
+  );
+  const thumbRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const node = thumbRef.current;
+    const from = channelThumbAt;
+    if (!node) {
+      channelThumbAt = index;
+      return;
+    }
+    node.style.transition = 'none';
+    if (from === null || Math.abs(index - from) < 0.001) {
+      channelThumbAt = index;
+      node.style.transform = `translateX(${index * 100}%)`;
+      return;
+    }
+    const stepMs = motionMs(getComputedStyle(node).getPropertyValue('--motion-duration'));
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (still || stepMs <= 1) {
+      channelThumbAt = index;
+      node.style.transform = `translateX(${index * 100}%)`;
+      return;
+    }
+    // A node created already on the destination would otherwise appear there.
+    node.style.transform = `translateX(${from * 100}%)`;
+    let position = from;
+    let speed = 0;
+    let last = performance.now();
+    let frame = 0;
+    let cancelled = false;
+    const tick = (now: number) => {
+      if (cancelled) return;
+      const dt = Math.min(1 / 30, Math.max(0, (now - last) / 1000));
+      last = now;
+      const traveled = stepChannelTravel(position - index, speed, dt);
+      position = index + traveled.offset;
+      speed = traveled.velocity;
+      channelThumbAt = position;
+      node.style.transform = `translateX(${position * 100}%)`;
+      if (Math.abs(position - index) < 0.004 && Math.abs(speed) < 0.05) {
+        channelThumbAt = index;
+        node.style.transform = `translateX(${index * 100}%)`;
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [index, glass]);
   return (
     <nav className="media-channel-segments" aria-label="切换内容频道">
+      {glass ? (
+        <span
+          ref={thumbRef}
+          className="media-channel-thumb"
+          style={{ width: `calc((100% - 8px) / ${mediaChannels.length})` }}
+          aria-hidden="true"
+        >
+          <span className="media-channel-thumb-face" />
+        </span>
+      ) : null}
       {mediaChannels.map(({ id, label }) => (
         <a key={id} href={'#' + channelPath(id)} aria-current={id === current ? 'page' : undefined}>
           {label}

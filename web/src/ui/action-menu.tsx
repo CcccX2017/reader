@@ -62,6 +62,7 @@ export function ActionMenu({
   title,
   text,
   glass = false,
+  menuClassName,
 }: {
   /** The trigger's accessible name; also the menu's name unless `title` is given. */
   label: string;
@@ -72,6 +73,8 @@ export function ActionMenu({
   title?: string;
   /** A visible word beside the glyph (e.g. 筛选); without it the trigger is an icon button. */
   text?: string;
+  /** Extra class on the dropdown panel, not the trigger. */
+  menuClassName?: string;
   /**
    * Draw the icon trigger as a Liquid Glass lens. The lens is the positioned box;
    * the button fills it. The menu stays a sibling, so the lens cannot clip it.
@@ -129,6 +132,7 @@ export function ActionMenu({
           label={title ?? label}
           anchor={anchor}
           actions={actions}
+          {...(menuClassName ? { menuClassName } : {})}
           onClose={close}
           onPick={(action) => {
             close(true);
@@ -201,6 +205,7 @@ function ActionDropdown({
   label,
   anchor,
   actions,
+  menuClassName,
   onClose,
   onPick,
 }: {
@@ -208,6 +213,7 @@ function ActionDropdown({
   label: string;
   anchor: RefObject<HTMLButtonElement | null>;
   actions: MenuAction[];
+  menuClassName?: string;
   onClose(refocus: boolean): void;
   onPick(action: MenuAction): void;
 }): JSX.Element {
@@ -305,7 +311,15 @@ function ActionDropdown({
   };
 
   return (
-    <div ref={ref} id={id} className="action-menu" role="menu" aria-label={label} popover="manual" onKeyDown={move}>
+    <div
+      ref={ref}
+      id={id}
+      className={menuClassName ? `action-menu ${menuClassName}` : 'action-menu'}
+      role="menu"
+      aria-label={label}
+      popover="manual"
+      onKeyDown={move}
+    >
       {actions.map((action) => (
         <MenuRow key={action.label} action={action} base="action-menu" onPick={() => onPick(action)} />
       ))}
