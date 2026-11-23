@@ -1,5 +1,5 @@
-/* 首页: .select-head-slot 不滚。其余在 .home-body 里滚；「我的书架」顶到
- * 这块区域的上沿之后，继续滚的是 .home-shelf-scroll。
+/* 首页: .select-head-slot 不滚。其余都在 .home-body 里滚，「我的书架」标题贴在
+ * 这块区域的上沿。不再套一层书单滚动，往回滑过标题时不用停顿交接。
  * Uses the shared theme tokens only; channel colour comes from --color-ch-*. */
 .media-screen.home-page {
   display: flex;
@@ -16,6 +16,14 @@
 .home-page > .pull-refresh {
   flex: none;
 }
+/* The slot sits on the scrolling shelf. Its shadow closes the hairline where a
+   cover would otherwise show between this header and the stuck title. */
+.home-page > .select-head-slot {
+  position: relative;
+  z-index: 4;
+  background: var(--color-bg);
+  box-shadow: 0 2px 0 0 var(--color-bg);
+}
 .home-page > .select-head-slot > .shelf-select-head {
   padding-block: 0.25rem 0.5rem;
   background: var(--color-bg);
@@ -23,36 +31,28 @@
 .home-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: auto;
   overscroll-behavior-y: none;
   scrollbar-width: thin;
 }
 .home-shelf {
-  display: flex;
-  flex-direction: column;
-  /* One viewport of the body. Taller content stays in .home-shelf-scroll,
-     so 「全部」is the whole shelf and not just the rows that fit under 继续. */
-  height: 100%;
   margin-top: 16px;
   box-sizing: border-box;
 }
 .home-shelf > .home-section {
-  flex: none;
+  position: sticky;
+  top: 0;
+  /* Above the cover labels (在读 / 已读 are z-index 1) so they slide under the title. */
+  z-index: 3;
   margin-top: 0;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  padding-bottom: 8px;
   background: var(--color-bg);
+  box-shadow: 0 -2px 0 0 var(--color-bg);
 }
 .home-shelf-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  /* none: the handoff back to .home-body is done in script, and the browser
-     must not claim the edge as its own reload. */
-  overscroll-behavior-y: none;
   padding-bottom: calc(96px + var(--safe-bottom));
-  scrollbar-width: thin;
 }
 .home-shelf-scroll[data-selecting="true"] {
   padding-bottom: calc(12rem + var(--safe-bottom));

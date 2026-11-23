@@ -134,6 +134,115 @@
   .app-nav-item[aria-current="page"] .app-nav-icon {
     background: var(--nav-soft);
   }
+  /* iOS 首页 / 书架 / 我的: a floating capsule. The blur samples the page live,
+     so a scroll does not leave a snapshot behind. The gutter does not take taps. */
+  .app-nav.is-liquid {
+    position: fixed;
+    z-index: 16;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    padding: 0 var(--space-3) calc(var(--space-2) + var(--safe-bottom));
+    background: transparent;
+    border: 0;
+    pointer-events: none;
+  }
+  .app-nav.is-liquid .app-nav-magnify {
+    position: relative;
+    flex: 1;
+    height: var(--app-nav-bar);
+    transform-origin: center bottom;
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--nav-surface) 58%, transparent);
+    -webkit-backdrop-filter: saturate(1.8) blur(24px);
+    backdrop-filter: saturate(1.8) blur(24px);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--nav-surface) 72%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--nav-ink) 10%, transparent),
+      0 8px 20px color-mix(in srgb, var(--nav-ink) 10%, transparent);
+  }
+  .app-nav.is-liquid .app-nav-float {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+    border-radius: inherit;
+  }
+  .app-nav.is-liquid .app-nav-list {
+    position: absolute;
+    inset: 4px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    height: auto;
+    margin: 0;
+    padding: 0;
+  }
+  .app-nav.is-liquid .app-nav-list > li {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: 1;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+  .app-nav.is-liquid .app-nav-thumb {
+    position: absolute;
+    z-index: 1;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    pointer-events: none;
+  }
+  .app-nav.is-liquid .app-nav-thumb-face {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--nav-ink) 10%, var(--nav-surface));
+    transform-origin: center;
+  }
+  .app-nav.is-liquid .app-nav-item {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+    border-radius: var(--radius-pill);
+    color: var(--nav-ink);
+    font-weight: 500;
+  }
+  .app-nav.is-liquid .app-nav-item .app-nav-icon {
+    width: auto;
+    height: auto;
+    background: transparent;
+  }
+  /* The gray pill is one slider. The capsule behind it is the liquid glass. */
+  .app-nav.is-liquid .app-nav-item[aria-current="page"] {
+    background: transparent;
+    color: var(--nav-accent);
+    font-weight: 500;
+  }
+  .app-nav.is-liquid .app-nav-item[aria-current="page"] .app-nav-icon {
+    background: transparent;
+    color: var(--nav-accent);
+  }
+  /* The bar has left the column. 96px is the scroller's existing mini-player
+     clearance; the capsule's height is added on top. Selection keeps its own. */
+  body[data-nav-glass] .shelf-scroll:not([data-selecting="true"]) {
+    padding-bottom: calc(var(--app-nav-bar) + var(--space-4) + var(--safe-bottom));
+  }
+  body[data-nav-glass] :is(.home-shelf-scroll, .mine-groups):not([data-selecting="true"]) {
+    padding-bottom: calc(96px + var(--app-nav-bar) + var(--safe-bottom));
+  }
+  body[data-nav-glass]:has(.media-player:not([hidden]):not(.media-player-expanded)) .media-screen {
+    padding-bottom: calc(96px + var(--app-nav-bar) + var(--safe-bottom));
+  }
 }
 
 /* ---- desktop: sidebar ---- */
@@ -322,6 +431,9 @@
 @media (max-width: 700px) {
   body[data-app-nav="top"] .media-player:is(.media-player-audio, .media-player-native-video) {
     bottom: calc(var(--app-nav-bar) + var(--safe-bottom) + 10px);
+  }
+  body[data-nav-glass] .media-player:is(.media-player-audio, .media-player-native-video) {
+    bottom: calc(var(--app-nav-bar) + var(--safe-bottom) + var(--space-4));
   }
 }
 @media (min-width: 701px) {

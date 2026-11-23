@@ -22,7 +22,12 @@ function revealCardAboveSelectBar(card: HTMLElement | null): void {
     const rect = card.getBoundingClientRect();
     if (rect.bottom <= limit) return;
     const delta = rect.bottom - limit;
-    const scroller = card.closest('.shelf-scroll, .library-browse-scroll, .home-shelf-scroll');
+    const marked = card.closest('.shelf-scroll, .library-browse-scroll, .home-shelf-scroll');
+    const markedScrolls =
+      marked instanceof HTMLElement &&
+      getComputedStyle(marked).overflowY !== 'visible' &&
+      getComputedStyle(marked).overflowY !== 'hidden';
+    const scroller = markedScrolls ? marked : card.closest('.home-body');
     if (scroller instanceof HTMLElement) scroller.scrollTop += delta;
     else window.scrollBy(0, delta);
   };

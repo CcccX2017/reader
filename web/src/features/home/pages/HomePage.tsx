@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../../../ui/icon.tsx';
 import { Segmented } from '../../../ui/toolkit.tsx';
 import { Link } from 'react-router-dom';
@@ -31,7 +31,6 @@ import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
 import { useAvatar } from '../../../shared/ui/use-avatar.ts';
 import '../styles/home.css';
 import { useMediaEnabled } from '../../../shared/stores/features.ts';
-import { homeScrollTarget, wheelPixels } from '../home-scroll.ts';
 
 export function greeting(hour: number): string {
   return hour < 6 ? '夜深了' : hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好';
@@ -383,75 +382,6 @@ export function HomePage() {
   const onRefresh = useCallback(() => syncLibraryOnce(runtime.api, queryClient), [runtime.api, queryClient]);
   const pull = usePullToRefresh(onRefresh);
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const shelfRef = useRef<HTMLDivElement | null>(null);
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-  // The greeting stays put. Everything under it scrolls in .home-body until
-  // 「我的书架」meets the top of that pane; further upward movement scrolls the shelf.
-  useEffect(() => {
-    const body = bodyRef.current;
-    const shelf = shelfRef.current;
-    if (!body || !shelf) return;
-    const pinned = () => {
-      const atEnd = body.scrollTop + body.clientHeight >= body.scrollHeight - 1;
-      const section = sectionRef.current;
-      if (!section) return atEnd;
-      return atEnd || section.getBoundingClientRect().top <= body.getBoundingClientRect().top + 1;
-    };
-    const moveBody = (dy: number) => {
-      const max = Math.max(0, body.scrollHeight - body.clientHeight);
-      const next = Math.min(max, Math.max(0, body.scrollTop + dy));
-      if (Math.abs(next - body.scrollTop) < 0.5) return false;
-      body.scrollTop = next;
-      return true;
-    };
-    const onWheel = (event: WheelEvent) => {
-      if (event.defaultPrevented || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-      const target = event.target;
-      if (!(target instanceof Node) || !shelf.contains(target)) return;
-      const dy = wheelPixels(event.deltaY, event.deltaMode, body.clientHeight);
-      if (homeScrollTarget({ deltaY: dy, sectionPinned: pinned(), shelfTop: shelf.scrollTop }) !== 'body') return;
-      if (!moveBody(dy)) return;
-      event.preventDefault();
-    };
-    let lastX = 0;
-    let lastY = 0;
-    let axis: 'x' | 'y' | null = null;
-    const onTouchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) {
-        axis = null;
-        return;
-      }
-      lastX = event.touches[0]!.clientX;
-      lastY = event.touches[0]!.clientY;
-      axis = null;
-    };
-    const onTouchMove = (event: TouchEvent) => {
-      if (event.defaultPrevented || event.touches.length !== 1) return;
-      const touch = event.touches[0]!;
-      const dx = touch.clientX - lastX;
-      const dy = lastY - touch.clientY;
-      lastX = touch.clientX;
-      lastY = touch.clientY;
-      if (!axis) {
-        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
-        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-      }
-      if (axis !== 'y') return;
-      const target = event.target;
-      if (!(target instanceof Node) || !shelf.contains(target)) return;
-      if (homeScrollTarget({ deltaY: dy, sectionPinned: pinned(), shelfTop: shelf.scrollTop }) !== 'body') return;
-      if (!moveBody(dy)) return;
-      if (event.cancelable) event.preventDefault();
-    };
-    body.addEventListener('wheel', onWheel, { capture: true, passive: false });
-    body.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
-    body.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
-    return () => {
-      body.removeEventListener('wheel', onWheel, { capture: true });
-      body.removeEventListener('touchstart', onTouchStart, { capture: true });
-      body.removeEventListener('touchmove', onTouchMove, { capture: true });
-    };
-  }, []);
 
   // Most recent first, whatever kind it is.
   const resumes: Array<{ at: number; node: ReactNode }> = [];
@@ -576,7 +506,7 @@ export function HomePage() {
         )}
         <section className="home-shelf" aria-label="我的书架">
           {books.length > 0 && (
-            <div className="home-section" ref={sectionRef}>
+            <div className="home-section">
               <h2>我的书架</h2>
               <Link to="/shelf">
                 全部
@@ -584,7 +514,7 @@ export function HomePage() {
               </Link>
             </div>
           )}
-          <div ref={shelfRef} className="home-shelf-scroll" data-selecting={picking.active ? 'true' : undefined}>
+          <div className="home-shelf-scroll" data-selecting={picking.active ? 'true' : undefined}>
             {books.length > 0 && (
               <div className="book-grid" data-show-author="true" data-show-progress="true">
                 {books.map((item) => (

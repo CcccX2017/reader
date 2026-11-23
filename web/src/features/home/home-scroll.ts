@@ -1,4 +1,7 @@
-/** Which pane should take the next vertical movement on the home page. */
+/** Which pane should take the next vertical movement on the home page.
+ * The home page itself is one scroller: the shelf title sticks, so a finger
+ * crossing it does not wait for a second pane. This choice stays for tests.
+ */
 export function homeScrollTarget(input: {
   /** Positive moves content upward (further down the page). */
   deltaY: number;
