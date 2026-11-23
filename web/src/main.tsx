@@ -35,6 +35,11 @@ if (!root) throw new Error('missing #app root element');
 const appRoot: HTMLElement = root;
 
 applySafariVersion();
+// The WebView reports display-mode: browser, so the stylesheet cannot tell it
+// from a tab. The installed shell is marked here before the nav paints.
+if (window.ReaderAndroid || location.hostname === 'appassets.androidplatform.net') {
+  document.documentElement.dataset.shell = 'android';
+}
 
 declare global {
   interface Window {

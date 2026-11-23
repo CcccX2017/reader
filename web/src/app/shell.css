@@ -146,10 +146,17 @@
     right: 0;
     bottom: 0;
     height: auto;
-    padding: 0 var(--space-3) calc(var(--space-2) + var(--safe-bottom));
+    /* A browser tab already has its own chrome. An installed app and the Android
+       shell do not, so they sit higher. */
+    padding: 0 var(--space-3) 22px;
     background: transparent;
     border: 0;
     pointer-events: none;
+  }
+  @media (display-mode: browser) {
+    html:not([data-shell="android"]) .app-nav.is-liquid {
+      padding-bottom: 5px;
+    }
   }
   .app-nav.is-liquid .app-nav-magnify {
     position: relative;
