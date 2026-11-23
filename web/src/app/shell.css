@@ -75,6 +75,9 @@
 .app-nav a {
   color: inherit;
   text-decoration: none;
+  /* Chrome's mobile emulation paints a blue wash on a tapped link. The bar
+     already shows the selected tab with its own pill. */
+  -webkit-tap-highlight-color: transparent;
 }
 .app-nav a:focus-visible {
   outline: 2px solid var(--nav-accent);
