@@ -133,6 +133,13 @@ export interface AppSettings extends ViewSettings {
    * and coming back to the home page later in the same visit does not jump again.
    */
   resumeReading: boolean;
+  /**
+   * How long one 仿真 turn takes, in milliseconds.
+   *
+   * The settings slider speaks in tenths of a second, from 0.1s to 1.2s.
+   * 400 is the speed the curl was drawn at before the slider existed.
+   */
+  flipDuration: number;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -151,6 +158,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   textAlign: 'inherit',
   brightness: 1,
   pageAnimation: 'slide',
+  /** 仿真翻页的时长，毫秒。滑块是 0.1 秒到 1.2 秒，默认 0.4 秒。 */
+  flipDuration: 400,
   tapZone: 'standard',
   tapZones: tapZonePreset('standard'),
   txtIndent: 2,
@@ -176,6 +185,14 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   keepAwake: false,
   resumeReading: false,
 };
+
+/** 仿真翻页时长：0.1 秒到 1.2 秒，步进 0.1 秒，缺省 0.4 秒。 */
+export function flipDurationMs(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number.NaN;
+  if (!Number.isFinite(n)) return 400;
+  const step = Math.round(n / 100) * 100;
+  return Math.min(1200, Math.max(100, step));
+}
 
 /** Fills gaps and folds old stored values forward. A bad value becomes the default. */
 export function normalizeAppSettings(value: unknown): AppSettings {
@@ -207,6 +224,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   if (typeof settings.focus !== 'boolean') settings.focus = false;
   if (!['none', 'slide', 'fade', 'flip'].includes(settings.pageAnimation))
     settings.pageAnimation = DEFAULT_APP_SETTINGS.pageAnimation;
+  settings.flipDuration = flipDurationMs(settings.flipDuration);
   if (!['list', 'grid'].includes(settings.exploreLayout)) settings.exploreLayout = DEFAULT_APP_SETTINGS.exploreLayout;
   if (!['recent', 'added', 'title', 'author'].includes(settings.shelfSort))
     settings.shelfSort = DEFAULT_APP_SETTINGS.shelfSort;

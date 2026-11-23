@@ -192,6 +192,7 @@ export function PageCurl({
   after,
   direction,
   fold = 'bottom',
+  flippingTime = 400,
   hold,
   onReady,
   onDone,
@@ -203,6 +204,8 @@ export function PageCurl({
   direction: 'next' | 'previous';
   /** Which corner lifts. The page itself stays a soft sheet. */
   fold?: 'top' | 'bottom';
+  /** Turn length in milliseconds. The settings slider chooses 100–1200. */
+  flippingTime?: number;
   /** When set, the page waits for the finger instead of turning on its own. */
   hold?: boolean;
   onReady?(book: CurlBook): void;
@@ -255,7 +258,7 @@ export function PageCurl({
       width={Math.max(1, width)}
       height={Math.max(1, height)}
       drawShadow
-      flippingTime={400}
+      flippingTime={flippingTime}
       usePortrait
       startZIndex={1}
       autoSize={false}

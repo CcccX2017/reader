@@ -40,6 +40,7 @@ export function mountEdgeCurl(
   before: HTMLElement,
   after: HTMLElement,
   direction: 'next' | 'previous',
+  duration = 400,
 ): EdgeCurl {
   const host = document.createElement('div');
   host.className = 'reader-edge-book';
@@ -71,7 +72,7 @@ export function mountEdgeCurl(
     layout: 'single',
     autoSize: false,
     startPage: direction === 'next' ? 0 : 1,
-    flipDuration: 400,
+    flipDuration: duration,
     shadows: true,
     shadowOpacity: 0.5,
     click: 'off',
@@ -207,12 +208,12 @@ export function mountEdgeCurl(
       // the turn stalls and a second animation has to finish it. Run the pointer
       // in one straight line for the whole of that distance. A back turn already
       // moves the corner twice as far, so its line is one width, not two.
-      // A committed turn takes 0.4s, the same as a corner peel. Scaling the tail
+      // A committed turn takes the speed chosen in 设置. Scaling the tail
       // by the distance left made a short remainder finish in a flash.
       const span = direction === 'next' ? width * 2 : width;
       const end = commit ? Math.max(travel, span) : 0;
-      const duration = commit ? 400 : Math.max(200, 280 * (Math.abs(end - travel) / span));
-      await glide(travel, end, duration);
+      const glideFor = commit ? duration : Math.max(200, 280 * (Math.abs(end - travel) / span));
+      await glide(travel, end, glideFor);
       if (dead) return;
       send('pointerup', point(end));
       down = false;

@@ -2090,6 +2090,12 @@ export class ReaderScreen {
     );
   }
 
+  /** 仿真翻页时长。设置里是 0.1 秒到 1.2 秒，这里用毫秒。 */
+  private flipDuration(): number {
+    const value = this.settings.flipDuration;
+    return value >= 100 && value <= 1200 ? value : 400;
+  }
+
   /** Top corner, bottom corner, or one straight line when the finger is in the middle. */
   private foldAt(clientY?: number): CurlFold {
     if (clientY === undefined) return 'bottom';
@@ -2182,7 +2188,7 @@ export class ReaderScreen {
     const root = createRoot(this.curlSlot(overlay));
     try {
       await new Promise<void>((resolve) => {
-        const timer = window.setTimeout(resolve, 1600);
+        const timer = window.setTimeout(resolve, this.flipDuration() + 800);
         const done = () => {
           window.clearTimeout(timer);
           resolve();
@@ -2196,6 +2202,7 @@ export class ReaderScreen {
               after={after}
               direction={direction}
               fold={fold}
+              flippingTime={this.flipDuration()}
               onDone={done}
             />,
           );
@@ -2341,7 +2348,7 @@ export class ReaderScreen {
     if (drag.fold === 'line') {
       const placeholder = document.createElement('div');
       placeholder.className = 'book-host';
-      this.lineCurl = mountEdgeCurl(overlay, before, placeholder, drag.direction);
+      this.lineCurl = mountEdgeCurl(overlay, before, placeholder, drag.direction, this.flipDuration());
     }
     const preparing = this.lineCurl?.ready();
     try {
@@ -2400,6 +2407,7 @@ export class ReaderScreen {
               after={after}
               direction={drag.direction}
               fold={drag.fold === 'top' ? 'top' : 'bottom'}
+              flippingTime={this.flipDuration()}
               hold
               onReady={finish}
               onDone={() => undefined}
@@ -2460,7 +2468,7 @@ export class ReaderScreen {
         if (!this.disposed) {
           const after = prepared ?? captureReadingFace(view.elementHost);
           if (fold === 'line') {
-            this.lineCurl = mountEdgeCurl(overlay, before, after, direction);
+            this.lineCurl = mountEdgeCurl(overlay, before, after, direction, this.flipDuration());
             await this.lineCurl.ready();
             overlay.querySelector('.reader-curl-hold')?.remove();
             await this.lineCurl.finish(true);
@@ -3759,6 +3767,7 @@ function emptyChromeSettings(): Partial<ChromeState> {
       textAlign: 'inherit',
       brightness: 1,
       pageAnimation: 'slide',
+      flipDuration: 400,
       focus: false,
       tapZone: 'standard',
       tapZones: tapZonePreset('standard'),
@@ -3846,6 +3855,7 @@ function settingsView(
     textAlign: settings.textAlign,
     brightness: settings.brightness,
     pageAnimation: settings.pageAnimation,
+    flipDuration: settings.flipDuration,
     focusMode: settings.focus,
     tapZone: settings.tapZone,
     tapZones: settings.tapZones,

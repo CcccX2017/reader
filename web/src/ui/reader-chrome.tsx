@@ -14,6 +14,7 @@ import {
 } from '../shared/theme/theme.ts';
 import type { ChapterQuality } from '../api/sources.ts';
 import { Sheet } from './sheet.tsx';
+import { Slider } from './slider.tsx';
 import type { SourcePage } from '../api/sources.ts';
 import { CatalogFeedback } from './catalog-feedback.tsx';
 import { FloatingNotice } from './floating-notice.tsx';
@@ -159,6 +160,8 @@ export interface ChromeState {
   textAlign: AppSettings['textAlign'];
   brightness: number;
   pageAnimation: AppSettings['pageAnimation'];
+  /** 仿真翻页时长，毫秒。旧的面板状态可以没有这一项。 */
+  flipDuration?: number;
   /** 专注模式; optional so an older state shape still renders. */
   focusMode?: boolean;
   tapZone: AppSettings['tapZone'];
@@ -1057,6 +1060,25 @@ function SettingsBody({ state, handlers }: { state: ChromeState; handlers: Chrom
             value={state.pageAnimation}
             onChange={(value) => handlers.onSetting({ pageAnimation: value as AppSettings['pageAnimation'] })}
           />
+          {state.pageAnimation === 'flip' ? (
+            <div className="field">
+              <label>
+                翻页速度 {((state.flipDuration ?? 400) / 1000).toFixed(1)} 秒
+              </label>
+              <Slider
+                aria-label="仿真翻页速度"
+                aria-valuetext={`${((state.flipDuration ?? 400) / 1000).toFixed(1)} 秒`}
+                min={100}
+                max={1200}
+                step={100}
+                value={[state.flipDuration ?? 400]}
+                onValueChange={(next) => {
+                  const speed = next[0];
+                  if (speed !== undefined) handlers.onSetting({ flipDuration: speed });
+                }}
+              />
+            </div>
+          ) : null}
           {/* Rows that only apply to some books. The old panel built every row and
           then hid the irrelevant ones by hand after each open; here they are
           simply not part of the tree. */}
