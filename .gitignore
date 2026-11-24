@@ -52,4 +52,10 @@ dev-debug.log
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Local RAG pack: wiki, Cursor rules, and the skeleton stay on this machine
+/rag-pack-skeleton/
+/wiki/
+/.cursor/rules/
+/AGENTS.md
