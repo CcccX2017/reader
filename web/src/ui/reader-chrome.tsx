@@ -339,7 +339,9 @@ function BookBlurb({
           />
         </div>
       ) : (
-        <p className="book-detail-description">{description || '暂无简介'}</p>
+        <p className={description ? 'book-detail-description' : 'book-detail-description book-detail-empty'}>
+          {description || '暂无简介'}
+        </p>
       )}
       {error && (
         <p className="notice error" role="alert">

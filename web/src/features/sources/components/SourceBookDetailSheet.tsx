@@ -66,7 +66,9 @@ export function SourceBookDetailSheet({
             {describeError(error)}
           </p>
         )}
-        <p className="book-detail-description">{detail.description || '暂无简介'}</p>
+        <p className={detail.description ? 'book-detail-description' : 'book-detail-description book-detail-empty'}>
+          {detail.description || '暂无简介'}
+        </p>
       </div>
     </Sheet>
   );
