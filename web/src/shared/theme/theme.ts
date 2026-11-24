@@ -83,7 +83,7 @@ export const themes = {
         '#FFFFFF',
         '#F8EFE8',
         '#3A2A22',
-        '#82685B',
+        '#7a6053',
         '#F0E3DA',
         '#F2B79F',
         '#FBE9E0',
@@ -230,12 +230,12 @@ export const themes = {
         '#ffffff',
         '#e8edf5',
         '#141820',
-        '#536072',
+        '#3F4C60',
         '#cbd3df',
         '#0062df',
         '#e1ecff',
         '#ffffff',
-        '#0056c7',
+        '#0049ad',
         '#ffffff',
         'rgba(10,18,32,.40)',
       ],
@@ -437,6 +437,20 @@ export function saveThemePreference(scope: string, patch: Partial<ThemePreferenc
   return next;
 }
 
+/** A per-server copy of the last appearance, with no account or session metadata. */
+export function anonymousThemeScope(baseUrl: string): string {
+  return JSON.stringify([baseUrl.replace(/\/+$/, ''), 'anonymous']);
+}
+
+/** Keep only the last appearance for this server, never account or session metadata. */
+export function rememberLoginTheme(baseUrl: string, scope: string): void {
+  try {
+    saveThemePreference(anonymousThemeScope(baseUrl), readThemePreference(scope));
+  } catch {
+    // Storage may be unavailable; that must not prevent rendering or signing out.
+  }
+}
+
 export function systemPrefersDark(): boolean {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches === true;
 }
@@ -632,18 +646,19 @@ function rememberThemeScope(scope: string): void {
  * visit, or several accounts with no recent one, stays on the default (暖陶, follow the system).
  */
 export function loginThemeScope(baseUrl: string): string {
-  const fallback = JSON.stringify([baseUrl, 'anonymous']);
+  const server = baseUrl.replace(/\/+$/, '');
+  const fallback = anonymousThemeScope(server);
   try {
     const last = localStorage.getItem(lastThemeScopeKey);
-    if (last && themeScopeParts(last)?.[0] === baseUrl && localStorage.getItem(preferenceKey(last)) !== null)
-      return last;
+    const lastServer = themeScopeParts(last ?? '')?.[0].replace(/\/+$/, '');
+    if (last && lastServer === server && localStorage.getItem(preferenceKey(last)) !== null) return last;
     const found: string[] = [];
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
       if (!key?.startsWith('reader.theme.v2:')) continue;
       const scope = key.slice('reader.theme.v2:'.length);
       const parts = themeScopeParts(scope);
-      if (parts?.[0] === baseUrl && parts[1] && parts[1] !== 'anonymous') found.push(scope);
+      if (parts?.[0].replace(/\/+$/, '') === server && parts[1] && parts[1] !== 'anonymous') found.push(scope);
     }
     if (found.length === 1) return found[0]!;
   } catch {

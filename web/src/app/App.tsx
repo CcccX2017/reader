@@ -16,7 +16,7 @@ import { useRuntime } from './providers/runtime-context.tsx';
 import { LoginPage } from '../features/auth/pages/LoginPage.tsx';
 import { AppNav, navMode } from './AppNav.tsx';
 import { playerPath } from '../features/media/stores/playback.store.ts';
-import { ThemeController } from '../shared/theme/theme.ts';
+import { rememberLoginTheme, ThemeController } from '../shared/theme/theme.ts';
 import { useMediaEnabled } from '../shared/stores/features.ts';
 import { dismissAppStartup } from './startup.ts';
 
@@ -126,8 +126,11 @@ function AuthenticatedShell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [mode, navigate, covered]);
   // One app theme for every page; the reader may wear its own reading theme on top.
-  useEffect(() => {
-    const theme = new ThemeController(runtime.mediaApi.preferenceScope());
+  useLayoutEffect(() => {
+    const scope = runtime.mediaApi.preferenceScope();
+    const remember = () => rememberLoginTheme(runtime.api.baseUrl, scope);
+    const theme = new ThemeController(scope, remember);
+    remember();
     return () => theme.dispose();
   }, [runtime]);
   useEffect(() => {

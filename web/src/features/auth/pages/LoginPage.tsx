@@ -33,11 +33,11 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const probe = useRef<ReturnType<typeof setTimeout> | null>(null);
   const probeGeneration = useRef(0);
-  const themeScope = loginThemeScope(validServerUrl(serverUrl) || runtime.api.baseUrl);
-  useEffect(() => {
-    const theme = new ThemeController(themeScope);
+  const themeServer = validServerUrl(serverUrl) || runtime.api.baseUrl;
+  useLayoutEffect(() => {
+    const theme = new ThemeController(loginThemeScope(themeServer));
     return () => theme.dispose();
-  }, [themeScope]);
+  }, [themeServer]);
   useLayoutEffect(() => {
     if (hold) return;
     if (brand) {

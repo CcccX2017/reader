@@ -14,6 +14,86 @@ const stylesheets = (dir: string): string[] =>
   });
 
 describe('design tokens', () => {
+  it('keeps literal colors in the semantic palette and glass material definitions', () => {
+    const allowlist = new Set<string>([
+      'styles/reader.css: outline: 1px solid var(--opf-page-edge, rgb(0 0 0 / 0.2));',
+      'styles/reader.css: color: rgb(255 255 255 / 0.92);',
+      'styles/reader.css: filter: drop-shadow(0 0 1px rgb(255 255 255 / 0.8)) drop-shadow(0 1px 1px rgb(0 0 0 / 0.45));',
+      'styles/reader.css: border: 2px solid rgb(255 255 255 / 0.92);',
+      'styles/reader.css: filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.45));',
+      'styles/reader.css: box-shadow: 0 1px 2px color-mix(in srgb, #000 18%, transparent);',
+    ]);
+    const seen = new Set<string>();
+    const offenders = stylesheets(root).flatMap((file) => {
+      if (['theme-tokens.css', 'glass.css'].includes(file.split(/[\\/]/).at(-1)!)) return [];
+      const source = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      return [...source.matchAll(/^\s*([a-z-]+):\s*([^;{}]+);/gm)]
+        .filter(([, , value]) =>
+          /#[\da-f]{3,8}\b|\brgba?\(|(?:^|[\s,(])(?:black|silver|gray|white|maroon|red|purple|fuchsia|green|lime|olive|yellow|navy|blue|teal|aqua|rebeccapurple)(?=[\s,)]|$)/i.test(
+            value!,
+          ),
+        )
+        .map((match) => `${relative(root, file)}: ${match[0].trim()}`)
+        .filter((entry) => {
+          if (!allowlist.has(entry)) return true;
+          seen.add(entry);
+          return false;
+        });
+    });
+    expect(offenders).toEqual([]);
+    expect([...allowlist].filter((entry) => !seen.has(entry))).toEqual([]);
+  });
+
+  it('reads shadows from tokens rather than introducing another elevation recipe', () => {
+    const allowlist = new Set<string>([
+      `app/shell.css: box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--nav-surface) 72%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--nav-ink) 10%, transparent),
+      0 8px 20px color-mix(in srgb, var(--nav-ink) 10%, transparent);`,
+      `app/shell.css: box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-surface) 72%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent),
+    0 8px 20px color-mix(in srgb, var(--color-ink) 10%, transparent);`,
+      'features/home/styles/home.css: box-shadow: 0 2px 0 0 var(--color-bg);',
+      'features/home/styles/home.css: box-shadow: 0 -2px 0 0 var(--color-bg);',
+      'features/media/styles/presentation.css: box-shadow: 0 0 0 3px var(--color-surface);',
+      'features/media/styles/presentation.css: box-shadow: 0 4px 10px color-mix(in srgb, var(--color-ink) 12%, transparent);',
+      'styles/reader.css: box-shadow: 0 1px 2px color-mix(in srgb, #000 18%, transparent);',
+      'styles/reader.css: box-shadow: 0 0 0 4px color-mix(in srgb, var(--reader-fill) 35%, transparent);',
+      'styles/reader.css: box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-surface) 72%, transparent);',
+    ]);
+    const seen = new Set<string>();
+    const offenders = stylesheets(root).flatMap((file) => {
+      if (file.endsWith('theme-tokens.css') || file.endsWith('glass.css')) return [];
+      return [...readFileSync(file, 'utf8').matchAll(/\bbox-shadow:\s*([^;]+);/g)]
+        .filter(
+          ([, value]) => !/^(?:none|var\(--[\w-]+\)(?:\s+var\(--[\w-]+\))*)(?:\s*!important)?$/.test(value!.trim()),
+        )
+        .map((match) => `${relative(root, file)}: ${match[0]}`)
+        .filter((entry) => {
+          if (!allowlist.has(entry)) return true;
+          seen.add(entry);
+          return false;
+        });
+    });
+    expect(offenders).toEqual([]);
+    expect([...allowlist].filter((entry) => !seen.has(entry))).toEqual([]);
+  });
+
+  it('keeps compact visible captions at the metadata size rather than below 12px', () => {
+    const css = readFileSync(join(root, 'styles/reader.css'), 'utf8');
+    expect(css).toMatch(/--text-meta:\s*0\.75rem;/);
+    expect(css).toMatch(/--text-micro:\s*var\(--text-meta\);/);
+    expect(css).toMatch(/--touch-target:\s*2\.75rem;/);
+    const shell = readFileSync(join(root, 'app/shell.css'), 'utf8');
+    expect(shell).toMatch(/\.app-nav-search\s*\{[^}]*border-radius: var\(--radius-pill\);/);
+    expect(shell).toMatch(
+      /\.app-nav-search:focus-within\s*\{\s*outline: var\(--focus-ring\);\s*outline-offset: var\(--focus-offset\);/,
+    );
+    expect(shell).toMatch(/\.app-nav-search input\s*\{[^}]*outline: none;/);
+    expect(shell).not.toMatch(/\.app-nav-search > input:focus-visible/);
+  });
+
   it('uses --radius-* instead of literal corner radii (ui.md §2.6)', () => {
     const offenders = stylesheets(root).flatMap((file) => {
       const source = readFileSync(file, 'utf8');

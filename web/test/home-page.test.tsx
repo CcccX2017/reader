@@ -10,6 +10,7 @@ import { HomePage, activityProgress, greeting } from '../src/features/home/pages
 import { saveMediaPreferences } from '../src/features/media/services/preferences.ts';
 import { useSettingsStore } from '../src/shared/stores/settings.store.ts';
 import { DEFAULT_APP_SETTINGS } from '../src/store/settings.ts';
+import { ApiError } from '../src/api/errors.ts';
 
 const root = document.createElement('div');
 document.body.append(root);
@@ -74,6 +75,8 @@ function mount({
   listBooks,
   coverBytes,
   subscriptions = [],
+  added = [book] as object[] | Error,
+  mediaError,
 }: {
   reading?: object[];
   video?: object[];
@@ -83,6 +86,8 @@ function mount({
   listBooks?: ReturnType<typeof vi.fn>;
   coverBytes?: ReturnType<typeof vi.fn>;
   subscriptions?: object[];
+  added?: object[] | Error;
+  mediaError?: Error;
 } = {}) {
   const runtime = {
     api: {
@@ -90,18 +95,25 @@ function mount({
       currentSession: () => ({ user }),
       continueReading: vi.fn().mockResolvedValue(reading),
       subscriptions: vi.fn().mockResolvedValue(subscriptions),
-      listBooks: listBooks ?? vi.fn().mockResolvedValue({ items: shelf, total: shelf.length }),
+      listBooks:
+        listBooks ??
+        vi.fn(async ({ sort }: { sort: string }) => {
+          if (sort === 'added' && added instanceof Error) throw added;
+          const items = sort === 'added' ? (added as object[]) : shelf;
+          return { items, total: items.length };
+        }),
       coverBytes: coverBytes ?? vi.fn().mockRejectedValue(new Error('none')),
     },
     mediaApi: {
       preferenceScope: () => 'home-test',
-      request: vi.fn(async (path: string) =>
-        path.startsWith('browse?')
+      request: vi.fn(async (path: string) => {
+        if (mediaError) throw mediaError;
+        return path.startsWith('browse?')
           ? path.includes('channel=video&')
             ? discover
             : { items: [], total: 0 }
-          : { items: path.includes('channel=video') ? video : audio, total: 0 },
-      ),
+          : { items: path.includes('channel=video') ? video : audio, total: 0 };
+      }),
       detail: vi.fn(async (id: string) => (id === 's1' ? series : episode)),
       cover: vi.fn().mockRejectedValue(new Error('none')),
     },
@@ -141,7 +153,54 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function sidebar() {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query === '(min-width: 701px)',
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+}
+
 describe('首页', () => {
+  it('adds a bounded recently-added shelf preview on desktop with a sorted all-books link', async () => {
+    sidebar();
+    const added = Array.from({ length: 6 }, (_, index) => ({ ...book, id: `new-${index}`, title: `新书${index}` }));
+    const runtime = mount({ added });
+    await until(() => root.querySelectorAll('.home-recent-books .book-card').length === 4);
+    expect(root.querySelector('.home-recent-books')?.textContent).toContain('新书0');
+    expect(root.querySelector('.home-recent-books')?.textContent).not.toContain('新书4');
+    expect(root.querySelector('.home-recent-books .home-section a')?.getAttribute('href')).toBe('/shelf?sort=added');
+    expect(runtime.api.listBooks).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'shelf', sort: 'added', order: 'desc' }),
+      expect.anything(),
+    );
+  });
+
+  it('does not request or show the desktop module on mobile', async () => {
+    const runtime = mount();
+    await settle();
+    expect(root.querySelector('.home-recent-books')).toBeNull();
+    expect(runtime.api.listBooks.mock.calls.some(([query]: [{ sort: string }]) => query.sort === 'added')).toBe(false);
+  });
+
+  it.each([[], new Error('offline')])('hides an empty or failed recent-books module (%s)', async (added) => {
+    sidebar();
+    const runtime = mount({ added });
+    await until(() => runtime.api.listBooks.mock.calls.length >= 2);
+    await settle();
+    expect(root.querySelector('.home-recent-books')).toBeNull();
+    expect(root.querySelector('.home-shelf .book-card')).not.toBeNull();
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it.each(['MEDIA_STARTING', 'MEDIA_UNAVAILABLE'])('keeps books usable when media returns 503 %s', async (code) => {
+    sidebar();
+    mount({ mediaError: new ApiError('server', code, code, 503) });
+    await until(() => root.querySelector('.home-recent-books .book-card') !== null);
+    expect(root.querySelector('.home-discover')).toBeNull();
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+    expect(root.querySelector('.home-shelf .book-card')).not.toBeNull();
+  });
   it('pure reading never requests media history or discovery', async () => {
     useAuthStore.setState({ verifiedUser: { ...user, role: 'member', features: { media: false } } });
     const runtime = mount();
