@@ -4650,20 +4650,21 @@ label.media-chapter-filter {
   display: block;
   min-width: 0;
   padding: var(--space-2);
-  border: 1px solid var(--border);
+  /* The stroke sits inside. A border centered on the edge loses its top half when the card is clipped. */
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   background: var(--media-paper);
   color: var(--text);
   text-align: left;
+  box-shadow: var(--shadow-edge) var(--border);
 }
 .media-screen .theme-card[aria-pressed="true"] {
-  border-color: var(--media-accent);
-  box-shadow: var(--shadow-selected-ring) var(--media-accent);
+  box-shadow: var(--shadow-edge) var(--media-accent);
 }
 @media (hover: hover) and (pointer: fine) {
   .media-screen .theme-card:hover:not(:disabled) {
     background: var(--media-paper);
-    border-color: var(--media-accent);
+    box-shadow: var(--shadow-edge) var(--media-accent);
   }
 }
 .theme-preview {

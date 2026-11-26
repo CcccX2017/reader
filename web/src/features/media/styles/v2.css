@@ -1297,6 +1297,7 @@
   --button-bg: transparent;
   --button-hover: var(--surface);
   background: transparent !important;
+  -webkit-tap-highlight-color: transparent;
   background-color: transparent !important;
   color: var(--muted);
   display: flex;

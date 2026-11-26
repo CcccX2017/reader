@@ -71,7 +71,7 @@
 
 [data-theme="glass"]
   :is(
-    .app-nav,
+    .app-nav:not(.is-liquid),
     .topbar,
     .media-heading,
     .reader-screen .footer,
@@ -89,6 +89,12 @@
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* backdrop-filter makes each card its own layer, so a menu that hangs out of 选择来源 paints under 搜索书籍. */
+[data-theme="glass"] .sources-card:has(.searchable-select-trigger[aria-expanded="true"]):not([data-theme="gray"] *) {
+  position: relative;
+  z-index: 2;
 }
 
 [data-theme="glass"] :is(.sheet, .action-menu):not([data-theme="gray"] *) {
@@ -131,7 +137,8 @@
 }
 
 [data-theme="glass"] .theme-card[aria-pressed="true"]:not([data-theme="gray"] *) {
-  border-color: var(--color-brand-text);
+  border-color: transparent;
+  box-shadow: var(--shadow-edge) var(--color-brand-text);
 }
 
 [data-theme="glass"] .theme-chips > button:not([data-theme="gray"] *) {
@@ -194,29 +201,35 @@
   border-radius: var(--glass-radius-pill);
 }
 
-[data-theme="glass"] :is(.app-nav-item[aria-current="page"], .chip[aria-pressed="true"]):not([data-theme="gray"] *) {
+[data-theme="glass"]
+  :is(.app-nav:not(.is-liquid) .app-nav-item[aria-current="page"], .chip[aria-pressed="true"]):not(
+    [data-theme="gray"] *
+  ) {
   background: var(--glass-sheen), var(--glass-nav-selected);
   box-shadow: var(--glass-shadow);
   border-radius: var(--glass-radius-pill);
   border: var(--glass-outline);
 }
 
-[data-theme="glass"] .app-nav-item[aria-current="page"] .app-nav-icon {
+[data-theme="glass"] .app-nav:not(.is-liquid) .app-nav-item[aria-current="page"] .app-nav-icon {
   background: var(--glass-clear);
 }
 
 @media (max-width: 700px) {
-  [data-theme="glass"] .app-nav {
+  /* The liquid material owns this bar. The theme's floating bar stays for the solid material. */
+  [data-theme="glass"] .app-nav:not(.is-liquid) {
     height: var(--app-nav-bar);
     margin: var(--glass-gap) calc(var(--glass-gap) + var(--safe-right)) calc(var(--glass-gap) + var(--safe-bottom))
       calc(var(--glass-gap) + var(--safe-left));
     padding: var(--glass-nav-padding);
     border-radius: var(--glass-radius-pill);
   }
-  [data-theme="glass"] .app-nav-item {
+  [data-theme="glass"] .app-nav:not(.is-liquid) .app-nav-item {
     height: var(--glass-item-height);
   }
-  [data-theme="glass"] body[data-app-nav="top"] .media-player:is(.media-player-audio, .media-player-native-video) {
+  [data-theme="glass"]
+    body[data-app-nav="top"]:not([data-nav-glass])
+    .media-player:is(.media-player-audio, .media-player-native-video) {
     bottom: calc(var(--glass-nav-clearance) + var(--glass-mini-gap));
   }
 }
@@ -224,7 +237,8 @@
 @media (hover: hover) and (pointer: fine) {
   [data-theme="glass"] .theme-card:hover:not(:disabled):not([data-theme="gray"] *) {
     background: var(--glass-sheen), var(--glass-fill);
-    border-color: var(--color-brand-text);
+    border-color: transparent;
+    box-shadow: var(--shadow-edge) var(--color-brand-text);
   }
 }
 

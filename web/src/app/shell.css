@@ -648,6 +648,8 @@ body {
   color: var(--muted);
   font-size: var(--text-ui);
   text-decoration: none;
+  /* Chrome's mobile emulation paints a blue wash on a tapped link. */
+  -webkit-tap-highlight-color: transparent;
 }
 .media-channel-segments a[aria-current="page"] {
   background: var(--media-paper, var(--color-white));
