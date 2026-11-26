@@ -33,7 +33,7 @@ A self-hosted reading and media library for browsers and Android, with EPUB and 
 
 ## Get started
 
-Prepare Docker, Docker Compose, a book directory, and a separate data directory. Open `http://<your-host>:5888` after starting the service. The first registered account becomes the administrator. Release images are published on Docker Hub as `ccccx2022/reader` (amd64 / arm64), with tags such as `1.0.15`, `latest`, and `sha-<short>`. Follow the [getting started guide](docs/getting-started.en.md).
+Prepare Docker, Docker Compose, a book directory, and a separate data directory. Open `http://<your-host>:5888` after starting the service. The first registered account becomes the administrator. Release images are published on Docker Hub as `ccccx2022/reader` (amd64 / arm64), with tags such as `1.0.16`, `latest`, and `sha-<short>`. Follow the [getting started guide](docs/getting-started.en.md).
 
 Reader opens on Home (首页), where you can resume reading and playback. The bottom navigation (a sidebar on wide screens) has four tabs: Home, Shelf (书架), Media (影音), and Me (我的). On phones, swipe sideways to move between shelf states and media categories; the wide-screen sidebar has a search box covering both books and media. Me gathers every setting: appearance and theme (one theme shared by reading and media, with a separate reading paper colour), shelf display, media browsing, playback, and account.
 
@@ -62,7 +62,7 @@ As an administrator, open Me → Media libraries (我的 → 媒体库), or More
 
 ## Differences from upstream
 
-This repository includes every feature of [hectorqin/reader](https://github.com/hectorqin/reader), plus the following. The version is 1.0.15 (upstream is 0.1.0).
+This repository includes every feature of [hectorqin/reader](https://github.com/hectorqin/reader), plus the following. The version is 1.0.16 (upstream is 0.1.0).
 
 - **Site name and icon**: an administrator sets the name and icon under Service settings → System (服务配置 → 系统配置). The icon is limited to 5MB. When unset, the name is `reader`. The login page waits for the instance info, then shows the saved name and icon directly.
 - **Keep awake**: available in the reading settings and under Preferences → Appearance and theme (偏好设置 → 外观与主题). The screen stays awake only on the reading page, and the system lock returns when you leave. An installed app uses the window; iOS and Huawei or Xiaomi mobile browsers use the system wake lock, or a silent in-page video when the browser does not provide one.
