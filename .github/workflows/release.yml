@@ -1,8 +1,15 @@
-# Release the single-container image (server + web) to Docker Hub for amd64 and arm64.
+# Release the single-container image (server + web) to Docker Hub for amd64 and arm64,
+# and for a tag, a GitHub release with notes and downloads.
 #
 #   tag 1.0.13        -> ccccx2022/reader:1.0.13, :latest, :sha-<short>
+#                        + GitHub release 1.0.13: notes from the Conventional Commits
+#                          since the previous tag (scripts/release-notes.mjs), the
+#                          Android APK, the web client zip and SHA256SUMS.txt.
+#                          A tag with a pre-release suffix (1.3.0-rc.1) is marked
+#                          pre-release and does not become "Latest".
 #   manual run        -> :latest and :sha-<short>
-#                        :1.0.13 only when this commit is the git tag 1.0.13
+#                        :1.0.13 only when this commit is the git tag 1.0.13;
+#                        no GitHub release
 #
 # A local `docker build` on an amd64 machine only produces that one architecture.
 # This workflow builds each architecture on its own native runner, pushes the two
@@ -16,7 +23,9 @@
 # under QEMU would run npm ci and the Vite build emulated, which is many times slower.
 #
 # Needs repository secrets DOCKER_USERNAME and DOCKER_PASSWORD (a Docker Hub
-# password or access token with read/write on ccccx2022/reader).
+# password or access token with read/write on ccccx2022/reader). The APK is
+# signed with ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS
+# (/ ANDROID_KEY_PASSWORD) when set, otherwise with a debug key (see ci.yml).
 name: Release
 
 on:
@@ -37,6 +46,13 @@ env:
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
+    with:
+      release-tag: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
   build:
     name: Image · ${{ matrix.platform }}
@@ -158,3 +174,53 @@ jobs:
         run: docker buildx imagetools inspect "$IMAGE:$TAG"
         env:
           TAG: ${{ steps.ver.outputs.publish_version == 'true' && steps.ver.outputs.version || 'latest' }}
+
+  github-release:
+    # After the images are live, so the notes never point at a tag Docker Hub lacks.
+    name: GitHub release
+    needs: publish
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The previous tag and the commits since it, for the notes.
+          fetch-depth: 0
+      # actions/checkout fetches an annotated tag as a plain ref; fetch it again so
+      # its message reaches the notes.
+      - run: git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: reader-android-apk
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+      - name: Assets
+        run: |
+          version="${TAG#v}"
+          (cd web-dist && zip -qr "../dist/reader-web-$version.zip" .)
+          (cd dist && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          node scripts/release-notes.mjs "$TAG" "$GITHUB_REPOSITORY" > notes.md
+          cat notes.md
+      # Idempotent: a re-run replaces the notes and assets of an existing release.
+      - name: Publish
+        run: |
+          version="${TAG#v}"
+          flags=()
+          case "$version" in *-*) flags+=(--prerelease --latest=false) ;; *) flags+=(--prerelease=false --latest) ;; esac
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "Reader $version" --notes-file notes.md "${flags[@]}"
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --verify-tag --title "Reader $version" --notes-file notes.md "${flags[@]}"
+          fi

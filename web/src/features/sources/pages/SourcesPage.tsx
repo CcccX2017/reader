@@ -23,6 +23,7 @@ import { PluginManager } from '../components/PluginManager.tsx';
 import { useMediaQuery } from '../../../shared/ui/use-media-query.ts';
 import { usePullToRefresh } from '../../../shared/ui/use-pull-to-refresh.ts';
 import { PullRefreshIndicator } from '../../../ui/pull-refresh.tsx';
+import { newId } from '../../../core/id.ts';
 
 /** Local books already have a library cover URL; chapter sources expose a coverRef. */
 const sourceCoverUrl = (sourceId: string, entry: SourceEntry) =>
@@ -242,22 +243,23 @@ export function SourcesPage() {
       ? searchRequest.current
       : { query: linked ?? keyword.trim(), filters: linked ? {} : { ...catalogFilters } };
     if (!request?.query || !selectedSource || catalogBusy || (append && !canResume)) return;
-    const run = new AbortController();
-    searchRun.current = run;
-    ++catalogEpoch.current;
+    let run: AbortController | null = null;
     const current = () => searchRun.current === run;
     setCatalogBusy(true);
     setCatalogError('');
     setSearchState('searching');
-    if (!append) {
-      setCatalogPage(undefined);
-      searchSession.current = crypto.randomUUID();
-      setAcquired(null);
-      setResultGroupKey(null);
-      setVisibleCount(SEARCH_PAGE_SIZE);
-    }
-    searchRequest.current = request;
     try {
+      run = new AbortController();
+      searchRun.current = run;
+      ++catalogEpoch.current;
+      if (!append) {
+        setCatalogPage(undefined);
+        searchSession.current = newId();
+        setAcquired(null);
+        setResultGroupKey(null);
+        setVisibleCount(SEARCH_PAGE_SIZE);
+      }
+      searchRequest.current = request;
       let merged: SourcePage | undefined = append ? catalogPage : undefined;
       for await (const page of runtime.api.searchSource(
         selectedSource.id,
